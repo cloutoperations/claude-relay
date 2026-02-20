@@ -5,6 +5,7 @@
 #messages {
   flex: 1;
   overflow-y: auto;
+  overflow-anchor: none;
   -webkit-overflow-scrolling: touch;
   padding: 20px 0 12px;
 }
