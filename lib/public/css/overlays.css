@@ -520,6 +520,22 @@
 .notif-help-url .popover-copy:hover { color: var(--text); border-color: var(--text-dimmer); }
 .notif-help-url .popover-copy.copied { color: var(--success); border-color: var(--success); }
 
+/* --- Done flash --- */
+.done-flash::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: inset 0 0 80px rgba(87, 171, 90, 0.4), inset 0 0 20px rgba(87, 171, 90, 0.2);
+  animation: done-flash-fade 1.2s ease-out forwards;
+}
+
+@keyframes done-flash-fade {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* --- Connect overlay --- */
 #connect-overlay {
   position: absolute;
