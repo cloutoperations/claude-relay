@@ -9,6 +9,7 @@
   justify-content: space-between;
   padding: calc(var(--safe-top) + 12px) 20px 12px;
   min-height: 48px;
+  position: relative;
 }
 
 #header-left {
@@ -25,6 +26,54 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* --- Session title (center header) --- */
+#header-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 40%;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+#session-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+#session-title:hover {
+  background: var(--sidebar-active);
+  color: var(--text);
+}
+
+#session-title:empty {
+  display: none;
+}
+
+.session-title-input {
+  background: var(--input-bg);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 3px 10px;
+  outline: none;
+  width: 100%;
+  min-width: 180px;
+  text-align: center;
 }
 
 .status {

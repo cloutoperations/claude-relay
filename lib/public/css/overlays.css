@@ -536,6 +536,44 @@
   100% { opacity: 0; }
 }
 
+/* --- Celebration pixel Claude --- */
+#celebrate-overlay {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+#celebrate-overlay.hidden {
+  opacity: 0;
+  display: none;
+}
+
+#celebrate-canvas {
+  position: relative;
+  width: 96px;
+  height: 96px;
+}
+
+#celebrate-canvas .cpx {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  transition: none;
+}
+
+#celebrate-canvas .cpx.settle {
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s ease;
+}
+
+#celebrate-canvas .cpx.scatter {
+  transition: transform 0.6s cubic-bezier(0.55, 0, 1, 0.45), opacity 0.6s ease;
+}
+
 /* --- Connect overlay --- */
 #connect-overlay {
   position: absolute;
