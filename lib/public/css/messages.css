@@ -8,6 +8,8 @@
   overflow-anchor: none;
   -webkit-overflow-scrolling: touch;
   padding: 20px 0 12px;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
 }
 
 /* --- Sticky todo overlay --- */
@@ -110,6 +112,16 @@
 }
 #new-msg-btn.hidden {
   display: none;
+}
+
+/* --- Message entrance animation --- */
+@keyframes msg-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.msg-user, .msg-assistant, .tool-item, .thinking-item, .todo-widget, .plan-card, .plan-banner, .turn-meta, .system-msg {
+  animation: msg-enter 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
 /* --- User message --- */
@@ -578,9 +590,15 @@ pre.mermaid-error {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--text-muted);
+  background: var(--accent);
   flex-shrink: 0;
-  animation: pulse 1.5s ease-in-out infinite;
+  animation: tool-pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(218, 119, 86, 0.4);
+}
+
+@keyframes tool-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(218, 119, 86, 0.4); }
+  50% { opacity: 0.4; box-shadow: 0 0 2px rgba(218, 119, 86, 0.1); }
 }
 
 .tool-item.done .tool-bullet {

@@ -54,6 +54,11 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* --- Button press feedback --- */
+button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
 /* --- Lucide icons --- */
 .lucide {
   vertical-align: middle;
@@ -84,7 +89,7 @@ html, body {
   position: fixed;
   bottom: 80px;
   left: 50%;
-  transform: translateX(-50%) translateY(8px);
+  transform: translateX(-50%) translateY(20px);
   background: var(--bg-alt);
   color: var(--text);
   border: 1px solid var(--border);
@@ -94,9 +99,11 @@ html, body {
   font-weight: 500;
   z-index: 400;
   opacity: 0;
-  transition: opacity 0.2s, transform 0.2s;
+  transition: opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   pointer-events: none;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .toast.visible {

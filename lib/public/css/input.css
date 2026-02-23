@@ -226,8 +226,8 @@
 }
 
 #input-row:focus-within {
-  border-color: var(--text-dimmer);
-  box-shadow: 0 0 0 1px rgba(109, 104, 96, 0.15);
+  border-color: rgba(218, 119, 86, 0.4);
+  box-shadow: 0 0 0 1px rgba(218, 119, 86, 0.15), 0 0 12px rgba(218, 119, 86, 0.08);
 }
 
 #input {

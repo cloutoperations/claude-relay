@@ -458,7 +458,7 @@
   font-size: 13px;
   color: var(--text-secondary);
   margin-bottom: 0;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
   text-decoration: none;
 }
 
@@ -473,6 +473,7 @@
 .session-item:hover {
   background: var(--sidebar-hover);
   color: var(--text);
+  transform: translateX(3px);
 }
 
 .session-item.active {
