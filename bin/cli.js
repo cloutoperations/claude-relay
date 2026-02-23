@@ -13,7 +13,15 @@ if (_isDev) {
   process.env.CLAUDE_RELAY_HOME = path.join(os.homedir(), ".claude-relay-dev");
 }
 
-var { loadConfig, saveConfig, configPath, socketPath, logPath, ensureConfigDir, isDaemonAlive, isDaemonAliveAsync, generateSlug, clearStaleConfig, loadClayrc, saveClayrc, readCrashInfo } = require("../lib/config");
+// Pre-scan for --instance before config require (CONFIG_DIR is set at require-time)
+for (var _pi = 2; _pi < process.argv.length; _pi++) {
+  if (process.argv[_pi] === "--instance" && process.argv[_pi + 1]) {
+    process.env.CLAUDE_RELAY_HOME = path.join(os.homedir(), ".claude-relay-" + process.argv[_pi + 1]);
+    break;
+  }
+}
+
+var { loadConfig, saveConfig, configPath, socketPath, logPath, ensureConfigDir, isDaemonAlive, isDaemonAliveAsync, isPidAlive, generateSlug, clearStaleConfig, loadClayrc, saveClayrc, readCrashInfo } = require("../lib/config");
 var { sendIPCCommand } = require("../lib/ipc");
 var { generateAuthToken } = require("../lib/server");
 
@@ -40,6 +48,11 @@ var addPath = null;
 var removePath = null;
 var listMode = false;
 var dangerouslySkipPermissions = false;
+var instanceName = null;
+var installService = false;
+var uninstallService = false;
+var listInstances = false;
+var claudeConfigDir = null;
 
 for (var i = 0; i < args.length; i++) {
   if (args[i] === "-p" || args[i] === "--port") {
@@ -72,11 +85,24 @@ for (var i = 0; i < args.length; i++) {
     listMode = true;
   } else if (args[i] === "--dangerously-skip-permissions") {
     dangerouslySkipPermissions = true;
+  } else if (args[i] === "--instance") {
+    instanceName = args[i + 1] || null;
+    i++;
+  } else if (args[i] === "--instances") {
+    listInstances = true;
+  } else if (args[i] === "--install-service") {
+    installService = true;
+  } else if (args[i] === "--uninstall-service") {
+    uninstallService = true;
+  } else if (args[i] === "--claude-config") {
+    claudeConfigDir = args[i + 1] || null;
+    i++;
   } else if (args[i] === "-h" || args[i] === "--help") {
     console.log("Usage: claude-relay [-p|--port <port>] [--no-https] [--no-update] [--debug] [-y|--yes] [--pin <pin>] [--shutdown]");
     console.log("       claude-relay --add <path>     Add a project to the running daemon");
     console.log("       claude-relay --remove <path>  Remove a project from the running daemon");
     console.log("       claude-relay --list            List registered projects");
+    console.log("       claude-relay --instances       List all relay instances");
     console.log("");
     console.log("Options:");
     console.log("  -p, --port <port>  Port to listen on (default: 2633)");
@@ -91,8 +117,31 @@ for (var i = 0; i < args.length; i++) {
     console.log("  --list             List all registered projects");
     console.log("  --dangerously-skip-permissions");
     console.log("                     Bypass all permission prompts (requires --pin)");
+    console.log("");
+    console.log("Multi-instance:");
+    console.log("  --instance <name>      Run as a named instance (separate config, port, account)");
+    console.log("  --instances            List all relay instances and their status");
+    console.log("  --claude-config <dir>  Claude config directory (for multi-account)");
+    console.log("  --install-service      Install macOS launchd service for auto-start");
+    console.log("  --uninstall-service    Remove macOS launchd service");
     process.exit(0);
   }
+}
+
+// --- Instance mode: set CLAUDE_RELAY_HOME for named instances ---
+if (instanceName) {
+  process.env.CLAUDE_RELAY_HOME = path.join(os.homedir(), ".claude-relay-" + instanceName);
+  if (!port || port === (_isDev ? 2635 : 2633)) {
+    // Auto-assign a different default port for named instances
+    var hash = 0;
+    for (var ci = 0; ci < instanceName.length; ci++) hash = ((hash << 5) - hash + instanceName.charCodeAt(ci)) | 0;
+    port = 2634 + (Math.abs(hash) % 100);
+  }
+}
+
+// --- Also pick up CLAUDE_CONFIG_DIR from environment if not set via flag ---
+if (!claudeConfigDir && process.env.CLAUDE_CONFIG_DIR) {
+  claudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
 }
 
 // --- Handle --shutdown before anything else ---
@@ -200,6 +249,176 @@ if (listMode) {
     });
   });
   return;
+}
+
+// --- Account detection helper ---
+function detectClaudeAccounts() {
+  var home = os.homedir();
+  var dirs = [{ path: path.join(home, ".claude"), name: "default" }];
+  try {
+    var entries = fs.readdirSync(home);
+    for (var di = 0; di < entries.length; di++) {
+      if (/^\.claude-\d+$/.test(entries[di]) || /^\.claude-[a-z]+$/.test(entries[di])) {
+        dirs.push({ path: path.join(home, entries[di]), name: entries[di].replace(/^\.claude-?/, "") });
+      }
+    }
+  } catch (e) {}
+
+  var accounts = [];
+  for (var dj = 0; dj < dirs.length; dj++) {
+    var authFile = path.join(dirs[dj].path, ".claude.json");
+    if (fs.existsSync(authFile)) {
+      try {
+        var auth = JSON.parse(fs.readFileSync(authFile, "utf8"));
+        if (auth.oauthAccount) {
+          accounts.push({
+            configDir: dirs[dj].path,
+            name: dirs[dj].name,
+            email: auth.oauthAccount.emailAddress || "unknown",
+          });
+        }
+      } catch (e) {}
+    }
+  }
+  return accounts;
+}
+
+// --- Handle --instances ---
+if (listInstances) {
+  var home = os.homedir();
+  var relayDirs = [{ path: path.join(home, ".claude-relay"), name: "default" }];
+  try {
+    var homeEntries = fs.readdirSync(home);
+    for (var ri = 0; ri < homeEntries.length; ri++) {
+      var rm = homeEntries[ri].match(/^\.claude-relay-(.+)$/);
+      if (rm && rm[1] !== "dev") {
+        relayDirs.push({ path: path.join(home, homeEntries[ri]), name: rm[1] });
+      }
+    }
+  } catch (e) {}
+
+  for (var rj = 0; rj < relayDirs.length; rj++) {
+    var instCfgPath = path.join(relayDirs[rj].path, "daemon.json");
+    try {
+      var instCfg = JSON.parse(fs.readFileSync(instCfgPath, "utf8"));
+      var instAlive = instCfg.pid && isPidAlive(instCfg.pid);
+      var instEmail = "(default account)";
+      if (instCfg.claudeConfigDir) {
+        try {
+          var instAuth = JSON.parse(fs.readFileSync(path.join(instCfg.claudeConfigDir, ".claude.json"), "utf8"));
+          instEmail = instAuth.oauthAccount ? instAuth.oauthAccount.emailAddress : instCfg.claudeConfigDir;
+        } catch (e) { instEmail = instCfg.claudeConfigDir; }
+      }
+      console.log(
+        (instAlive ? "\u25CF" : "\u25CB") + "  " + relayDirs[rj].name +
+        "  port:" + instCfg.port +
+        "  " + instEmail +
+        (instAlive ? "  (running)" : "  (stopped)")
+      );
+    } catch (e) {
+      console.log("\u25CB  " + relayDirs[rj].name + "  (no config)");
+    }
+  }
+  process.exit(0);
+}
+
+// --- Handle --install-service (macOS launchd) ---
+if (installService) {
+  if (process.platform !== "darwin") {
+    console.error("--install-service is macOS only");
+    process.exit(1);
+  }
+  var svcCfg = loadConfig();
+  if (!svcCfg) {
+    console.error("No config found. Run setup first: claude-relay" + (instanceName ? " --instance " + instanceName : ""));
+    process.exit(1);
+  }
+  var svcLabel = instanceName ? "com.claude-relay-" + instanceName : "com.claude-relay";
+  var svcPlistPath = path.join(os.homedir(), "Library", "LaunchAgents", svcLabel + ".plist");
+
+  var svcEnvDict = [
+    "        <key>PATH</key>",
+    "        <string>" + (process.env.PATH || "/usr/local/bin:/usr/bin:/bin") + "</string>",
+    "        <key>HOME</key>",
+    "        <string>" + os.homedir() + "</string>",
+  ];
+  if (instanceName) {
+    svcEnvDict.push(
+      "        <key>CLAUDE_RELAY_HOME</key>",
+      "        <string>" + path.join(os.homedir(), ".claude-relay-" + instanceName) + "</string>"
+    );
+  }
+  if (svcCfg.claudeConfigDir) {
+    svcEnvDict.push(
+      "        <key>CLAUDE_CONFIG_DIR</key>",
+      "        <string>" + svcCfg.claudeConfigDir + "</string>"
+    );
+  }
+
+  var svcRelayHome = process.env.CLAUDE_RELAY_HOME || path.join(os.homedir(), ".claude-relay");
+  var svcPlist = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+    '<plist version="1.0">',
+    '<dict>',
+    '    <key>Label</key>',
+    '    <string>' + svcLabel + '</string>',
+    '',
+    '    <key>ProgramArguments</key>',
+    '    <array>',
+    '        <string>' + process.execPath + '</string>',
+    '        <string>' + path.resolve(__dirname, '..', 'lib', 'daemon.js') + '</string>',
+    '    </array>',
+    '',
+    '    <key>RunAtLoad</key>',
+    '    <true/>',
+    '',
+    '    <key>KeepAlive</key>',
+    '    <true/>',
+    '',
+    '    <key>WorkingDirectory</key>',
+    '    <string>' + os.homedir() + '</string>',
+    '',
+    '    <key>EnvironmentVariables</key>',
+    '    <dict>',
+    svcEnvDict.join("\n"),
+    '    </dict>',
+    '',
+    '    <key>StandardOutPath</key>',
+    '    <string>' + path.join(svcRelayHome, "launchd-stdout.log") + '</string>',
+    '',
+    '    <key>StandardErrorPath</key>',
+    '    <string>' + path.join(svcRelayHome, "launchd-stderr.log") + '</string>',
+    '',
+    '    <key>ThrottleInterval</key>',
+    '    <integer>10</integer>',
+    '</dict>',
+    '</plist>',
+  ].join("\n") + "\n";
+
+  // Unload existing if present
+  try { execSync("launchctl unload " + JSON.stringify(svcPlistPath) + " 2>/dev/null"); } catch (e) {}
+  fs.writeFileSync(svcPlistPath, svcPlist);
+  execSync("launchctl load " + JSON.stringify(svcPlistPath));
+  console.log("Service installed: " + svcLabel);
+  console.log("Plist: " + svcPlistPath);
+  console.log("Port: " + svcCfg.port);
+  if (svcCfg.claudeConfigDir) console.log("Account: " + svcCfg.claudeConfigDir);
+  process.exit(0);
+}
+
+// --- Handle --uninstall-service ---
+if (uninstallService) {
+  var unsvcLabel = instanceName ? "com.claude-relay-" + instanceName : "com.claude-relay";
+  var unsvcPlistPath = path.join(os.homedir(), "Library", "LaunchAgents", unsvcLabel + ".plist");
+  if (fs.existsSync(unsvcPlistPath)) {
+    try { execSync("launchctl unload " + JSON.stringify(unsvcPlistPath)); } catch (e) {}
+    fs.unlinkSync(unsvcPlistPath);
+    console.log("Service removed: " + unsvcLabel);
+  } else {
+    console.log("No service found: " + unsvcLabel);
+  }
+  process.exit(0);
 }
 
 var cwd = process.cwd();
@@ -367,6 +586,7 @@ async function restartDaemonFromConfig() {
     debug: lastConfig.debug || false,
     keepAwake: lastConfig.keepAwake || false,
     dangerouslySkipPermissions: lastConfig.dangerouslySkipPermissions || false,
+    claudeConfigDir: lastConfig.claudeConfigDir || null,
     projects: (lastConfig.projects || []).filter(function (p) {
       return fs.existsSync(p.path);
     }),
@@ -379,13 +599,16 @@ async function restartDaemonFromConfig() {
   var logFile = logPath();
   var logFd = fs.openSync(logFile, "a");
 
+  var daemonEnv = Object.assign({}, process.env, {
+    CLAUDE_RELAY_CONFIG: configPath(),
+  });
+  if (newConfig.claudeConfigDir) daemonEnv.CLAUDE_CONFIG_DIR = newConfig.claudeConfigDir;
+
   var child = spawn(process.execPath, [daemonScript], {
     detached: true,
     windowsHide: true,
     stdio: ["ignore", logFd, logFd],
-    env: Object.assign({}, process.env, {
-      CLAUDE_RELAY_CONFIG: configPath(),
-    }),
+    env: daemonEnv,
   });
   child.unref();
   fs.closeSync(logFd);
@@ -1168,7 +1391,32 @@ function setup(callback) {
         });
       });
     }
-    askPort();
+
+    // Account selection for named instances (or when --claude-config not already set)
+    function askAccountThenPort() {
+      var accounts = detectClaudeAccounts();
+      if (!claudeConfigDir && accounts.length > 1) {
+        var acctItems = accounts.map(function (acct) {
+          return { label: acct.email + "  " + a.dim + acct.configDir + a.reset, value: acct.configDir };
+        });
+        promptSelect("Claude account", acctItems, function (selected) {
+          claudeConfigDir = selected;
+          log(sym.bar);
+          askPort();
+        });
+      } else if (!claudeConfigDir && accounts.length === 1) {
+        claudeConfigDir = accounts[0].configDir;
+        askPort();
+      } else {
+        askPort();
+      }
+    }
+
+    if (instanceName) {
+      askAccountThenPort();
+    } else {
+      askPort();
+    }
   });
 }
 
@@ -1221,6 +1469,7 @@ async function forkDaemon(pin, keepAwake, extraProjects) {
     debug: debugMode,
     keepAwake: keepAwake,
     dangerouslySkipPermissions: dangerouslySkipPermissions,
+    claudeConfigDir: claudeConfigDir || null,
     projects: allProjects,
   };
 
@@ -1232,13 +1481,16 @@ async function forkDaemon(pin, keepAwake, extraProjects) {
   var logFile = logPath();
   var logFd = fs.openSync(logFile, "a");
 
+  var forkEnv = Object.assign({}, process.env, {
+    CLAUDE_RELAY_CONFIG: configPath(),
+  });
+  if (config.claudeConfigDir) forkEnv.CLAUDE_CONFIG_DIR = config.claudeConfigDir;
+
   var child = spawn(process.execPath, [daemonScript], {
     detached: true,
     windowsHide: true,
     stdio: ["ignore", logFd, logFd],
-    env: Object.assign({}, process.env, {
-      CLAUDE_RELAY_CONFIG: configPath(),
-    }),
+    env: forkEnv,
   });
   child.unref();
   fs.closeSync(logFd);
@@ -1300,6 +1552,7 @@ async function restartDaemonWithTLS(config, callback) {
     debug: config.debug || false,
     keepAwake: config.keepAwake || false,
     dangerouslySkipPermissions: config.dangerouslySkipPermissions || false,
+    claudeConfigDir: config.claudeConfigDir || null,
     projects: config.projects || [],
   };
 
@@ -1310,13 +1563,16 @@ async function restartDaemonWithTLS(config, callback) {
   var logFile = logPath();
   var logFd = fs.openSync(logFile, "a");
 
+  var tlsDaemonEnv = Object.assign({}, process.env, {
+    CLAUDE_RELAY_CONFIG: configPath(),
+  });
+  if (newConfig.claudeConfigDir) tlsDaemonEnv.CLAUDE_CONFIG_DIR = newConfig.claudeConfigDir;
+
   var child = spawn(process.execPath, [daemonScript], {
     detached: true,
     windowsHide: true,
     stdio: ["ignore", logFd, logFd],
-    env: Object.assign({}, process.env, {
-      CLAUDE_RELAY_CONFIG: configPath(),
-    }),
+    env: tlsDaemonEnv,
   });
   child.unref();
   fs.closeSync(logFd);
