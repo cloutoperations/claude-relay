@@ -302,13 +302,28 @@ if (listInstances) {
     try {
       var instCfg = JSON.parse(fs.readFileSync(instCfgPath, "utf8"));
       var instAlive = instCfg.pid && isPidAlive(instCfg.pid);
-      var instEmail = "(default account)";
-      if (instCfg.claudeConfigDir) {
+      var instEmail = null;
+
+      // Try reading .claude.json for oauthAccount email
+      var configDirToCheck = instCfg.claudeConfigDir || path.join(home, ".claude");
+      try {
+        var instAuth = JSON.parse(fs.readFileSync(path.join(configDirToCheck, ".claude.json"), "utf8"));
+        if (instAuth.oauthAccount) instEmail = instAuth.oauthAccount.emailAddress;
+      } catch (e) {}
+
+      // Fallback: try `claude auth status --json`
+      if (!instEmail) {
         try {
-          var instAuth = JSON.parse(fs.readFileSync(path.join(instCfg.claudeConfigDir, ".claude.json"), "utf8"));
-          instEmail = instAuth.oauthAccount ? instAuth.oauthAccount.emailAddress : instCfg.claudeConfigDir;
-        } catch (e) { instEmail = instCfg.claudeConfigDir; }
+          var authEnv = Object.assign({}, process.env);
+          if (instCfg.claudeConfigDir) authEnv.CLAUDE_CONFIG_DIR = instCfg.claudeConfigDir;
+          var authOut = execSync("claude auth status --json", { env: authEnv, encoding: "utf8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"] });
+          var authJson = JSON.parse(authOut);
+          if (authJson.email) instEmail = authJson.email;
+        } catch (e) {}
       }
+
+      if (!instEmail) instEmail = instCfg.claudeConfigDir || "(default account)";
+
       console.log(
         (instAlive ? "\u25CF" : "\u25CB") + "  " + relayDirs[rj].name +
         "  port:" + instCfg.port +
