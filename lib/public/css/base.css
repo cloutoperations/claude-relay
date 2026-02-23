@@ -116,6 +116,9 @@ button:active:not(:disabled) {
   color: #ffc107;
 }
 .toast.toast-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   border-color: rgba(218, 119, 86, 0.5);
   box-shadow: 0 0 20px rgba(218, 119, 86, 0.3), 0 0 6px rgba(218, 119, 86, 0.15), 0 4px 20px rgba(0, 0, 0, 0.3);
   color: var(--accent);
