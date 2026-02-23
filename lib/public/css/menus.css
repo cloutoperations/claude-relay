@@ -28,6 +28,22 @@
   white-space: nowrap;
 }
 
+/* --- Header new-session button --- */
+#header-new-session-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-dimmer);
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+#header-new-session-btn .lucide { width: 15px; height: 15px; }
+#header-new-session-btn:hover { color: var(--text-secondary); background: rgba(255,255,255,0.04); border-color: var(--border); }
+
 /* --- Session title (center header) --- */
 #header-center {
   position: absolute;
