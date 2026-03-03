@@ -40,6 +40,7 @@
   padding: 4px 8px 0;
 }
 
+#file-panel-search,
 #file-panel-refresh {
   display: flex;
   align-items: center;
@@ -55,7 +56,9 @@
   transition: background 0.15s, color 0.15s, transform 0.3s;
 }
 
+#file-panel-search .lucide,
 #file-panel-refresh .lucide { width: 14px; height: 14px; }
+#file-panel-search:hover,
 #file-panel-refresh:hover { background: var(--sidebar-hover); color: var(--text); }
 #file-panel-refresh.spinning { animation: spin-once 0.5s ease; }
 @keyframes spin-once { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
