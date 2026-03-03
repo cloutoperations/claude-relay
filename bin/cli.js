@@ -21,7 +21,7 @@ for (var _pi = 2; _pi < process.argv.length; _pi++) {
   }
 }
 
-var { loadConfig, saveConfig, configPath, socketPath, logPath, ensureConfigDir, isDaemonAlive, isDaemonAliveAsync, isPidAlive, generateSlug, clearStaleConfig, loadClayrc, saveClayrc, readCrashInfo } = require("../lib/config");
+var { loadConfig, saveConfig, configPath, socketPath, logPath, ensureConfigDir, isDaemonAlive, isDaemonAliveAsync, isPidAlive, generateSlug, clearStaleConfig, loadClayrc, saveClayrc, readCrashInfo, detectClaudeAccounts } = require("../lib/config");
 var { sendIPCCommand } = require("../lib/ipc");
 var { generateAuthToken } = require("../lib/server");
 
@@ -251,37 +251,7 @@ if (listMode) {
   return;
 }
 
-// --- Account detection helper ---
-function detectClaudeAccounts() {
-  var home = os.homedir();
-  var dirs = [{ path: path.join(home, ".claude"), name: "default" }];
-  try {
-    var entries = fs.readdirSync(home);
-    for (var di = 0; di < entries.length; di++) {
-      if (/^\.claude-\d+$/.test(entries[di]) || /^\.claude-[a-z]+$/.test(entries[di])) {
-        dirs.push({ path: path.join(home, entries[di]), name: entries[di].replace(/^\.claude-?/, "") });
-      }
-    }
-  } catch (e) {}
-
-  var accounts = [];
-  for (var dj = 0; dj < dirs.length; dj++) {
-    var authFile = path.join(dirs[dj].path, ".claude.json");
-    if (fs.existsSync(authFile)) {
-      try {
-        var auth = JSON.parse(fs.readFileSync(authFile, "utf8"));
-        if (auth.oauthAccount) {
-          accounts.push({
-            configDir: dirs[dj].path,
-            name: dirs[dj].name,
-            email: auth.oauthAccount.emailAddress || "unknown",
-          });
-        }
-      } catch (e) {}
-    }
-  }
-  return accounts;
-}
+// --- Account detection helper (imported from lib/config.js) ---
 
 // --- Handle --instances ---
 if (listInstances) {
@@ -1742,15 +1712,10 @@ function showMainMenu(config, ip) {
       }, {
         hint: [
           "Run npx claude-relay in other directories to add more projects.",
-          "★ github.com/chadbyte/claude-relay — Press s to star the repo",
         ],
         keys: [
           { key: "o", onKey: function () {
             openUrl(url);
-            showMainMenu(config, ip);
-          }},
-          { key: "s", onKey: function () {
-            openUrl("https://github.com/chadbyte/claude-relay");
             showMainMenu(config, ip);
           }},
         ],
@@ -2262,13 +2227,9 @@ function showSettingsMenu(config, ip) {
 // ==============================
 // Main entry: daemon alive?
 // ==============================
-var { checkAndUpdate } = require("../lib/updater");
 var currentVersion = require("../package.json").version;
 
 (async function () {
-  var updated = await checkAndUpdate(currentVersion, skipUpdate);
-  if (updated) return;
-
   var config = loadConfig();
   var alive = config ? await isDaemonAliveAsync(config) : false;
 

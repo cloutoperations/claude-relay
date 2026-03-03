@@ -24,15 +24,7 @@
     "web-ui",
     "tailscale"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/chadbyte/claude-relay.git"
-  },
-  "bugs": {
-    "url": "https://github.com/chadbyte/claude-relay/issues"
-  },
-  "homepage": "https://github.com/chadbyte/claude-relay#readme",
-  "author": "Chad",
+  "private": true,
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.38",
     "@lydell/node-pty": "^1.2.0-beta.3",

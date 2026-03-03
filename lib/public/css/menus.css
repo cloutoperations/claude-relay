@@ -63,9 +63,10 @@
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  max-width: 40%;
-  overflow: hidden;
+  max-width: 45%;
   pointer-events: auto;
+  display: flex;
+  align-items: center;
 }
 
 #session-title {
@@ -76,7 +77,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: block;
+  min-width: 0;
+  flex: 1;
   padding: 3px 10px;
   border-radius: 6px;
   transition: background 0.15s, color 0.15s;

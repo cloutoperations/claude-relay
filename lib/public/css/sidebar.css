@@ -34,6 +34,10 @@
   font-weight: 600;
   color: var(--text-secondary);
   text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
   transition: color 0.15s;
 }
 
@@ -516,15 +520,38 @@
   color: var(--text);
 }
 
-.session-item .session-processing {
-  display: inline-block;
+.session-processing {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--accent);
   animation: pulse 1.5s ease-in-out infinite;
-  margin-right: 8px;
-  vertical-align: middle;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+/* Ready badge — green dot, session finished but not yet viewed */
+.session-ready-badge {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+  margin-left: 4px;
+  box-shadow: 0 0 5px rgba(87, 171, 90, 0.4);
+}
+
+.session-account-dot.processing {
+  animation: account-dot-pulse 1.5s ease-in-out infinite;
+}
+
+.session-account-dot.ready {
+  box-shadow: 0 0 0 2px var(--bg-alt), 0 0 0 3.5px var(--success);
+}
+
+@keyframes account-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 6px rgba(255, 255, 255, 0.15); }
+  50% { opacity: 0.45; transform: scale(1.4); box-shadow: none; }
 }
 
 .session-more-btn {
@@ -594,6 +621,55 @@
   font-family: inherit;
   padding: 2px 6px;
   outline: none;
+}
+
+/* --- Account dot on session items --- */
+.session-account-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+
+/* --- Account picker dropdown --- */
+.account-picker {
+  position: fixed;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 4px 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 200;
+}
+
+.account-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 14px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.account-picker-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.account-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 @media (hover: none) {

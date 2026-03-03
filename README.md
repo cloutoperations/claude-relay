@@ -6,7 +6,6 @@
 
 <h3 align="center">Web UI for Claude Code. Any device. Push notifications.</h3>
 
-[![npm version](https://img.shields.io/npm/v/claude-relay)](https://www.npmjs.com/package/claude-relay) [![npm downloads](https://img.shields.io/npm/dw/claude-relay)](https://www.npmjs.com/package/claude-relay) [![GitHub stars](https://img.shields.io/github/stars/chadbyte/claude-relay)](https://github.com/chadbyte/claude-relay)
 
 Claude Code. Anywhere.  
 Same session. Same files. Same machine.  
@@ -231,31 +230,6 @@ graph LR
 
 For a detailed sequence diagram, daemon structure, and design decisions, refer to [docs/architecture.md](docs/architecture.md).
 
-## Star History
-
-<a href="https://star-history.com/#chadbyte/claude-relay&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=chadbyte/claude-relay&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=chadbyte/claude-relay&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=chadbyte/claude-relay&type=Date" width="600" />
- </picture>
-</a>
-
----
-
-## Contributors
-
-<a href="https://github.com/chadbyte/claude-relay/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=chadbyte/claude-relay" />
-</a>
-
-## Contributing
-
-Bug fixes and typos are welcome. For feature suggestions, please open an issue first:
-[https://github.com/chadbyte/claude-relay/issues](https://github.com/chadbyte/claude-relay/issues)
-
-If you are using claude-relay, let us know how you are using it in Discussions:
-[https://github.com/chadbyte/claude-relay/discussions](https://github.com/chadbyte/claude-relay/discussions)
 
 ## Disclaimer
 

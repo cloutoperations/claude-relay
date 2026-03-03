@@ -1180,3 +1180,154 @@ pre.mermaid-error {
   color: var(--text-dimmer);
 }
 
+/* ==========================================================================
+   Home View
+   ========================================================================== */
+
+#home-view {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 40px 20px;
+}
+#home-view.hidden { display: none; }
+
+.home-content {
+  max-width: 520px;
+  width: 100%;
+}
+
+.home-hero {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.home-hero h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+.home-hero p {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.home-sections {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.home-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.home-card h3 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.home-card h3 .lucide { width: 14px; height: 14px; }
+
+.home-shortcuts { display: flex; flex-direction: column; gap: 8px; }
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.shortcut-row kbd {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--text-muted);
+  min-width: 32px;
+  text-align: center;
+}
+
+.home-capabilities {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.home-capabilities li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.home-capabilities .lucide { width: 14px; height: 14px; color: var(--text-muted); }
+
+.home-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.home-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  transition: background 0.15s, color 0.15s;
+}
+.home-btn:hover { background: var(--sidebar-active); color: var(--text); }
+.home-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.home-btn.primary:hover { opacity: 0.9; }
+.home-btn .lucide { width: 14px; height: 14px; }
+
+/* Close session button in header */
+#session-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-dimmer);
+  cursor: pointer;
+  padding: 4px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  transition: color 0.15s, background 0.15s;
+}
+#session-close-btn .lucide { width: 13px; height: 13px; }
+#session-close-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.08); }
+#session-close-btn.hidden { display: none; }
+
+/* Responsive: stack cards on narrow screens */
+@media (max-width: 560px) {
+  .home-sections { grid-template-columns: 1fr; }
+}
+

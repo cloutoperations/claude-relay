@@ -22,9 +22,9 @@
 <div id="layout">
   <div id="sidebar">
     <div id="sidebar-header">
-      <a href="/" class="sidebar-logo">
+      <button id="home-btn" class="sidebar-logo">
         <svg class="footer-mascot" viewBox="0 0 12 12" width="16" height="16"><rect x="0" y="0" width="12" height="12" rx="2" fill="#3E3C37"/><rect x="5" y="0" width="1" height="1" fill="#6D6860"/><rect x="6" y="0" width="1" height="1" fill="#6D6860"/><rect x="5" y="1" width="1" height="1" fill="#6D6860"/><rect x="6" y="1" width="1" height="1" fill="#6D6860"/><rect x="2" y="2" width="8" height="2" fill="#908B81"/><rect x="2" y="4" width="1" height="2" fill="#908B81"/><rect x="3" y="4" width="1" height="2" fill="#262522"/><rect x="4" y="4" width="4" height="2" fill="#908B81"/><rect x="8" y="4" width="1" height="2" fill="#262522"/><rect x="9" y="4" width="1" height="2" fill="#908B81"/><rect x="0" y="6" width="12" height="2" fill="#908B81"/><rect x="2" y="8" width="8" height="2" fill="#908B81"/><rect x="2" y="10" width="1" height="2" fill="#908B81"/><rect x="4" y="10" width="1" height="2" fill="#908B81"/><rect x="7" y="10" width="1" height="2" fill="#908B81"/><rect x="9" y="10" width="1" height="2" fill="#908B81"/></svg>
-      </a>
+      </button>
       <button id="sidebar-toggle-btn" title="Close sidebar"><i data-lucide="panel-left-close"></i></button>
     </div>
     <nav id="sidebar-nav">
@@ -84,28 +84,17 @@
         <i data-lucide="ellipsis" style="width:14px;height:14px"></i>
       </button>
       <div id="sidebar-footer-menu" class="hidden">
-        <a class="sidebar-menu-item" href="https://github.com/chadbyte/claude-relay" target="_blank" rel="noopener">
-          <i data-lucide="github"></i> <span>GitHub</span>
-        </a>
         <button class="sidebar-menu-item" id="footer-theme">
           <i data-lucide="palette"></i> <span>Theme</span>
         </button>
         <button class="sidebar-menu-item" id="footer-status">
           <i data-lucide="activity"></i> <span>Status</span>
         </button>
-        <button class="sidebar-menu-item" id="footer-update-check">
-          <i data-lucide="refresh-cw"></i> <span>Check for updates</span>
-        </button>
       </div>
     </div>
   </div>
   <div id="sidebar-overlay"></div>
   <div id="app">
-    <div id="update-banner" class="hidden">
-      <span class="update-banner-text"><i data-lucide="arrow-up-circle"></i> A new version of Claude Relay is available: <strong id="update-version"></strong></span>
-      <button id="update-how" title="How to update">How to update</button>
-      <button id="update-banner-close" aria-label="Dismiss"><i data-lucide="x"></i></button>
-    </div>
     <div id="onboarding-banner" class="hidden">
       <span class="onboarding-banner-text" id="onboarding-banner-text"></span>
       <button id="onboarding-banner-close" aria-label="Dismiss"><i data-lucide="x"></i></button>
@@ -123,6 +112,7 @@
       </div>
       <div id="header-center">
         <span id="session-title" title="Click to rename session"></span>
+        <button id="session-close-btn" class="hidden" title="Close session"><i data-lucide="x"></i></button>
       </div>
       <div class="status">
         <button id="header-new-session-btn" title="New session"><i data-lucide="plus"></i></button>
@@ -179,6 +169,41 @@
       <div id="pixel-canvas"></div>
       <div class="connect-verb" id="connect-verb"></div>
       <div class="connect-status" id="connect-status">Connecting...</div>
+    </div>
+    <div id="home-view" class="hidden">
+      <div class="home-content">
+        <div class="home-hero">
+          <h1>Claude Relay</h1>
+          <p>Your Claude Code, anywhere.</p>
+        </div>
+        <div class="home-sections">
+          <div class="home-card">
+            <h3><i data-lucide="keyboard"></i> Shortcuts</h3>
+            <div class="home-shortcuts">
+              <div class="shortcut-row"><kbd>&#8984; O</kbd><span>Search files</span></div>
+              <div class="shortcut-row"><kbd>/</kbd><span>Slash commands</span></div>
+              <div class="shortcut-row"><kbd>&#9166;</kbd><span>Send message</span></div>
+              <div class="shortcut-row"><kbd>&#8679; &#9166;</kbd><span>New line</span></div>
+              <div class="shortcut-row"><kbd>Esc</kbd><span>Close modals</span></div>
+            </div>
+          </div>
+          <div class="home-card">
+            <h3><i data-lucide="zap"></i> Capabilities</h3>
+            <ul class="home-capabilities">
+              <li><i data-lucide="messages-square"></i> Multi-session conversations</li>
+              <li><i data-lucide="folder-open"></i> File browser &amp; editor</li>
+              <li><i data-lucide="square-terminal"></i> Terminal access</li>
+              <li><i data-lucide="bell"></i> Push notifications</li>
+              <li><i data-lucide="users"></i> Multi-account support</li>
+            </ul>
+          </div>
+        </div>
+        <div class="home-actions">
+          <button id="home-new-session" class="home-btn primary">
+            <i data-lucide="plus"></i> New Session
+          </button>
+        </div>
+      </div>
     </div>
     <div id="messages"></div>
 
