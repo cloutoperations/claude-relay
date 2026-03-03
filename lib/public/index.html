@@ -52,11 +52,20 @@
         <button id="project-hint-dismiss" type="button" aria-label="Dismiss"><i data-lucide="x"></i></button>
       </div>
     </nav>
-    <div id="sidebar-panel-sessions" class="sidebar-panel">
+    <div id="sidebar-tabs">
+      <button class="sidebar-tab active" data-tab="files"><i data-lucide="folder-tree"></i> <span>Files</span></button>
+      <button class="sidebar-tab" data-tab="sessions"><i data-lucide="messages-square"></i> <span>Sessions</span></button>
+    </div>
+    <div id="sidebar-panel-files" class="sidebar-panel">
+      <div id="file-panel-actions">
+        <button id="file-panel-refresh" type="button" title="Refresh file tree"><i data-lucide="refresh-cw"></i></button>
+      </div>
+      <div id="file-tree"></div>
+    </div>
+    <div id="sidebar-panel-sessions" class="sidebar-panel hidden">
       <div id="session-actions">
         <button id="new-session-btn"><i data-lucide="plus"></i> <span>New session</span></button>
         <button id="resume-session-btn"><i data-lucide="link"></i> <span>Resume with ID</span></button>
-        <button id="file-browser-btn"><i data-lucide="folder-tree"></i> <span>File browser</span></button>
         <button id="terminal-sidebar-btn"><i data-lucide="square-terminal"></i> <span>Terminal</span></button>
       </div>
       <div class="session-list-header">
@@ -67,13 +76,6 @@
         <input id="session-search-input" type="text" placeholder="Search sessions..." autocomplete="off" spellcheck="false" />
       </div>
       <div id="session-list"></div>
-    </div>
-    <div id="sidebar-panel-files" class="sidebar-panel hidden">
-      <div id="file-panel-header">
-        <button id="file-panel-back" type="button"><i data-lucide="arrow-left"></i> <span>Sessions</span></button>
-        <button id="file-panel-refresh" type="button" title="Refresh file tree"><i data-lucide="refresh-cw"></i></button>
-      </div>
-      <div id="file-tree"></div>
     </div>
     <div id="sidebar-footer">
       <button id="sidebar-footer-btn">
@@ -116,6 +118,7 @@
         <button id="sidebar-expand-btn" title="Open sidebar"><i data-lucide="panel-left-open"></i></button>
         <button id="hamburger-btn" aria-label="Toggle sidebar"><i data-lucide="menu"></i></button>
         <span class="project-name" id="project-name">Connecting...</span>
+        <span class="account-badge" id="account-badge"></span>
       </div>
       <div id="header-center">
         <span id="session-title" title="Click to rename session"></span>
@@ -287,6 +290,7 @@
       </div>
     </div>
   </div>
+  <div id="file-viewer-divider" class="hidden"></div>
   <div id="file-viewer" class="hidden">
     <div class="file-viewer-header">
       <span class="file-viewer-path" id="file-viewer-path"></span>

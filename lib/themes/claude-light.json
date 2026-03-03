@@ -1,0 +1,9 @@
+{
+  "name": "Claude Light",
+  "author": "Claude Relay",
+  "variant": "light",
+  "base00": "FFFFFF", "base01": "F5F3EF", "base02": "E8E5DE", "base03": "B5B0A6",
+  "base04": "908B81", "base05": "6D6860", "base06": "2F2E2B", "base07": "1A1918",
+  "base08": "C4392E", "base09": "B85C3A", "base0A": "C48A2E", "base0B": "3D8B40",
+  "base0C": "2E9E8A", "base0D": "3A7CC6", "base0E": "A560A5", "base0F": "B8982E"
+}
