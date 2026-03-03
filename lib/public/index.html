@@ -198,6 +198,7 @@
             </ul>
           </div>
         </div>
+        <div id="home-usage" class="home-usage"></div>
         <div class="home-actions">
           <button id="home-new-session" class="home-btn primary">
             <i data-lucide="plus"></i> New Session
@@ -214,10 +215,10 @@
           <button id="usage-panel-close" aria-label="Close"><i data-lucide="x"></i></button>
         </div>
         <div class="usage-panel-body">
-          <a href="https://claude.ai/settings/usage" target="_blank" rel="noopener" class="usage-external-link">
-            <span>Check plan usage on claude.ai</span>
-            <i data-lucide="external-link"></i>
-          </a>
+          <div id="plan-usage-section">
+            <div class="usage-section-label">Plan <button id="plan-usage-refresh" class="usage-refresh-btn" title="Refresh"><i data-lucide="refresh-cw"></i></button></div>
+            <div id="plan-usage-content"><span class="usage-muted">Loading...</span></div>
+          </div>
           <div class="usage-divider"></div>
           <div class="usage-section-label">Session</div>
           <div class="usage-row"><span class="usage-label">Cost</span><span id="usage-cost" class="usage-value">$0.0000</span></div>

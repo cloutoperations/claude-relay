@@ -11,6 +11,7 @@
   mask-image: linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20px, black calc(100% - 20px), transparent 100%);
 }
+#messages.hidden { display: none; }
 
 /* --- Sticky todo overlay --- */
 #todo-sticky {
@@ -1190,7 +1191,7 @@ pre.mermaid-error {
   align-items: center;
   justify-content: center;
   overflow-y: auto;
-  padding: 40px 20px;
+  padding: 20px;
 }
 #home-view.hidden { display: none; }
 
@@ -1201,16 +1202,16 @@ pre.mermaid-error {
 
 .home-hero {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 20px;
 }
 .home-hero h1 {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--text);
-  margin: 0 0 6px;
+  margin: 0 0 4px;
 }
 .home-hero p {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-muted);
   margin: 0;
 }
@@ -1218,46 +1219,46 @@ pre.mermaid-error {
 .home-sections {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .home-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 10px;
+  padding: 12px;
 }
 .home-card h3 {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.home-card h3 .lucide { width: 14px; height: 14px; }
+.home-card h3 .lucide { width: 13px; height: 13px; }
 
-.home-shortcuts { display: flex; flex-direction: column; gap: 8px; }
+.home-shortcuts { display: flex; flex-direction: column; gap: 5px; }
 .shortcut-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
 .shortcut-row kbd {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 11px;
+  padding: 1px 5px;
+  font-size: 10px;
   font-family: inherit;
   color: var(--text-muted);
-  min-width: 32px;
+  min-width: 28px;
   text-align: center;
 }
 
@@ -1267,16 +1268,16 @@ pre.mermaid-error {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
 }
 .home-capabilities li {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 6px;
+  font-size: 12px;
   color: var(--text-secondary);
 }
-.home-capabilities .lucide { width: 14px; height: 14px; color: var(--text-muted); }
+.home-capabilities .lucide { width: 13px; height: 13px; color: var(--text-muted); }
 
 .home-actions {
   display: flex;
@@ -1325,6 +1326,107 @@ pre.mermaid-error {
 #session-close-btn .lucide { width: 13px; height: 13px; }
 #session-close-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.08); }
 #session-close-btn.hidden { display: none; }
+
+/* Home usage card (full width) */
+.home-usage { margin-bottom: 16px; }
+.home-card-wide {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.home-card-wide h3 {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.home-card-wide h3 .lucide { width: 13px; height: 13px; }
+.home-usage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 560px) {
+  .home-usage-grid { grid-template-columns: 1fr; }
+}
+
+/* Plan usage bars (shared between usage panel and home) */
+.plan-usage-account-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 6px 0 3px;
+}
+.plan-usage-account-label:first-child { margin-top: 0; }
+
+.plan-usage-row { margin-bottom: 5px; }
+.plan-usage-row:last-child { margin-bottom: 0; }
+
+.plan-usage-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.plan-usage-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plan-usage-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.plan-usage-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.plan-usage-bar-mid .plan-usage-bar-fill { background: #D4A054; }
+.plan-usage-bar-high .plan-usage-bar-fill { background: #D47272; }
+
+.plan-usage-pct {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 32px;
+  text-align: right;
+}
+
+.plan-usage-reset {
+  font-size: 10px;
+  color: var(--text-dimmer);
+  margin-top: 1px;
+}
+
+.usage-refresh-btn {
+  background: none;
+  border: none;
+  color: var(--text-dimmer);
+  cursor: pointer;
+  padding: 1px 3px;
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.usage-refresh-btn .lucide { width: 11px; height: 11px; }
+.usage-refresh-btn:hover { color: var(--text-secondary); }
+
+.usage-muted { color: var(--text-dimmer); font-size: 12px; }
 
 /* Responsive: stack cards on narrow screens */
 @media (max-width: 560px) {
