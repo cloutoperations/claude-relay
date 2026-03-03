@@ -28,6 +28,20 @@
   white-space: nowrap;
 }
 
+.account-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1px 8px;
+  margin-left: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.account-badge:empty { display: none; }
+
 /* --- Header new-session button --- */
 #header-new-session-btn {
   display: flex;
