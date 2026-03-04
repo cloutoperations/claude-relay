@@ -201,6 +201,42 @@
 }
 #terminal-count.hidden { display: none; }
 
+/* --- Files toggle button --- */
+#files-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-dimmer);
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  position: relative;
+}
+#files-toggle-btn .lucide { width: 15px; height: 15px; }
+#files-toggle-btn:hover { color: var(--text-secondary); background: rgba(255,255,255,0.04); border-color: var(--border); }
+#files-toggle-btn.hidden { display: none; }
+#files-tab-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--accent, #7c6cd4);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  font-family: "SF Mono", Menlo, Monaco, monospace;
+}
+#files-tab-count.hidden { display: none; }
+
 /* --- QR code button & overlay --- */
 #qr-btn {
   display: flex;
