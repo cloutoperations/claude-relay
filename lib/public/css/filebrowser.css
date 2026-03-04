@@ -154,18 +154,19 @@
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
   min-height: 36px;
+  overflow: hidden;
+  max-width: 100%;
 }
-
-/* Hide the old header when tabs are visible */
-#file-viewer-header.tabs-active { display: none; }
 
 #file-viewer-tabs-scroll {
   display: flex;
   flex: 1;
   min-width: 0;
   overflow-x: auto;
-  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+#file-viewer-tabs-scroll::-webkit-scrollbar { display: none; }
 
 .file-viewer-tabs-actions {
   display: flex;
@@ -286,11 +287,19 @@
   }
 }
 
-/* Narrow screens: full overlay */
+/* Narrow screens: full overlay — but leave room for tab strip */
 @media (max-width: 1023px) {
+  #file-viewer-tabs {
+    position: relative;
+    z-index: 301;
+    background: var(--bg);
+  }
   #file-viewer {
     position: fixed;
-    inset: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* top is set by JS to sit below the tab strip */
     background: var(--bg);
     z-index: 300;
     display: flex;
@@ -299,6 +308,7 @@
   }
   #file-viewer.hidden { display: none; }
 }
+
 
 .file-viewer-header {
   display: flex;

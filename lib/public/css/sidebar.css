@@ -2,6 +2,7 @@
    Sidebar
    ========================================================================== */
 
+/* Default: static sidebar in flex layout (desktop) */
 #sidebar {
   width: 260px;
   flex-shrink: 0;
@@ -13,9 +14,22 @@
   transition: width 0.2s ease;
 }
 
-#layout.sidebar-collapsed #sidebar {
-  width: 0;
-  border: none;
+/* Below 1024px: popover drawer */
+@media (max-width: 1023px) {
+  #sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+  #sidebar.open { transform: translateX(0); }
+}
+
+/* Desktop: hide hamburger/overlay */
+@media (min-width: 1024px) {
+  #hamburger-btn { display: none !important; }
+  #sidebar-overlay { display: none !important; }
 }
 
 /* --- Sidebar Header (logo + collapse) --- */
@@ -804,13 +818,12 @@
   color: var(--text);
 }
 
-#layout.sidebar-collapsed #sidebar-expand-btn {
-  display: flex;
-}
 
 /* --- Hamburger --- */
 #hamburger-btn {
-  display: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: var(--text-secondary);
@@ -818,6 +831,15 @@
   padding: 4px;
   margin-right: 10px;
   flex-shrink: 0;
+}
+
+/* Hide collapse/expand on mobile (hamburger handles it) */
+#sidebar-toggle-btn, #sidebar-expand-btn { display: none; }
+
+@media (min-width: 1024px) {
+  #sidebar-toggle-btn { display: flex; }
+  #layout.sidebar-collapsed #sidebar { width: 0; border: none; overflow: hidden; }
+  #layout.sidebar-collapsed #sidebar-expand-btn { display: flex; }
 }
 
 #hamburger-btn .lucide {

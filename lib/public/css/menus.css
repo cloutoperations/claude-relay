@@ -60,13 +60,11 @@
 
 /* --- Session title (center header) --- */
 #header-center {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 45%;
-  pointer-events: auto;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 
 #session-title {
@@ -757,6 +755,22 @@
     width: auto;
     max-height: 60vh;
   }
+
+  /* Compact header on small screens */
+  #header {
+    padding: calc(var(--safe-top) + 8px) 12px 8px;
+    min-height: 40px;
+    gap: 4px;
+  }
+  #session-title {
+    font-size: 12px;
+    padding: 2px 6px;
+  }
+  .session-title-input { min-width: 120px; }
+  .project-name { font-size: 13px; }
+
+  /* Tab strip replaces files-toggle-btn on mobile */
+  #files-toggle-btn { display: none !important; }
 }
 
 .status-dot.connected { background: var(--success); }

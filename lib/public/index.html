@@ -165,7 +165,16 @@
         <span class="status-dot" id="status-dot"></span>
       </div>
     </div>
-
+    <div id="file-viewer-tabs">
+      <div id="file-viewer-tabs-scroll"></div>
+      <div class="file-viewer-tabs-actions">
+        <button class="file-viewer-btn hidden" id="file-viewer-render" title="Toggle rendered view"><i data-lucide="book-open"></i></button>
+        <button class="file-viewer-btn hidden" id="file-viewer-history" title="Edit history"><i data-lucide="clock"></i></button>
+        <button class="file-viewer-btn" id="file-viewer-pdf" title="Download PDF"><i data-lucide="file-down"></i></button>
+        <button class="file-viewer-btn" id="file-viewer-copy" title="Copy contents"><i data-lucide="copy"></i></button>
+        <button class="file-viewer-btn" id="file-viewer-close" title="Close"><i data-lucide="x"></i></button>
+      </div>
+    </div>
     <div id="connect-overlay">
       <div id="pixel-canvas"></div>
       <div class="connect-verb" id="connect-verb"></div>
@@ -322,16 +331,6 @@
   <div id="file-viewer" class="hidden">
     <div class="file-viewer-header" id="file-viewer-header">
       <span class="file-viewer-path" id="file-viewer-path"></span>
-    </div>
-    <div id="file-viewer-tabs">
-      <div id="file-viewer-tabs-scroll"></div>
-      <div class="file-viewer-tabs-actions">
-        <button class="file-viewer-btn hidden" id="file-viewer-render" title="Toggle rendered view"><i data-lucide="book-open"></i></button>
-        <button class="file-viewer-btn hidden" id="file-viewer-history" title="Edit history"><i data-lucide="clock"></i></button>
-        <button class="file-viewer-btn" id="file-viewer-pdf" title="Download PDF"><i data-lucide="file-down"></i></button>
-        <button class="file-viewer-btn" id="file-viewer-copy" title="Copy contents"><i data-lucide="copy"></i></button>
-        <button class="file-viewer-btn" id="file-viewer-close" title="Close"><i data-lucide="x"></i></button>
-      </div>
     </div>
     <div class="file-viewer-body" id="file-viewer-body"></div>
   </div>
