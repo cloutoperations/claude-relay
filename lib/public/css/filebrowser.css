@@ -285,6 +285,7 @@
     transition: none;
     user-select: none;
   }
+  #file-viewer .file-viewer-header { display: none; }
 }
 
 /* Narrow screens: full overlay — but leave room for tab strip */
@@ -1263,9 +1264,12 @@
   transition: background 0.1s;
 }
 
-.file-search-item:hover,
-.file-search-item.active {
+.file-search-item:hover {
   background: rgba(255, 255, 255, 0.05);
+}
+
+.file-search-item.active {
+  background: var(--accent-bg);
 }
 
 .file-search-item-icon {
@@ -1289,7 +1293,7 @@
   flex: 1;
   min-width: 0;
   font-size: 12px;
-  color: var(--text-dimmer);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
