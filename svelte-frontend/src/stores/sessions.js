@@ -1,5 +1,5 @@
 // Session state store
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import { onMessage, send } from './ws.js';
 
 const STORAGE_KEY = 'claude-relay-active-session';
@@ -25,6 +25,9 @@ export const boardVisible = writable(false);
 // Only allow fullscreen when the user explicitly requests it via switchSession().
 // The server sends session_switched on connect and on popup_open — we must ignore those.
 let expectingSwitch = false;
+
+// Flag to prevent chat reset during session ID re-keying (temp → real ID)
+export let sessionRekeying = false;
 
 // Restore fullscreen session on WS connect
 let hasRestored = false;
@@ -52,7 +55,8 @@ export function switchSession(sessionId) {
   send({ type: 'switch_session', id: sessionId });
 }
 
-export function createSession(accountId) {
+export function createSession(accountId, openFullscreen = true) {
+  if (openFullscreen) expectingSwitch = true;
   send({ type: 'new_session', accountId: accountId || undefined });
 }
 
@@ -87,11 +91,15 @@ onMessage((msg) => {
     saveActiveSession(msg.id);
   } else if (msg.type === 'session_id') {
     // Session ID re-keyed (temp → real CLI ID)
+    // Mark as re-key so chat store doesn't reset
     if (msg.oldId) {
+      sessionRekeying = true;
       activeSessionId.update(id => id === msg.oldId ? msg.cliSessionId : id);
       sessions.update(list => list.map(s =>
         s.id === msg.oldId ? { ...s, id: msg.cliSessionId, cliSessionId: msg.cliSessionId } : s
       ));
+      sessionRekeying = false;
+      saveActiveSession(get(activeSessionId));
     }
   }
 });

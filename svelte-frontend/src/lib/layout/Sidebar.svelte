@@ -2,10 +2,24 @@
   import { sessions, activeSessionId, leaveSession, createSession } from '../../stores/sessions.js';
   import { sidebarOpen } from '../../stores/ui.js';
   import { openPopup } from '../../stores/popups.js';
+  import { projectInfo } from '../../stores/chat.js';
+
+  const ACCOUNT_COLORS = ['#da7756', '#5b9fd6', '#57ab5a', '#c084fc', '#f59e0b', '#ec4899'];
 
   let { projectName = 'Claude Relay' } = $props();
 
   let activeTab = $state('sessions'); // 'sessions' | 'files'
+  let showAccountPicker = $state(false);
+  let pickerAnchorEl = $state(null);
+
+  let accounts = $derived($projectInfo.accounts || []);
+  let hasMultipleAccounts = $derived(accounts.length > 1);
+
+  function accountColor(accountId) {
+    if (!accountId || !hasMultipleAccounts) return null;
+    const idx = accounts.findIndex(a => a.name === accountId);
+    return ACCOUNT_COLORS[idx >= 0 ? idx % ACCOUNT_COLORS.length : 0];
+  }
 
   // Group sessions by date
   function groupByDate(sessionList) {
@@ -51,8 +65,21 @@
     }
   }
 
-  function handleNewSession() {
+  function handleNewSession(e) {
+    if (hasMultipleAccounts) {
+      pickerAnchorEl = e.currentTarget;
+      showAccountPicker = !showAccountPicker;
+      return;
+    }
     createSession();
+    if (window.innerWidth < 1024) {
+      sidebarOpen.set(false);
+    }
+  }
+
+  function handlePickAccount(accountId) {
+    showAccountPicker = false;
+    createSession(accountId);
     if (window.innerWidth < 1024) {
       sidebarOpen.set(false);
     }
@@ -62,9 +89,18 @@
     if (!id) return '';
     return id.length > 8 ? id.slice(0, 8) : id;
   }
+
+  // Close picker when clicking outside
+  function handleSidebarClick(e) {
+    if (showAccountPicker && !e.target.closest('.sidebar-footer')) {
+      showAccountPicker = false;
+    }
+  }
 </script>
 
-<aside class="sidebar" class:open={$sidebarOpen}>
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<aside class="sidebar" class:open={$sidebarOpen} onclick={handleSidebarClick}>
   <!-- Header -->
   <div class="sidebar-header">
     <button class="sidebar-logo" onclick={() => {}}>
@@ -119,6 +155,9 @@
               onclick={() => handleSessionClick(session.id)}
               title={session.title || 'Untitled'}
             >
+              {#if hasMultipleAccounts && accountColor(session.accountId)}
+                <span class="session-account-dot" style="background: {accountColor(session.accountId)}"></span>
+              {/if}
               <span class="session-item-text">{session.title || 'Untitled'}</span>
               {#if session.isProcessing}
                 <span class="session-processing-dot"></span>
@@ -150,7 +189,22 @@
         <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
       New Session
+      {#if hasMultipleAccounts}
+        <svg class="chevron" class:open={showAccountPicker} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      {/if}
     </button>
+
+    {#if showAccountPicker}
+      <div class="account-picker">
+        <div class="account-picker-label">Select account</div>
+        {#each accounts as account, i}
+          <button class="account-option" onclick={() => handlePickAccount(account.name)}>
+            <span class="account-dot" style="background: {ACCOUNT_COLORS[i % ACCOUNT_COLORS.length]}"></span>
+            <span class="account-email">{account.email || account.name}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
   </div>
 </aside>
 
@@ -449,5 +503,75 @@
   .new-session-btn:hover {
     background: rgba(218, 119, 86, 0.15);
     border-color: rgba(218, 119, 86, 0.5);
+  }
+
+  .new-session-btn .chevron {
+    margin-left: auto;
+    transition: transform 0.15s;
+    opacity: 0.6;
+  }
+
+  .new-session-btn .chevron.open {
+    transform: rotate(180deg);
+  }
+
+  /* Account dot on session items */
+  .session-account-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Account picker */
+  .account-picker {
+    padding: 4px 0;
+    margin-top: 4px;
+    background: #262522;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+  }
+
+  .account-picker-label {
+    padding: 6px 12px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #6b6760;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .account-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    color: #b0ab9f;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.12s, color 0.12s;
+  }
+
+  .account-option:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #d4d0c8;
+  }
+
+  .account-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .account-email {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

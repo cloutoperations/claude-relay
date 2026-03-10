@@ -1,7 +1,7 @@
 // Chat message store — manages messages for the active session
 import { writable, get } from 'svelte/store';
 import { onMessage, send } from './ws.js';
-import { activeSessionId } from './sessions.js';
+import { activeSessionId, sessionRekeying } from './sessions.js';
 import { popupMessageInFlight } from './popups.js';
 
 // Message list for current session
@@ -66,6 +66,17 @@ function ensureAssistantBlock() {
 
 export function sendMessage(text, images, pastes) {
   if (!text && (!images || images.length === 0)) return;
+  // Add user message locally (server sends user_message to OTHER viewers, not the sender)
+  finalizeAssistant();
+  turnCounter++;
+  messages.update(msgs => [...msgs, {
+    type: 'user',
+    text: text || '',
+    images: images || null,
+    pastes: pastes || null,
+    turn: turnCounter,
+  }]);
+
   const msg = { type: 'message', text };
   if (images && images.length > 0) msg.images = images;
   if (pastes && pastes.length > 0) msg.pastes = pastes;
@@ -88,8 +99,9 @@ export function resetChat() {
   isStreaming = false;
 }
 
-// Reset when session switches
+// Reset when session switches — but NOT during re-key (temp→real ID swap)
 activeSessionId.subscribe(() => {
+  if (sessionRekeying) return;
   resetChat();
 });
 
@@ -270,11 +282,12 @@ onMessage((msg) => {
       break;
 
     case 'permission_request':
+    case 'permission_request_pending':
       messages.update(msgs => [...msgs, {
         type: 'permission',
         requestId: msg.requestId,
         toolName: msg.toolName,
-        input: msg.input,
+        input: msg.input || msg.toolInput,
         resolved: false,
       }]);
       break;
@@ -310,6 +323,58 @@ onMessage((msg) => {
           ? { ...m, answered: true }
           : m
       ));
+      break;
+
+    case 'subagent_activity':
+      thinking.set({ active: false, text: '' });
+      ensureAssistantBlock();
+      messages.update(msgs => [...msgs, {
+        type: 'tool',
+        toolId: msg.agentId,
+        name: 'Agent: ' + (msg.title || 'subagent'),
+        status: 'running',
+        input: null,
+        output: null,
+      }]);
+      break;
+
+    case 'subagent_tool':
+      // Update subagent with tool info
+      messages.update(msgs => msgs.map(m =>
+        m.type === 'tool' && m.toolId === msg.agentId
+          ? { ...m, input: msg.toolName || m.input }
+          : m
+      ));
+      break;
+
+    case 'subagent_done':
+      messages.update(msgs => msgs.map(m =>
+        m.type === 'tool' && m.toolId === msg.agentId
+          ? { ...m, status: 'done' }
+          : m
+      ));
+      break;
+
+    case 'slash_command_result':
+      messages.update(msgs => [...msgs, {
+        type: 'system',
+        text: msg.result || msg.output || '',
+      }]);
+      break;
+
+    case 'rewind_complete':
+      messages.update(msgs => [...msgs, {
+        type: 'system',
+        text: 'Rewind complete',
+      }]);
+      break;
+
+    case 'rewind_error':
+      messages.update(msgs => [...msgs, {
+        type: 'system',
+        text: 'Rewind failed: ' + (msg.error || 'Unknown error'),
+        isError: true,
+      }]);
       break;
 
     case 'message_uuid':
