@@ -1,8 +1,10 @@
 <script>
+  import { get } from 'svelte/store';
   import { sidebarOpen } from '../../stores/ui.js';
   import { connected } from '../../stores/ws.js';
   import { activeSessionId, leaveSession } from '../../stores/sessions.js';
   import { openPopup } from '../../stores/popups.js';
+  import { messages, processing, thinking, currentDelta } from '../../stores/chat.js';
 
   let {
     projectName = 'Claude Relay',
@@ -16,8 +18,18 @@
     const id = $activeSessionId;
     const title = sessionTitle;
     if (!id) return;
+
+    // Snapshot current chat state before leaving fullscreen
+    const chatState = {
+      messages: get(messages),
+      processing: get(processing),
+      thinking: get(thinking).active,
+      currentText: get(currentDelta),
+      isStreaming: !!get(currentDelta),
+    };
+
     leaveSession();
-    openPopup(id, title || 'Session');
+    openPopup(id, title || 'Session', chatState);
   }
 </script>
 

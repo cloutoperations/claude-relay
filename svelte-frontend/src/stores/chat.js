@@ -99,10 +99,36 @@ export function resetChat() {
   isStreaming = false;
 }
 
+// Pending seed state for popup→fullscreen transition.
+// Applied after resetChat() when session switches.
+let pendingSeed = null;
+
+export function seedChat(state) {
+  pendingSeed = state || null;
+}
+
+function applyPendingSeed() {
+  const state = pendingSeed;
+  pendingSeed = null;
+  if (!state) return;
+  if (state.messages) messages.set(state.messages);
+  if (state.processing) {
+    processing.set(true);
+    activity.set('Processing...');
+  }
+  if (state.thinking) thinking.set({ active: true, text: '' });
+  if (state.currentText) {
+    currentDelta.set(state.currentText);
+    currentFullText = state.currentText;
+    isStreaming = true;
+  }
+}
+
 // Reset when session switches — but NOT during re-key (temp→real ID swap)
 activeSessionId.subscribe(() => {
   if (sessionRekeying) return;
   resetChat();
+  applyPendingSeed();
 });
 
 // Handle all chat-related WebSocket messages

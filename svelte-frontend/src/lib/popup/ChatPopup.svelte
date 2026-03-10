@@ -1,6 +1,7 @@
 <script>
   import { toggleMinimize, closePopup, sendPopupMessage, sendPopupPermissionResponse, stopPopupProcessing, minimizeAll } from '../../stores/popups.js';
   import { switchSession } from '../../stores/sessions.js';
+  import { seedChat } from '../../stores/chat.js';
   import MessageList from '../chat/MessageList.svelte';
   import InputArea from '../chat/InputArea.svelte';
 
@@ -13,6 +14,13 @@
 
   function handleExpand(e) {
     e.stopPropagation();
+    // Seed fullscreen chat with popup's current state before switching
+    seedChat({
+      messages: popup.messages,
+      processing: popup.processing,
+      thinking: popup.thinking,
+      currentText: popup.currentText,
+    });
     minimizeAll();
     closePopup(popup.sessionId);
     switchSession(popup.sessionId);

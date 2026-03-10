@@ -60,7 +60,7 @@ onMessage((msg) => {
   }, 500);
 });
 
-export function openPopup(sessionId, title) {
+export function openPopup(sessionId, title, initialState = null) {
   const current = get(popups);
 
   // Already open? Un-minimize
@@ -79,25 +79,27 @@ export function openPopup(sessionId, title) {
     closePopup(toClose);
   }
 
-  // Create new popup state
+  // Create new popup state — seed from initialState if provided (e.g. fullscreen→popup)
   popups.update(p => ({
     ...p,
     [sessionId]: {
       sessionId,
       title: title || 'Session',
       minimized: false,
-      processing: false,
-      status: 'idle', // idle | processing | done | permission
-      messages: [],
-      currentText: '',
-      isStreaming: false,
-      thinking: false,
+      processing: initialState?.processing || false,
+      status: initialState?.processing ? 'processing' : 'idle',
+      messages: initialState?.messages || [],
+      currentText: initialState?.currentText || '',
+      isStreaming: initialState?.isStreaming || false,
+      thinking: initialState?.thinking || false,
       hasUnread: false,
-      loadingHistory: false,
+      loadingHistory: !initialState, // only show loading if no seed data
     }
   }));
 
   // Tell server to start streaming this session
+  // If we have initial state, server will still replay history —
+  // popup_history_start will replace our seeded messages with the full replay
   send({ type: 'popup_open', sessionId });
   saveLayout();
 }
