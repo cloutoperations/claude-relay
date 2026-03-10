@@ -86,6 +86,19 @@
     return items;
   });
 
+  const thinkingVerbs = [
+    'Thinking', 'Reasoning', 'Analyzing', 'Considering', 'Processing',
+    'Evaluating', 'Pondering', 'Exploring', 'Investigating', 'Working'
+  ];
+  let thinkingVerb = $state(thinkingVerbs[0]);
+
+  // Pick a new random verb when thinking starts
+  $effect(() => {
+    if (thinking.active) {
+      thinkingVerb = thinkingVerbs[Math.floor(Math.random() * thinkingVerbs.length)];
+    }
+  });
+
   // Count running agents for status line context
   let runningAgentCount = $derived(
     processing ? messages.filter(m => m.type === 'tool' && m.isAgent && m.status === 'running').length : 0
@@ -166,7 +179,7 @@
         <div class="live-status-dots">
           <span></span><span></span><span></span>
         </div>
-        <span class="live-status-text">Thinking...</span>
+        <span class="live-status-text">{thinkingVerb}...</span>
       {:else if activity}
         <div class="live-status-spinner"></div>
         {#if runningAgentCount > 1}
@@ -177,7 +190,7 @@
         <div class="live-status-dots">
           <span></span><span></span><span></span>
         </div>
-        <span class="live-status-text">Processing...</span>
+        <span class="live-status-text">{thinkingVerb}...</span>
       {/if}
     </div>
   {/if}

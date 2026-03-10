@@ -18,7 +18,7 @@
 
 {#if !isHidden}
   {#if compact}
-    <!-- Compact: single-line tool indicator -->
+    <!-- Compact: single-line tool indicator, with subtools for agents -->
     <div class="cp-tool cp-tool-{status}">
       <div class="cp-tool-indicator">
         {#if status === 'running'}
@@ -34,6 +34,22 @@
         <span class="cp-tool-subtitle">{subtitle}</span>
       {/if}
     </div>
+    {#if subTools && subTools.length > 0}
+      <div class="cp-subtools">
+        {#each subTools.slice(-5) as st}
+          <div class="cp-subtool-entry">
+            <span class="cp-subtool-dot"></span>
+            <span class="cp-subtool-name">{st.name}</span>
+            {#if st.subtitle}
+              <span class="cp-subtool-text">{st.subtitle}</span>
+            {/if}
+          </div>
+        {/each}
+        {#if subTools.length > 5}
+          <div class="cp-subtool-more">+{subTools.length - 5} more</div>
+        {/if}
+      </div>
+    {/if}
   {:else}
     <!-- Full: expandable tool card -->
     <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -278,6 +294,53 @@
   .cp-tool-done { color: #4a4843; }
   .cp-tool-done .cp-tool-indicator { color: #57AB5A; }
   .cp-tool-error { color: #E5534B; }
+
+  /* ─── Compact subtools ─── */
+  .cp-subtools {
+    margin: 1px 0 2px 24px;
+    border-left: 1.5px solid #3e3c37;
+    padding-left: 8px;
+    max-height: 70px;
+    overflow-y: auto;
+  }
+
+  .cp-subtool-entry {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 0;
+    font-size: 10px;
+  }
+
+  .cp-subtool-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #5a5650;
+    flex-shrink: 0;
+  }
+
+  .cp-subtool-name {
+    color: #6d6860;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .cp-subtool-text {
+    color: #4a4843;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 9px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .cp-subtool-more {
+    font-size: 9px;
+    color: #4a4843;
+    padding: 1px 0;
+  }
 
   /* ─── Shared animations ─── */
   @keyframes spin { to { transform: rotate(360deg); } }
