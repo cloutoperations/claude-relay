@@ -3,23 +3,25 @@
 
   let { text = '', finalized = false, compact = false } = $props();
 
+  // Render markdown reactively — no bind:this race condition
+  let renderedHtml = $derived(text ? renderMarkdown(text) : '');
+
+  // Highlight code blocks after HTML is in the DOM
   let contentEl = $state(null);
   let lastHighlighted = '';
 
   $effect(() => {
-    if (contentEl && text) {
-      contentEl.innerHTML = renderMarkdown(text);
-      if (finalized && lastHighlighted !== text) {
-        lastHighlighted = text;
-        highlightCodeBlocks(contentEl);
-      }
+    if (contentEl && renderedHtml && finalized && lastHighlighted !== text) {
+      lastHighlighted = text;
+      // Use tick to ensure DOM has updated with {@html}
+      queueMicrotask(() => highlightCodeBlocks(contentEl));
     }
   });
 
   // Debounced highlighting during streaming
   let highlightTimer;
   $effect(() => {
-    if (contentEl && text && !finalized) {
+    if (contentEl && renderedHtml && !finalized) {
       clearTimeout(highlightTimer);
       highlightTimer = setTimeout(() => {
         highlightCodeBlocks(contentEl);
@@ -57,11 +59,11 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 {#if compact}
   <div class="msg-assistant-compact">
-    <div class="md-content compact" dir="auto" bind:this={contentEl}></div>
+    <div class="md-content compact" dir="auto" bind:this={contentEl}>{@html renderedHtml}</div>
   </div>
 {:else}
   <div class="msg-assistant" class:copy-primed={copyState === 'primed'} class:copy-done={copyState === 'done'} onclick={handleClick}>
-    <div class="md-content" dir="auto" bind:this={contentEl}></div>
+    <div class="md-content" dir="auto" bind:this={contentEl}>{@html renderedHtml}</div>
     {#if finalized}
       <div class="msg-copy-hint">
         {#if copyState === 'idle'}
@@ -160,9 +162,10 @@
   .md-content :global(h2) { font-size: 1.15em; }
   .md-content :global(h3) { font-size: 1.05em; }
 
-  .md-content :global(table) { border-collapse: collapse; width: 100%; margin: 8px 0; }
+  .md-content :global(.table-wrap) { overflow-x: auto; margin: 8px 0; border-radius: 6px; }
+  .md-content :global(table) { border-collapse: collapse; width: 100%; }
   .md-content :global(th), .md-content :global(td) { border: 1px solid #3e3c37; padding: 6px 10px; font-size: 13px; }
-  .md-content :global(th) { background: #2a2924; }
+  .md-content :global(th) { background: #2a2924; font-weight: 600; color: #c8c3b8; white-space: nowrap; }
 
   .md-content :global(hr) { border: none; border-top: 1px solid #3e3c37; margin: 16px 0; }
 

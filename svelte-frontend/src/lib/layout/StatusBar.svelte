@@ -1,5 +1,5 @@
 <script>
-  import { contextData, modelInfo, processing, activity } from '../../stores/chat.js';
+  import { contextData, modelInfo, processing, activity, sessionCost } from '../../stores/chat.js';
   import { connected } from '../../stores/ws.js';
   import { sessions } from '../../stores/sessions.js';
 
@@ -12,14 +12,25 @@
   let contextLevel = $derived(
     contextPercent >= 85 ? 'danger' : contextPercent >= 60 ? 'warn' : 'ok'
   );
+
+  let costDisplay = $derived(
+    $sessionCost > 0
+      ? ($sessionCost < 0.01 ? '<$0.01' : '$' + $sessionCost.toFixed(2))
+      : null
+  );
+
+  let modelShort = $derived(() => {
+    const m = $modelInfo.model || '';
+    return m.replace('claude-', '').replace(/-\d{8}$/, '').split('-').slice(0, 2).join('-');
+  });
 </script>
 
 <div class="status-bar" class:disconnected={!$connected}>
-  <!-- Left: model + context -->
+  <!-- Left: model + context + cost -->
   <div class="sb-left">
     {#if $modelInfo.model}
       <span class="sb-model" title={$modelInfo.model}>
-        {$modelInfo.model.replace('claude-', '').split('-').slice(0, 2).join('-')}
+        {modelShort()}
       </span>
     {/if}
     {#if $contextData.max > 0}
@@ -30,11 +41,19 @@
         <span class="context-label">{contextPercent}%</span>
       </div>
     {/if}
+    {#if costDisplay}
+      <span class="sb-cost" title="Session cost: ${$sessionCost.toFixed(4)}">{costDisplay}</span>
+    {/if}
   </div>
 
-  <!-- Center: active sessions -->
+  <!-- Center: activity when processing -->
   <div class="sb-center">
-    {#if activeSessions.length > 0}
+    {#if $processing && $activity}
+      <span class="sb-activity">
+        <div class="sb-spinner"></div>
+        {$activity}
+      </span>
+    {:else if activeSessions.length > 0}
       <span class="sb-active">
         <span class="active-dot"></span>
         {activeSessions.length} active
@@ -50,13 +69,10 @@
     {/if}
   </div>
 
-  <!-- Right: current activity -->
+  <!-- Right: connection status -->
   <div class="sb-right">
-    {#if $processing && $activity}
-      <span class="sb-activity">
-        <span class="activity-dot"></span>
-        {$activity}
-      </span>
+    {#if !$connected}
+      <span class="sb-disconnected">disconnected</span>
     {/if}
   </div>
 </div>
@@ -78,7 +94,7 @@
   }
 
   .status-bar.disconnected {
-    opacity: 0.5;
+    border-top-color: rgba(229, 83, 75, 0.3);
   }
 
   .sb-left, .sb-center, .sb-right {
@@ -93,6 +109,17 @@
   .sb-right { flex-shrink: 0; }
 
   .sb-model {
+    color: #908b81;
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 10px;
+    padding: 1px 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  /* Cost */
+  .sb-cost {
     color: #908b81;
     font-family: 'SF Mono', Menlo, monospace;
     font-size: 10px;
@@ -133,6 +160,29 @@
     min-width: 24px;
   }
 
+  /* Activity */
+  .sb-activity {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #da7756;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 10px;
+  }
+
+  .sb-spinner {
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid rgba(218, 119, 86, 0.25);
+    border-top-color: #da7756;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+
   /* Active sessions */
   .sb-active {
     display: flex;
@@ -148,11 +198,6 @@
     border-radius: 50%;
     background: #da7756;
     animation: pulse 1.5s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
   }
 
   .sb-session-chip {
@@ -172,22 +217,18 @@
     font-size: 10px;
   }
 
-  /* Activity */
-  .sb-activity {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    color: #c5a13e;
-    white-space: nowrap;
+  /* Disconnected */
+  .sb-disconnected {
+    color: #e5534b;
+    font-size: 10px;
   }
 
-  .sb-activity .activity-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: #c5a13e;
-    animation: pulse 1.5s ease-in-out infinite;
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
   }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   @media (max-width: 600px) {
     .sb-center { display: none; }

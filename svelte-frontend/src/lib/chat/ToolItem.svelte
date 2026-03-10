@@ -1,10 +1,13 @@
 <script>
-  let { name = '', status = 'running', input = null, output = null, compact = false } = $props();
+  let { name = '', status = 'running', input = null, output = null, subtitle = '', subTools = null, compact = false } = $props();
 
   let expanded = $state(false);
 
-  const hiddenTools = new Set(['EnterPlanMode', 'ExitPlanMode', 'TodoWrite', 'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet']);
+  const hiddenTools = new Set(['EnterPlanMode', 'ExitPlanMode', 'TodoWrite', 'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet', 'TaskOutput', 'TaskStop']);
   let isHidden = $derived(hiddenTools.has(name));
+
+  // Display name: both "Task" and "Agent" are subagent spawners
+  let displayName = $derived(name === 'Task' || name === 'Agent' ? 'Agent' : name);
 
   function formatInput(inp) {
     if (!inp) return '';
@@ -26,7 +29,10 @@
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         {/if}
       </div>
-      <span class="cp-tool-name">{name}</span>
+      <span class="cp-tool-name">{displayName}</span>
+      {#if subtitle}
+        <span class="cp-tool-subtitle">{subtitle}</span>
+      {/if}
     </div>
   {:else}
     <!-- Full: expandable tool card -->
@@ -43,12 +49,29 @@
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           {/if}
         </span>
-        <span class="tool-name">{name}</span>
+        <span class="tool-name">{displayName}</span>
+        {#if subtitle}
+          <span class="tool-subtitle">{subtitle}</span>
+        {/if}
         {#if status === 'running'}
           <span class="tool-running">running</span>
         {/if}
         <span class="tool-expand">{expanded ? '▾' : '▸'}</span>
       </div>
+
+      {#if subTools && subTools.length > 0}
+        <div class="subagent-log">
+          {#each subTools as st, idx}
+            <div class="subagent-entry">
+              <span class="subagent-bullet"></span>
+              <span class="subagent-tool-name">{st.name}</span>
+              {#if st.subtitle}
+                <span class="subagent-subtitle">{st.subtitle}</span>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
 
       {#if expanded}
         <div class="tool-details">
@@ -77,7 +100,6 @@
     background: #2a2924;
     border: 1px solid #3e3c37;
     border-radius: 8px;
-    overflow: hidden;
     cursor: pointer;
   }
 
@@ -115,18 +137,32 @@
     color: #d4d0c8;
     font-family: 'SF Mono', 'Fira Code', monospace;
     font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .tool-subtitle {
+    color: #908b81;
+    font-size: 12px;
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
   }
 
   .tool-running {
     font-size: 11px;
     color: #c5a13e;
     animation: pulse 1.5s ease-in-out infinite;
+    flex-shrink: 0;
   }
 
   .tool-expand {
     margin-left: auto;
     color: #6d6860;
     font-size: 11px;
+    flex-shrink: 0;
   }
 
   .tool-details {
@@ -155,6 +191,48 @@
     overflow-y: auto;
     white-space: pre-wrap;
     word-break: break-all;
+  }
+
+  /* ─── Subagent log ─── */
+  .subagent-log {
+    margin: 0 12px 6px 34px;
+    border-left: 2px solid #3e3c37;
+    padding-left: 10px;
+    max-height: 80px;
+    overflow-y: auto;
+  }
+
+  .subagent-entry {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    font-size: 11px;
+  }
+
+  .subagent-bullet {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #6d6860;
+    flex-shrink: 0;
+  }
+
+  .subagent-tool-name {
+    color: #908b81;
+    font-weight: 600;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .subagent-subtitle {
+    color: #6d6860;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
 
   /* ─── Compact mode ─── */
@@ -187,7 +265,15 @@
     animation: spin 0.7s linear infinite;
   }
 
-  .cp-tool-name { font-weight: 500; }
+  .cp-tool-name { font-weight: 500; flex-shrink: 0; }
+  .cp-tool-subtitle {
+    color: #4a4843;
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
   .cp-tool-running { color: #da7756; }
   .cp-tool-done { color: #4a4843; }
   .cp-tool-done .cp-tool-indicator { color: #57AB5A; }

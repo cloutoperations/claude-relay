@@ -6,7 +6,10 @@ import hljs from 'highlight.js';
 marked.use({ gfm: true, breaks: false });
 
 export function renderMarkdown(text) {
-  return DOMPurify.sanitize(marked.parse(text));
+  let html = DOMPurify.sanitize(marked.parse(text));
+  // Wrap tables in scrollable container
+  html = html.replace(/<table>/g, '<div class="table-wrap"><table>').replace(/<\/table>/g, '</table></div>');
+  return html;
 }
 
 export function highlightCodeBlocks(el) {

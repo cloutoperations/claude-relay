@@ -20,6 +20,7 @@
       processing: popup.processing,
       thinking: popup.thinking,
       currentText: popup.currentText,
+      tasks: popup.tasks,
     });
     minimizeAll();
     closePopup(popup.sessionId);
@@ -86,10 +87,12 @@
     <MessageList
       messages={popup.messages}
       processing={popup.processing}
+      activity={popup.activity}
       thinking={{ active: popup.thinking, text: '' }}
       loadingHistory={popup.loadingHistory}
       compact={true}
       onPermissionRespond={handlePermissionRespond}
+      taskItems={popup.tasks || []}
     />
     <InputArea
       processing={popup.processing}

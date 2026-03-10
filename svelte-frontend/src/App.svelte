@@ -7,7 +7,6 @@
 
   import Header from './lib/layout/Header.svelte';
   import Sidebar from './lib/layout/Sidebar.svelte';
-  import StatusBar from './lib/layout/StatusBar.svelte';
   import MessageList from './lib/chat/MessageList.svelte';
   import InputArea from './lib/chat/InputArea.svelte';
   import FileViewer from './lib/files/FileViewer.svelte';
@@ -85,7 +84,6 @@
       />
     {/if}
   </div>
-  <StatusBar />
 </div>
 
 <ChatPopupManager />
