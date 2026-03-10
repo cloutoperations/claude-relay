@@ -3,6 +3,8 @@
   import { sidebarOpen } from '../../stores/ui.js';
   import { openPopup } from '../../stores/popups.js';
   import { projectInfo } from '../../stores/chat.js';
+  import FileTree from '../files/FileTree.svelte';
+  import { activeFile } from '../../stores/files.js';
 
   const ACCOUNT_COLORS = ['#da7756', '#5b9fd6', '#57ab5a', '#c084fc', '#f59e0b', '#ec4899'];
 
@@ -172,12 +174,7 @@
         {/if}
       </div>
     {:else}
-      <div class="files-placeholder">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.3;">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-        </svg>
-        <span>File browser coming soon</span>
-      </div>
+      <FileTree />
     {/if}
   </div>
 
@@ -459,19 +456,6 @@
     font-size: 13px;
     color: #6b6760;
     text-align: center;
-    font-style: italic;
-  }
-
-  /* Files placeholder */
-  .files-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 48px 16px;
-    color: #6b6760;
-    font-size: 13px;
     font-style: italic;
   }
 

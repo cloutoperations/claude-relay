@@ -7,9 +7,12 @@
 
   import Header from './lib/layout/Header.svelte';
   import Sidebar from './lib/layout/Sidebar.svelte';
+  import StatusBar from './lib/layout/StatusBar.svelte';
   import MessageList from './lib/chat/MessageList.svelte';
   import InputArea from './lib/chat/InputArea.svelte';
+  import FileViewer from './lib/files/FileViewer.svelte';
   import ChatPopupManager from './lib/popup/ChatPopupManager.svelte';
+  import { activeFile } from './stores/files.js';
 
   onMount(() => {
     connect();
@@ -53,6 +56,8 @@
         <div class="connect-spinner"></div>
         <div class="connect-text">Connecting to relay...</div>
       </div>
+    {:else if $activeFile}
+      <FileViewer />
     {:else if !$activeSessionId}
       <div class="home-view">
         <div class="home-content">
@@ -80,6 +85,7 @@
       />
     {/if}
   </div>
+  <StatusBar />
 </div>
 
 <ChatPopupManager />

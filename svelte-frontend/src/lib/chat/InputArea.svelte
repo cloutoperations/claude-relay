@@ -1,5 +1,6 @@
 <script>
   import { connected } from '../../stores/ws.js';
+  import { slashCommands } from '../../stores/chat.js';
 
   let {
     processing = false,
@@ -10,6 +11,25 @@
 
   let inputText = $state('');
   let textareaEl = $state(null);
+  let showSlashMenu = $state(false);
+  let slashActiveIdx = $state(0);
+
+  // Built-in commands
+  const builtinCommands = [
+    { name: 'clear', desc: 'Clear conversation' },
+    { name: 'context', desc: 'Context window usage' },
+    { name: 'rewind', desc: 'Toggle rewind mode' },
+    { name: 'usage', desc: 'Toggle usage panel' },
+    { name: 'status', desc: 'Process status' },
+  ];
+
+  let allCommands = $derived([...builtinCommands, ...$slashCommands]);
+
+  let filteredCommands = $derived.by(() => {
+    if (!showSlashMenu) return [];
+    const query = inputText.startsWith('/') ? inputText.substring(1).toLowerCase() : '';
+    return allCommands.filter(c => c.name.toLowerCase().includes(query)).slice(0, 8);
+  });
 
   function autoResize() {
     if (!textareaEl) return;
@@ -19,6 +39,11 @@
   }
 
   function handleSend() {
+    if (showSlashMenu && filteredCommands.length > 0) {
+      selectSlashCommand(filteredCommands[slashActiveIdx]);
+      return;
+    }
+
     if (processing) {
       if (inputText.trim()) {
         onSend?.(inputText.trim());
@@ -33,10 +58,51 @@
     if (!inputText.trim()) return;
     onSend?.(inputText.trim());
     inputText = '';
+    showSlashMenu = false;
     requestAnimationFrame(autoResize);
   }
 
+  function selectSlashCommand(cmd) {
+    inputText = '/' + cmd.name + ' ';
+    showSlashMenu = false;
+    textareaEl?.focus();
+  }
+
+  function handleInput() {
+    autoResize();
+    // Show slash menu when typing / at start
+    if (inputText.startsWith('/') && !inputText.includes(' ')) {
+      showSlashMenu = true;
+      slashActiveIdx = 0;
+    } else {
+      showSlashMenu = false;
+    }
+  }
+
   function handleKeydown(e) {
+    if (showSlashMenu && filteredCommands.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        slashActiveIdx = (slashActiveIdx + 1) % filteredCommands.length;
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        slashActiveIdx = (slashActiveIdx - 1 + filteredCommands.length) % filteredCommands.length;
+        return;
+      }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        selectSlashCommand(filteredCommands[slashActiveIdx]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        showSlashMenu = false;
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -45,13 +111,31 @@
 </script>
 
 <div class="input-area" class:compact class:disconnected={!$connected}>
+  <!-- Slash command menu -->
+  {#if showSlashMenu && filteredCommands.length > 0 && !compact}
+    <div class="slash-menu">
+      {#each filteredCommands as cmd, i (cmd.name)}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="slash-item"
+          class:active={i === slashActiveIdx}
+          onclick={() => selectSlashCommand(cmd)}
+        >
+          <span class="slash-name">/{cmd.name}</span>
+          <span class="slash-desc">{cmd.desc}</span>
+        </div>
+      {/each}
+    </div>
+  {/if}
+
   {#if compact}
     <!-- Compact: pill input + round send button -->
     <div class="input-wrap-compact">
       <textarea
         bind:this={textareaEl}
         bind:value={inputText}
-        oninput={autoResize}
+        oninput={handleInput}
         onkeydown={handleKeydown}
         rows="1"
         placeholder="Message..."
@@ -72,9 +156,9 @@
       <textarea
         bind:this={textareaEl}
         bind:value={inputText}
-        oninput={autoResize}
+        oninput={handleInput}
         onkeydown={handleKeydown}
-        placeholder={$connected ? 'Message Claude...' : 'Connecting...'}
+        placeholder={$connected ? 'Message Claude... (type / for commands)' : 'Connecting...'}
         disabled={!$connected}
         rows="1"
       ></textarea>
@@ -97,11 +181,55 @@
   /* ─── Shared ─── */
   .input-area {
     flex-shrink: 0;
+    position: relative;
   }
 
   .input-area.disconnected {
     opacity: 0.5;
     pointer-events: none;
+  }
+
+  /* ─── Slash menu ─── */
+  .slash-menu {
+    position: absolute;
+    bottom: 100%;
+    left: 20px;
+    right: 20px;
+    background: #2a2924;
+    border: 1px solid #3e3c37;
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 4px;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+  }
+
+  .slash-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .slash-item:hover,
+  .slash-item.active {
+    background: rgba(218, 119, 86, 0.12);
+  }
+
+  .slash-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #da7756;
+    font-family: 'SF Mono', Menlo, monospace;
+    min-width: 80px;
+  }
+
+  .slash-desc {
+    font-size: 12px;
+    color: #908b81;
   }
 
   /* ─── Full mode ─── */
