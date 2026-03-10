@@ -63,6 +63,31 @@
   flex-shrink: 0;
 }
 
+.sidebar-board-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sidebar-board-btn:hover {
+  color: var(--accent);
+  border-color: var(--border);
+  background: var(--sidebar-hover);
+}
+
+.sidebar-board-btn.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+
 #sidebar-nav {
   display: flex;
   flex-direction: column;

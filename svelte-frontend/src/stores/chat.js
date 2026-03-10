@@ -77,6 +77,9 @@ export function sendMessage(text, images, pastes) {
     turn: turnCounter,
   }]);
 
+  processing.set(true);
+  thinking.set({ active: true, text: '' });
+
   const msg = { type: 'message', text };
   if (images && images.length > 0) msg.images = images;
   if (pastes && pastes.length > 0) msg.pastes = pastes;

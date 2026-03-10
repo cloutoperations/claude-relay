@@ -25,6 +25,7 @@
       <button id="home-btn" class="sidebar-logo">
         <svg class="footer-mascot" viewBox="0 0 12 12" width="16" height="16"><rect x="0" y="0" width="12" height="12" rx="2" fill="#3E3C37"/><rect x="5" y="0" width="1" height="1" fill="#6D6860"/><rect x="6" y="0" width="1" height="1" fill="#6D6860"/><rect x="5" y="1" width="1" height="1" fill="#6D6860"/><rect x="6" y="1" width="1" height="1" fill="#6D6860"/><rect x="2" y="2" width="8" height="2" fill="#908B81"/><rect x="2" y="4" width="1" height="2" fill="#908B81"/><rect x="3" y="4" width="1" height="2" fill="#262522"/><rect x="4" y="4" width="4" height="2" fill="#908B81"/><rect x="8" y="4" width="1" height="2" fill="#262522"/><rect x="9" y="4" width="1" height="2" fill="#908B81"/><rect x="0" y="6" width="12" height="2" fill="#908B81"/><rect x="2" y="8" width="8" height="2" fill="#908B81"/><rect x="2" y="10" width="1" height="2" fill="#908B81"/><rect x="4" y="10" width="1" height="2" fill="#908B81"/><rect x="7" y="10" width="1" height="2" fill="#908B81"/><rect x="9" y="10" width="1" height="2" fill="#908B81"/></svg>
       </button>
+      <button id="board-btn" title="Command Post" class="sidebar-board-btn"><i data-lucide="layout-dashboard"></i></button>
       <button id="sidebar-toggle-btn" title="Close sidebar"><i data-lucide="panel-left-close"></i></button>
     </div>
     <nav id="sidebar-nav">
@@ -165,6 +166,8 @@
         <span class="status-dot" id="status-dot"></span>
       </div>
     </div>
+    <div id="workspace-wrapper">
+    <div id="workspace-main">
     <div id="file-viewer-tabs">
       <div id="file-viewer-tabs-scroll"></div>
       <div class="file-viewer-tabs-actions">
@@ -180,6 +183,7 @@
       <div class="connect-verb" id="connect-verb"></div>
       <div class="connect-status" id="connect-status">Connecting...</div>
     </div>
+    <div id="board-view" class="hidden"></div>
     <div id="home-view" class="hidden">
       <div class="home-content">
         <div class="home-hero">
@@ -326,6 +330,9 @@
         </div>
       </div>
     </div>
+  </div><!-- /workspace-main -->
+  <div id="workspace-rail" class="hidden"></div>
+  </div><!-- /workspace-wrapper -->
   </div>
   <div id="file-viewer-divider" class="hidden"></div>
   <div id="file-viewer" class="hidden">
@@ -457,6 +464,8 @@
     </div>
   </div>
 </div>
+
+<div id="chat-popups"></div>
 
 <div id="file-search-modal" class="hidden">
   <div class="confirm-backdrop"></div>

@@ -8,13 +8,13 @@ export default defineConfig({
     proxy: {
       // Proxy all /p/ routes (including WebSocket) to relay dev server
       '/p/': {
-        target: 'https://localhost:2700',
+        target: 'https://localhost:2633',
         ws: true,
         secure: false, // accept self-signed certs
       },
       // Proxy API calls
       '/api': {
-        target: 'https://localhost:2700',
+        target: 'https://localhost:2633',
         secure: false,
       },
     },

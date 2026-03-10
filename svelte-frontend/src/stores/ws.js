@@ -17,7 +17,7 @@ function getWsUrl() {
 
   // Vite dev — proxy through Vite to relay
   if (loc.port === '5173') {
-    return proto + '//' + loc.host + '/p/clout-operations/ws';
+    return proto + '//' + loc.host + '/p/code/ws';
   }
 
   var slugMatch = loc.pathname.match(/^\/p\/([a-z0-9_-]+)/);
@@ -27,7 +27,7 @@ function getWsUrl() {
 
 export function getBasePath() {
   if (location.port === '5173') {
-    return '/p/clout-operations/';
+    return '/p/code/';
   }
   var slugMatch = location.pathname.match(/^\/p\/([a-z0-9_-]+)/);
   return slugMatch ? '/p/' + slugMatch[1] + '/' : '/';

@@ -214,7 +214,9 @@ onMessage((msg) => {
 
   popups.update(p => {
     const popup = p[sessionId];
-    if (!popup) return p;
+    if (!popup) {
+      return p;
+    }
 
     let updated = { ...popup };
     const t = msg.type;
@@ -329,6 +331,19 @@ onMessage((msg) => {
       updated.messages = updated.messages.map(m =>
         m.type === 'tool' && m.toolId === msg.agentId ? { ...m, status: 'done' } : m
       );
+    } else if (t === 'session_id') {
+      // Session ID re-keyed (temp → real CLI ID)
+      // Move popup entry from old ID to new ID
+      // Server already updates cstate.popups in onSessionRekey
+      const newId = msg.cliSessionId;
+      if (newId && newId !== sessionId) {
+        updated.sessionId = newId;
+        const next = { ...p };
+        delete next[sessionId];
+        next[newId] = updated;
+        saveLayout();
+        return next;
+      }
     }
     // Ignore: history_meta, context_usage, message_uuid, session_list, client_count, etc.
 

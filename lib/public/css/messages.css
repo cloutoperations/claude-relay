@@ -66,7 +66,7 @@
 #todo-sticky.collapsed .todo-sticky-active .lucide { width: 12px; height: 12px; color: var(--accent); flex-shrink: 0; }
 #todo-sticky.collapsed .todo-sticky-title { flex: none; }
 
-#todo-sticky .todo-sticky-progress { height: 2px; background: var(--border); }
+#todo-sticky .todo-sticky-progress { height: 2px; background: var(--border); overflow: hidden; }
 #todo-sticky .todo-sticky-progress-bar { height: 100%; background: var(--success); transition: width 0.3s ease; }
 
 #todo-sticky .todo-sticky-items { padding: 0 4px 6px; }
@@ -1132,6 +1132,7 @@ pre.mermaid-error {
   background: var(--border);
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .todo-progress-bar {
@@ -1168,6 +1169,78 @@ pre.mermaid-error {
 .todo-item.pending .todo-item-text { color: var(--text-muted); }
 .todo-item.in-progress .todo-item-text { color: var(--text); }
 .todo-item.completed .todo-item-text { color: var(--text-dimmer); text-decoration: line-through; }
+
+/* --- Todo elapsed time --- */
+.todo-elapsed, .todo-sticky-elapsed {
+  font-size: 11px;
+  font-family: "SF Mono", Menlo, Monaco, monospace;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+/* --- Todo status change animation --- */
+@keyframes todo-status-flash {
+  0% { background: rgba(99, 102, 241, 0.15); }
+  100% { background: transparent; }
+}
+.todo-item.status-changed,
+#todo-sticky .todo-sticky-item.status-changed {
+  animation: todo-status-flash 0.8s ease-out;
+}
+
+/* --- Progress bar pulse when active --- */
+@keyframes progress-pulse {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+.todo-progress-bar.active,
+.todo-sticky-progress-bar.active {
+  position: relative;
+}
+.todo-progress-bar.active::after,
+.todo-sticky-progress-bar.active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: progress-pulse 2s ease-in-out infinite;
+}
+
+/* --- Sticky fade-out for "All done" celebration --- */
+#todo-sticky.todo-fade-out {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+/* --- "All done" inner accent --- */
+#todo-sticky .todo-done-inner {
+  border-color: rgba(87, 171, 90, 0.3);
+}
+#todo-sticky .todo-done-inner .todo-sticky-icon { color: var(--success); }
+#todo-sticky .todo-done-inner .todo-sticky-title { color: var(--success); font-weight: 700; }
+
+/* --- Scroll-to-widget button in sticky --- */
+#todo-sticky .todo-sticky-scroll {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+#todo-sticky .todo-sticky-scroll:hover {
+  color: var(--accent);
+  background: rgba(255, 255, 255, 0.06);
+}
+#todo-sticky .todo-sticky-scroll .lucide { width: 12px; height: 12px; }
 
 /* ==========================================================================
    Turn Metadata & System Messages

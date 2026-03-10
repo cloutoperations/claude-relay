@@ -41,7 +41,7 @@
   --shadow-rgb: 0,0,0;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --content-width: 760px;
+  --content-width: 900px;
 }
 
 html, body {

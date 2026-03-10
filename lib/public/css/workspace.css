@@ -1,0 +1,179 @@
+/* ==========================================================================
+   Workspace — Side rail session browser + layout wrapper
+   ========================================================================== */
+
+/* --- Hidden states --- */
+#workspace-rail.hidden { display: none; }
+
+/* --- Workspace layout wrapper --- */
+#workspace-wrapper {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#workspace-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* --- Side rail: session browser --- */
+#workspace-rail {
+  width: 240px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--sidebar-bg);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+#workspace-rail::-webkit-scrollbar { width: 6px; }
+#workspace-rail::-webkit-scrollbar-track { background: transparent; }
+#workspace-rail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.ws-rail-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dimmer);
+  padding: 12px 12px 8px;
+}
+
+.ws-rail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 6px 12px;
+}
+
+.ws-rail-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.ws-rail-item:hover { background: var(--sidebar-hover); }
+
+.ws-rail-item-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ws-rail-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ws-rail-idle .ws-rail-dot { background: var(--text-dimmer); }
+
+.ws-rail-processing .ws-rail-dot {
+  background: var(--accent);
+  animation: ws-pulse 1.5s ease-in-out infinite;
+}
+
+.ws-rail-done .ws-rail-dot { background: var(--success); }
+
+.ws-rail-permission .ws-rail-dot {
+  background: #E5534B;
+  box-shadow: 0 0 4px #E5534B;
+}
+
+.ws-rail-question .ws-rail-dot {
+  background: #7B93DB;
+  box-shadow: 0 0 4px #7B93DB;
+}
+
+@keyframes ws-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.ws-rail-title {
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.ws-rail-status {
+  font-size: 10px;
+  color: var(--text-dimmer);
+  margin-top: 2px;
+  padding-left: 13px;
+}
+
+.ws-rail-processing .ws-rail-status { color: var(--accent); }
+.ws-rail-done .ws-rail-status { color: var(--success); }
+.ws-rail-question .ws-rail-status { color: #7B93DB; }
+
+/* --- Permission inline actions --- */
+.ws-rail-permission {
+  margin-top: 6px;
+  padding-left: 13px;
+}
+
+.ws-rail-perm-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-rail-perm-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ws-rail-btn {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.ws-rail-allow {
+  background: var(--success);
+  color: white;
+}
+
+.ws-rail-allow:hover { filter: brightness(1.1); }
+
+.ws-rail-deny {
+  background: var(--border);
+  color: var(--text-secondary);
+}
+
+.ws-rail-deny:hover { background: var(--text-dimmer); color: white; }
+
+.ws-rail-empty {
+  font-size: 12px;
+  color: var(--text-dimmer);
+  padding: 20px 12px;
+  text-align: center;
+  font-style: italic;
+}
+
+/* --- Responsive: hide rail on small screens --- */
+@media (max-width: 900px) {
+  #workspace-rail {
+    display: none;
+  }
+}
