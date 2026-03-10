@@ -422,7 +422,7 @@ function processPopupEvent(buf, msg, t, sessionId) {
     const subtitle = toolSubtitle(toolName, msg.input);
     for (let i = buf.msgs.length - 1; i >= 0; i--) {
       if (buf.msgs[i].type === 'tool' && buf.msgs[i].toolId === msg.id) {
-        buf.msgs[i] = { ...buf.msgs[i], subtitle };
+        buf.msgs[i] = { ...buf.msgs[i], input: msg.input, subtitle };
         break;
       }
     }
@@ -432,7 +432,7 @@ function processPopupEvent(buf, msg, t, sessionId) {
   } else if (t === 'tool_result') {
     for (let i = buf.msgs.length - 1; i >= 0; i--) {
       if (buf.msgs[i].type === 'tool' && buf.msgs[i].toolId === msg.id) {
-        buf.msgs[i] = { ...buf.msgs[i], status: msg.is_error ? 'error' : 'done' };
+        buf.msgs[i] = { ...buf.msgs[i], status: msg.is_error ? 'error' : 'done', output: msg.content || msg.output };
         break;
       }
     }
@@ -578,7 +578,7 @@ function processPopupEventLive(updated, msg, t, sessionId) {
     const subtitle = toolSubtitle(toolName, msg.input);
     updated.activity = toolActivityText(toolName, msg.input);
     updated.messages = updated.messages.map(m =>
-      m.type === 'tool' && m.toolId === msg.id ? { ...m, subtitle } : m
+      m.type === 'tool' && m.toolId === msg.id ? { ...m, input: msg.input, subtitle } : m
     );
     if (TASK_TOOLS.has(toolName)) {
       updated.tasks = handleTaskInput(updated, toolName, msg.input);
@@ -586,7 +586,7 @@ function processPopupEventLive(updated, msg, t, sessionId) {
   } else if (t === 'tool_result') {
     updated.messages = updated.messages.map(m =>
       m.type === 'tool' && m.toolId === msg.id
-        ? { ...m, status: msg.is_error ? 'error' : 'done' }
+        ? { ...m, status: msg.is_error ? 'error' : 'done', output: msg.content || msg.output }
         : m
     );
   } else if (t === 'permission_request' || t === 'permission_request_pending') {
