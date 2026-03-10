@@ -1,15 +1,14 @@
 <script>
   import { renderMarkdown, highlightCodeBlocks } from '../../utils/markdown.js';
 
-  let { text = '', finalized = false } = $props();
+  let { text = '', finalized = false, compact = false } = $props();
 
-  let contentEl;
+  let contentEl = $state(null);
   let lastHighlighted = '';
 
   $effect(() => {
     if (contentEl && text) {
       contentEl.innerHTML = renderMarkdown(text);
-      // Only highlight when finalized or periodically
       if (finalized && lastHighlighted !== text) {
         lastHighlighted = text;
         highlightCodeBlocks(contentEl);
@@ -29,11 +28,12 @@
     return () => clearTimeout(highlightTimer);
   });
 
-  // Copy handler
-  let copyState = 'idle'; // idle | primed | done
+  // Copy handler (full mode only)
+  let copyState = $state('idle');
   let resetTimer;
 
   function handleClick(e) {
+    if (compact) return;
     if (e.target.closest('a, pre, code, button')) return;
     const sel = window.getSelection();
     if (sel && sel.toString().length > 0) return;
@@ -55,22 +55,29 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="msg-assistant" class:copy-primed={copyState === 'primed'} class:copy-done={copyState === 'done'} onclick={handleClick}>
-  <div class="md-content" dir="auto" bind:this={contentEl}></div>
-  {#if finalized}
-    <div class="msg-copy-hint">
-      {#if copyState === 'idle'}
-        Click to grab this
-      {:else if copyState === 'primed'}
-        Click again to grab
-      {:else}
-        Grabbed!
-      {/if}
-    </div>
-  {/if}
-</div>
+{#if compact}
+  <div class="msg-assistant-compact">
+    <div class="md-content compact" dir="auto" bind:this={contentEl}></div>
+  </div>
+{:else}
+  <div class="msg-assistant" class:copy-primed={copyState === 'primed'} class:copy-done={copyState === 'done'} onclick={handleClick}>
+    <div class="md-content" dir="auto" bind:this={contentEl}></div>
+    {#if finalized}
+      <div class="msg-copy-hint">
+        {#if copyState === 'idle'}
+          Click to grab this
+        {:else if copyState === 'primed'}
+          Click again to grab
+        {:else}
+          Grabbed!
+        {/if}
+      </div>
+    {/if}
+  </div>
+{/if}
 
 <style>
+  /* ─── Full mode ─── */
   .msg-assistant {
     margin: 4px 0;
     padding: 4px 0;
@@ -78,6 +85,24 @@
     cursor: default;
   }
 
+  /* ─── Compact mode ─── */
+  .msg-assistant-compact {
+    display: flex;
+    padding: 2px 0;
+  }
+
+  .msg-assistant-compact .md-content {
+    max-width: 92%;
+    padding: 8px 12px;
+    background: #262523;
+    border-radius: 14px 14px 14px 4px;
+    font-size: 13px;
+    color: #c8c3b8;
+    line-height: 1.5;
+    word-wrap: break-word;
+  }
+
+  /* ─── Shared md-content ─── */
   .md-content {
     font-size: 14px;
     line-height: 1.6;
@@ -86,14 +111,9 @@
     overflow-wrap: break-word;
   }
 
-  /* Markdown content styles */
-  .md-content :global(p) {
-    margin: 0.5em 0;
-  }
-
-  .md-content :global(p:first-child) {
-    margin-top: 0;
-  }
+  .md-content :global(p) { margin: 0.5em 0; }
+  .md-content :global(p:first-child) { margin-top: 0; }
+  .md-content :global(p:last-child) { margin-bottom: 0; }
 
   .md-content :global(pre) {
     background: #1a1918;
@@ -106,7 +126,7 @@
   }
 
   .md-content :global(code) {
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: 'SF Mono', 'Fira Code', Menlo, monospace;
     font-size: 13px;
   }
 
@@ -117,23 +137,11 @@
     font-size: 0.9em;
   }
 
-  .md-content :global(a) {
-    color: #da7756;
-    text-decoration: none;
-  }
+  .md-content :global(a) { color: #da7756; text-decoration: none; }
+  .md-content :global(a:hover) { text-decoration: underline; }
 
-  .md-content :global(a:hover) {
-    text-decoration: underline;
-  }
-
-  .md-content :global(ul), .md-content :global(ol) {
-    padding-left: 1.5em;
-    margin: 0.5em 0;
-  }
-
-  .md-content :global(li) {
-    margin: 0.25em 0;
-  }
+  .md-content :global(ul), .md-content :global(ol) { padding-left: 1.5em; margin: 0.5em 0; }
+  .md-content :global(li) { margin: 0.25em 0; }
 
   .md-content :global(blockquote) {
     border-left: 3px solid #3e3c37;
@@ -152,28 +160,32 @@
   .md-content :global(h2) { font-size: 1.15em; }
   .md-content :global(h3) { font-size: 1.05em; }
 
-  .md-content :global(table) {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 8px 0;
-  }
+  .md-content :global(table) { border-collapse: collapse; width: 100%; margin: 8px 0; }
+  .md-content :global(th), .md-content :global(td) { border: 1px solid #3e3c37; padding: 6px 10px; font-size: 13px; }
+  .md-content :global(th) { background: #2a2924; }
 
-  .md-content :global(th), .md-content :global(td) {
-    border: 1px solid #3e3c37;
-    padding: 6px 10px;
-    font-size: 13px;
-  }
+  .md-content :global(hr) { border: none; border-top: 1px solid #3e3c37; margin: 16px 0; }
 
-  .md-content :global(th) {
-    background: #2a2924;
-  }
+  .md-content :global(strong) { color: #ddd8ce; font-weight: 600; }
 
-  .md-content :global(hr) {
-    border: none;
-    border-top: 1px solid #3e3c37;
-    margin: 16px 0;
+  /* ─── Compact overrides ─── */
+  .md-content.compact { font-size: 13px; }
+  .md-content.compact :global(p) { margin: 0 0 8px; }
+  .md-content.compact :global(ul),
+  .md-content.compact :global(ol) { margin: 4px 0; padding-left: 18px; }
+  .md-content.compact :global(li) { margin: 2px 0; }
+  .md-content.compact :global(pre) {
+    font-size: 11px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin: 6px 0;
+    background: #141312;
+    border: 1px solid rgba(255, 255, 255, 0.04);
   }
+  .md-content.compact :global(code) { font-size: 11.5px; }
+  .md-content.compact :global(:not(pre) > code) { font-size: 12px; background: rgba(255, 255, 255, 0.06); padding: 1px 5px; }
 
+  /* ─── Copy hint (full mode only) ─── */
   .msg-copy-hint {
     font-size: 11px;
     color: #6d6860;
@@ -182,9 +194,7 @@
     transition: opacity 0.2s;
   }
 
-  .msg-assistant:hover .msg-copy-hint {
-    opacity: 1;
-  }
+  .msg-assistant:hover .msg-copy-hint { opacity: 1; }
 
   .msg-assistant.copy-primed {
     background: rgba(255, 255, 255, 0.02);
@@ -210,11 +220,6 @@
     transition: opacity 0.2s;
   }
 
-  :global(pre:hover .code-copy-btn) {
-    opacity: 1;
-  }
-
-  :global(.code-copy-btn:hover) {
-    color: #e8e5de;
-  }
+  :global(pre:hover .code-copy-btn) { opacity: 1; }
+  :global(.code-copy-btn:hover) { color: #e8e5de; }
 </style>

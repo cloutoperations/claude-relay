@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { connect, connected, onMessage } from './stores/ws.js';
   import { sessions, activeSessionId, activeSession } from './stores/sessions.js';
-  import { projectInfo, clientCount } from './stores/chat.js';
+  import { messages, processing, activity, thinking, historyDone, projectInfo, clientCount, sendMessage, stopProcessing } from './stores/chat.js';
   import { popups, updatePopupTitle } from './stores/popups.js';
 
   import Header from './lib/layout/Header.svelte';
@@ -28,6 +28,14 @@
   });
 
   let sessionTitle = $derived($activeSession?.title || '');
+
+  function handleSend(text) {
+    sendMessage(text);
+  }
+
+  function handleStop() {
+    stopProcessing();
+  }
 </script>
 
 <Sidebar projectName={$projectInfo.name || 'Claude Relay'} />
@@ -59,8 +67,17 @@
         </div>
       </div>
     {:else}
-      <MessageList />
-      <InputArea />
+      <MessageList
+        messages={$messages}
+        processing={$processing}
+        activity={$activity}
+        thinking={$thinking}
+      />
+      <InputArea
+        processing={$processing}
+        onSend={handleSend}
+        onStop={handleStop}
+      />
     {/if}
   </div>
 </div>

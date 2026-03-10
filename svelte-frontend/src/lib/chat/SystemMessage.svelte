@@ -1,8 +1,8 @@
 <script>
-  let { text = '', isError = false } = $props();
+  let { text = '', isError = false, compact = false } = $props();
 </script>
 
-<div class="sys-msg" class:error={isError}>
+<div class="sys-msg" class:error={isError} class:compact>
   <span class="sys-text">{text}</span>
 </div>
 
@@ -14,6 +14,13 @@
     text-align: center;
   }
 
+  .sys-msg.compact {
+    font-size: 11px;
+    color: #5a5650;
+    font-style: italic;
+    padding: 6px 10px;
+  }
+
   .sys-msg.error {
     color: #e5534b;
   }
@@ -22,5 +29,11 @@
     background: rgba(255, 255, 255, 0.03);
     padding: 4px 12px;
     border-radius: 12px;
+  }
+
+  .compact .sys-text {
+    background: none;
+    padding: 0;
+    border-radius: 0;
   }
 </style>

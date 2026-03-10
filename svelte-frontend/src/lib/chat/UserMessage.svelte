@@ -1,10 +1,8 @@
 <script>
-  import { escapeHtml } from '../../utils/markdown.js';
-
-  let { text = '', images = null, pastes = null } = $props();
+  let { text = '', images = null, pastes = null, compact = false } = $props();
 </script>
 
-<div class="msg-user">
+<div class="msg-user" class:compact>
   <div class="bubble" dir="auto">
     {#if images && images.length > 0}
       <div class="bubble-images">
@@ -38,6 +36,11 @@
     margin: 8px 0;
   }
 
+  .msg-user.compact {
+    margin: 2px 0;
+    padding: 2px 0;
+  }
+
   .bubble {
     max-width: 85%;
     padding: 10px 14px;
@@ -47,6 +50,17 @@
     line-height: 1.5;
     color: #e8e5de;
     word-wrap: break-word;
+  }
+
+  .compact .bubble {
+    max-width: 82%;
+    padding: 8px 12px;
+    background: #da7756;
+    color: white;
+    border-radius: 14px 14px 4px 14px;
+    font-size: 13px;
+    line-height: 1.45;
+    font-weight: 400;
   }
 
   .bubble-images {
@@ -61,6 +75,11 @@
     max-height: 200px;
     border-radius: 8px;
     cursor: pointer;
+  }
+
+  .compact .bubble-img {
+    max-width: 120px;
+    max-height: 120px;
   }
 
   .bubble-pastes {
@@ -81,6 +100,11 @@
     cursor: pointer;
   }
 
+  .compact .bubble-paste {
+    font-size: 11px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
   .bubble-paste-preview {
     flex: 1;
     overflow: hidden;
@@ -89,11 +113,19 @@
     color: #908b81;
   }
 
+  .compact .bubble-paste-preview {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
   .bubble-paste-label {
     font-size: 10px;
     font-weight: 600;
     color: #6d6860;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+  }
+
+  .compact .bubble-paste-label {
+    color: rgba(255, 255, 255, 0.5);
   }
 </style>

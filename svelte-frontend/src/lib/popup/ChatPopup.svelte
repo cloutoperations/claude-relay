@@ -1,70 +1,10 @@
 <script>
-  import { renderMarkdown, highlightCodeBlocks } from '../../utils/markdown.js';
   import { toggleMinimize, closePopup, sendPopupMessage, sendPopupPermissionResponse, stopPopupProcessing, minimizeAll } from '../../stores/popups.js';
   import { switchSession } from '../../stores/sessions.js';
+  import MessageList from '../chat/MessageList.svelte';
+  import InputArea from '../chat/InputArea.svelte';
 
   let { popup } = $props();
-
-  let inputText = $state('');
-  let bodyEl;
-  let textareaEl;
-  let prevMsgCount = 0;
-
-  // Auto-scroll when new messages arrive
-  $effect(() => {
-    const count = popup.messages.length;
-    if (bodyEl && count > prevMsgCount && !popup.minimized) {
-      requestAnimationFrame(() => {
-        bodyEl.scrollTop = bodyEl.scrollHeight;
-      });
-    }
-    prevMsgCount = count;
-  });
-
-  // Also auto-scroll on streaming text updates
-  $effect(() => {
-    if (popup.currentText && bodyEl && !popup.minimized) {
-      requestAnimationFrame(() => {
-        bodyEl.scrollTop = bodyEl.scrollHeight;
-      });
-    }
-  });
-
-  // Highlight code in assistant messages after render
-  $effect(() => {
-    if (bodyEl && popup.messages.length > 0) {
-      requestAnimationFrame(() => {
-        bodyEl.querySelectorAll('pre code:not(.hljs)').forEach(block => {
-          try { import('highlight.js').then(m => m.default.highlightElement(block)); } catch {}
-        });
-      });
-    }
-  });
-
-  function handleSend() {
-    if (popup.processing && !inputText.trim()) {
-      stopPopupProcessing(popup.sessionId);
-      return;
-    }
-    if (!inputText.trim()) return;
-    sendPopupMessage(popup.sessionId, inputText.trim());
-    inputText = '';
-    if (textareaEl) textareaEl.style.height = 'auto';
-  }
-
-  function handleKeydown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  }
-
-  function handleInput() {
-    if (textareaEl) {
-      textareaEl.style.height = 'auto';
-      textareaEl.style.height = Math.min(textareaEl.scrollHeight, 100) + 'px';
-    }
-  }
 
   function handleHeaderClick(e) {
     if (e.target.closest('.cp-actions')) return;
@@ -88,30 +28,20 @@
     toggleMinimize(popup.sessionId);
   }
 
-  function handleAllow(requestId) {
-    sendPopupPermissionResponse(popup.sessionId, requestId, 'allow');
+  function handleSend(text) {
+    sendPopupMessage(popup.sessionId, text);
   }
 
-  function handleDeny(requestId) {
-    sendPopupPermissionResponse(popup.sessionId, requestId, 'deny');
+  function handleStop() {
+    stopPopupProcessing(popup.sessionId);
+  }
+
+  function handlePermissionRespond(requestId, decision) {
+    sendPopupPermissionResponse(popup.sessionId, requestId, decision);
   }
 
   function truncate(str, len) {
     return str.length <= len ? str : str.substring(0, len) + '\u2026';
-  }
-
-  // Collapse consecutive tool messages for cleaner display
-  function shouldShowTool(messages, index) {
-    const msg = messages[index];
-    if (msg.type !== 'tool') return true;
-    // Always show running tools
-    if (msg.status === 'running') return true;
-    // Show error tools
-    if (msg.status === 'error') return true;
-    // For done tools, collapse if next message is also a done tool
-    const next = messages[index + 1];
-    if (next && next.type === 'tool' && next.status !== 'running') return false;
-    return true;
   }
 </script>
 
@@ -145,100 +75,20 @@
   </div>
 
   {#if !popup.minimized}
-    <!-- Messages -->
-    <div class="cp-body" bind:this={bodyEl}>
-      {#if popup.loadingHistory}
-        <div class="cp-loading">
-          <div class="cp-loading-dots">
-            <span></span><span></span><span></span>
-          </div>
-          <span>Loading history...</span>
-        </div>
-      {/if}
-
-      {#each popup.messages as msg, i (i)}
-        {#if msg.type === 'user'}
-          <div class="cp-row-user">
-            <div class="cp-msg-user">{msg.text}</div>
-          </div>
-        {:else if msg.type === 'assistant'}
-          <div class="cp-row-assistant">
-            <div class="cp-msg-assistant">
-              <div class="md-content">{@html renderMarkdown(msg.text)}</div>
-            </div>
-          </div>
-        {:else if msg.type === 'tool' && shouldShowTool(popup.messages, i)}
-          <div class="cp-tool cp-tool-{msg.status}">
-            <div class="cp-tool-indicator">
-              {#if msg.status === 'running'}
-                <div class="cp-tool-spinner"></div>
-              {:else if msg.status === 'error'}
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              {:else}
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              {/if}
-            </div>
-            <span class="cp-tool-name">{msg.name}</span>
-          </div>
-        {:else if msg.type === 'permission'}
-          <div class="cp-permission-block" class:resolved={msg.resolved}>
-            <div class="cp-perm-header">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              <span>Permission needed</span>
-            </div>
-            <div class="cp-perm-tool">{msg.toolName}{msg.inputSummary ? ': ' + truncate(msg.inputSummary, 36) : ''}</div>
-            {#if !msg.resolved}
-              <div class="cp-perm-actions">
-                <button class="cp-perm-btn allow" onclick={() => handleAllow(msg.requestId)}>Allow</button>
-                <button class="cp-perm-btn deny" onclick={() => handleDeny(msg.requestId)}>Deny</button>
-              </div>
-            {:else}
-              <div class="cp-perm-resolved">
-                {#if msg.decision === 'allow'}
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  Allowed
-                {:else}
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  {msg.decision === 'deny' ? 'Denied' : 'Cancelled'}
-                {/if}
-              </div>
-            {/if}
-          </div>
-        {:else if msg.type === 'info'}
-          <div class="cp-info">{msg.text}</div>
-        {/if}
-      {/each}
-
-      {#if popup.thinking}
-        <div class="cp-thinking">
-          <div class="cp-thinking-dots">
-            <span></span><span></span><span></span>
-          </div>
-        </div>
-      {/if}
-    </div>
-
-    <!-- Input -->
-    <div class="cp-input-area">
-      <div class="cp-input-wrap">
-        <textarea
-          bind:this={textareaEl}
-          bind:value={inputText}
-          oninput={handleInput}
-          onkeydown={handleKeydown}
-          rows="1"
-          placeholder="Message..."
-          enterkeyhint="send"
-        ></textarea>
-      </div>
-      <button class="cp-send" class:stop={popup.processing && !inputText.trim()} onclick={handleSend}>
-        {#if popup.processing && !inputText.trim()}
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-        {:else}
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-        {/if}
-      </button>
-    </div>
+    <MessageList
+      messages={popup.messages}
+      processing={popup.processing}
+      thinking={{ active: popup.thinking, text: '' }}
+      loadingHistory={popup.loadingHistory}
+      compact={true}
+      onPermissionRespond={handlePermissionRespond}
+    />
+    <InputArea
+      processing={popup.processing}
+      compact={true}
+      onSend={handleSend}
+      onStop={handleStop}
+    />
   {/if}
 </div>
 
@@ -350,337 +200,6 @@
   .cp-actions button:hover {
     background: rgba(255, 255, 255, 0.06);
     color: #a09a90;
-  }
-
-  /* ─── Body ─── */
-  .cp-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 14px 14px 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.08) transparent;
-    background: #1a1918;
-  }
-
-  .cp-body::-webkit-scrollbar { width: 5px; }
-  .cp-body::-webkit-scrollbar-track { background: transparent; }
-  .cp-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
-  .cp-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
-
-  /* ─── Messages ─── */
-  .cp-row-user {
-    display: flex;
-    justify-content: flex-end;
-    padding: 2px 0;
-  }
-
-  .cp-msg-user {
-    max-width: 82%;
-    padding: 8px 12px;
-    background: #da7756;
-    color: white;
-    border-radius: 14px 14px 4px 14px;
-    font-size: 13px;
-    line-height: 1.45;
-    word-wrap: break-word;
-    font-weight: 400;
-  }
-
-  .cp-row-assistant {
-    display: flex;
-    padding: 2px 0;
-  }
-
-  .cp-msg-assistant {
-    max-width: 92%;
-    padding: 8px 12px;
-    background: #262523;
-    border-radius: 14px 14px 14px 4px;
-    font-size: 13px;
-    color: #c8c3b8;
-    line-height: 1.5;
-    word-wrap: break-word;
-  }
-
-  .cp-msg-assistant :global(.md-content) { font-size: 13px; }
-  .cp-msg-assistant :global(.md-content p) { margin: 0 0 8px; }
-  .cp-msg-assistant :global(.md-content p:last-child) { margin-bottom: 0; }
-  .cp-msg-assistant :global(.md-content ul),
-  .cp-msg-assistant :global(.md-content ol) { margin: 4px 0; padding-left: 18px; }
-  .cp-msg-assistant :global(.md-content li) { margin: 2px 0; }
-  .cp-msg-assistant :global(.md-content pre) {
-    font-size: 11px;
-    padding: 8px 10px;
-    border-radius: 8px;
-    overflow-x: auto;
-    margin: 6px 0;
-    background: #141312;
-    border: 1px solid rgba(255, 255, 255, 0.04);
-  }
-  .cp-msg-assistant :global(.md-content code) {
-    font-size: 11.5px;
-    font-family: 'SF Mono', 'Fira Code', Menlo, monospace;
-  }
-  .cp-msg-assistant :global(.md-content code:not(pre code)) {
-    background: rgba(255, 255, 255, 0.06);
-    padding: 1px 5px;
-    border-radius: 4px;
-    font-size: 12px;
-  }
-  .cp-msg-assistant :global(.md-content a) {
-    color: #da7756;
-    text-decoration: none;
-  }
-  .cp-msg-assistant :global(.md-content a:hover) {
-    text-decoration: underline;
-  }
-  .cp-msg-assistant :global(.md-content strong) {
-    color: #ddd8ce;
-    font-weight: 600;
-  }
-
-  /* ─── Tool indicators ─── */
-  .cp-tool {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 3px 10px;
-    margin: 1px 0;
-    font-size: 11px;
-    color: #5a5650;
-    border-radius: 6px;
-  }
-
-  .cp-tool-indicator {
-    width: 14px;
-    height: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .cp-tool-spinner {
-    width: 10px;
-    height: 10px;
-    border: 1.5px solid rgba(218, 119, 86, 0.25);
-    border-top-color: #da7756;
-    border-radius: 50%;
-    animation: cp-spin 0.7s linear infinite;
-  }
-
-  @keyframes cp-spin {
-    to { transform: rotate(360deg); }
-  }
-
-  .cp-tool-name { font-weight: 500; }
-  .cp-tool-running { color: #da7756; }
-  .cp-tool-done { color: #4a4843; }
-  .cp-tool-done .cp-tool-indicator { color: #57AB5A; }
-  .cp-tool-error { color: #E5534B; }
-
-  /* ─── Permission ─── */
-  .cp-permission-block {
-    padding: 10px 12px;
-    border: 1px solid rgba(218, 119, 86, 0.25);
-    border-radius: 10px;
-    background: rgba(218, 119, 86, 0.04);
-    margin: 4px 0;
-  }
-
-  .cp-permission-block.resolved {
-    border-color: rgba(255, 255, 255, 0.06);
-    background: none;
-    opacity: 0.6;
-  }
-
-  .cp-perm-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #da7756;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-  }
-
-  .cp-perm-tool {
-    font-size: 12px;
-    font-weight: 500;
-    color: #c8c3b8;
-    margin-bottom: 8px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-family: 'SF Mono', Menlo, monospace;
-    background: rgba(255, 255, 255, 0.03);
-    padding: 4px 8px;
-    border-radius: 4px;
-  }
-
-  .cp-perm-actions { display: flex; gap: 8px; }
-
-  .cp-perm-btn {
-    flex: 1;
-    font-size: 12px;
-    font-weight: 600;
-    font-family: inherit;
-    padding: 6px 16px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .cp-perm-btn.allow {
-    background: #57AB5A;
-    color: white;
-  }
-  .cp-perm-btn.allow:hover { background: #63bc66; }
-  .cp-perm-btn.deny {
-    background: rgba(255, 255, 255, 0.06);
-    color: #908B81;
-  }
-  .cp-perm-btn.deny:hover { background: rgba(255, 255, 255, 0.1); color: #c8c3b8; }
-
-  .cp-perm-resolved {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    color: #5a5650;
-    font-weight: 500;
-  }
-
-  /* ─── Info ─── */
-  .cp-info {
-    font-size: 11px;
-    color: #5a5650;
-    text-align: center;
-    padding: 6px 10px;
-    font-style: italic;
-  }
-
-  /* ─── Thinking dots ─── */
-  .cp-thinking {
-    padding: 4px 0;
-  }
-
-  .cp-thinking-dots,
-  .cp-loading-dots {
-    display: flex;
-    gap: 4px;
-    padding: 6px 12px;
-  }
-
-  .cp-thinking-dots span,
-  .cp-loading-dots span {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #5a5650;
-    animation: cp-bounce 1.4s ease-in-out infinite;
-  }
-
-  .cp-thinking-dots span:nth-child(2),
-  .cp-loading-dots span:nth-child(2) { animation-delay: 0.16s; }
-  .cp-thinking-dots span:nth-child(3),
-  .cp-loading-dots span:nth-child(3) { animation-delay: 0.32s; }
-
-  @keyframes cp-bounce {
-    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-    40% { transform: scale(1); opacity: 1; }
-  }
-
-  /* ─── Loading ─── */
-  .cp-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding: 20px;
-    color: #5a5650;
-    font-size: 11px;
-  }
-
-  /* ─── Input area ─── */
-  .cp-input-area {
-    flex-shrink: 0;
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-    padding: 10px 12px 12px;
-    background: #1a1918;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-  }
-
-  .cp-input-wrap {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .cp-input-area textarea {
-    width: 100%;
-    min-height: 34px;
-    max-height: 100px;
-    padding: 7px 12px;
-    background: #262523;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 18px;
-    color: #e0dbd2;
-    font-family: inherit;
-    font-size: 13px;
-    line-height: 1.4;
-    resize: none;
-    outline: none;
-    box-sizing: border-box;
-    transition: border-color 0.15s;
-  }
-
-  .cp-input-area textarea:focus {
-    border-color: rgba(218, 119, 86, 0.4);
-  }
-
-  .cp-input-area textarea::placeholder {
-    color: #4a4843;
-  }
-
-  .cp-send {
-    width: 34px;
-    height: 34px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #da7756;
-    border: none;
-    border-radius: 50%;
-    color: white;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: all 0.15s;
-    padding: 0;
-  }
-
-  .cp-send:hover {
-    background: #e08565;
-    transform: scale(1.05);
-  }
-
-  .cp-send:active {
-    transform: scale(0.95);
-  }
-
-  .cp-send.stop {
-    background: #E5534B;
-  }
-
-  .cp-send.stop:hover {
-    background: #f06058;
   }
 
   /* ─── Responsive ─── */
