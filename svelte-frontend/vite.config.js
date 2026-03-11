@@ -12,11 +12,6 @@ export default defineConfig({
         ws: true,
         secure: false, // accept self-signed certs
       },
-      // Proxy API calls
-      '/api': {
-        target: 'https://localhost:2633',
-        secure: false,
-      },
     },
   },
   base: './',

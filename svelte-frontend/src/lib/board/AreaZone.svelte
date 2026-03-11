@@ -32,9 +32,12 @@
   let docContent = $state(null);
   let docLoading = $state(false);
 
-  // Collect all sessions across projects and sub-projects
+  // Collect all sessions across projects, sub-projects, and area-level
   let allSessions = $derived.by(() => {
     const sessions = [];
+    if (area.areaSessions) {
+      for (const s of area.areaSessions) sessions.push({ ...s, projectName: area.name });
+    }
     for (const p of area.projects) {
       for (const s of p.sessions) sessions.push({ ...s, projectName: p.name });
       for (const sub of p.subProjects) {

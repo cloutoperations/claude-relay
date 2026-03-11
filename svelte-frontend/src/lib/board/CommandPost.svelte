@@ -26,8 +26,8 @@
   });
 
   function areaWeight(area) {
-    let sessionCount = 0;
-    let processingCount = 0;
+    let sessionCount = (area.areaSessions?.length || 0);
+    let processingCount = (area.areaSessions?.filter(s => s.isProcessing).length || 0);
     for (const p of area.projects) {
       sessionCount += p.sessions.length;
       processingCount += p.sessions.filter(s => s.isProcessing).length;
