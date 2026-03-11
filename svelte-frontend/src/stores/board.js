@@ -1,5 +1,6 @@
 // Board store — GTD areas, projects, sessions
 import { writable, derived, get } from 'svelte/store';
+import { getBasePath } from './ws.js';
 
 export const boardData = writable(null); // { areas: [], looseSessions: [] }
 export const boardLoading = writable(false);
@@ -23,7 +24,7 @@ export async function fetchBoard() {
   boardLoading.set(true);
   boardError.set(null);
   try {
-    const res = await fetch('./api/board');
+    const res = await fetch(getBasePath() + 'api/board');
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     const data = await res.json();
     boardData.set(data);
@@ -54,7 +55,7 @@ export function toggleProject(projectPath) {
 
 export async function tagSession(sessionId, projectPath) {
   try {
-    await fetch('./api/board/tag-session', {
+    await fetch(getBasePath() + 'api/board/tag-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId, projectPath }),
