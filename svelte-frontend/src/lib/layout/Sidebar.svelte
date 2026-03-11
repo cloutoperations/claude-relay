@@ -5,13 +5,14 @@
   import { projectInfo } from '../../stores/chat.js';
   import { send, onMessage } from '../../stores/ws.js';
   import FileTree from '../files/FileTree.svelte';
+  import ProjectsPanel from '../board/ProjectsPanel.svelte';
   import { activeFilePath } from '../../stores/files.js';
 
   const ACCOUNT_COLORS = ['#da7756', '#5b9fd6', '#57ab5a', '#c084fc', '#f59e0b', '#ec4899'];
 
   let { projectName = 'Claude Relay' } = $props();
 
-  let activeTab = $state('sessions'); // 'sessions' | 'files'
+  let activeTab = $state('sessions'); // 'sessions' | 'files' | 'projects'
   let showAccountPicker = $state(false);
   let pickerAnchorEl = $state(null);
   let searchQuery = $state('');
@@ -212,6 +213,18 @@
       </svg>
       Files
     </button>
+    <button
+      class="sidebar-tab"
+      class:active={activeTab === 'projects'}
+      onclick={() => activeTab = 'projects'}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+        <polyline points="2 17 12 22 22 17"></polyline>
+        <polyline points="2 12 12 17 22 12"></polyline>
+      </svg>
+      Board
+    </button>
   </div>
 
   <!-- Tab content -->
@@ -283,8 +296,10 @@
           <div class="session-empty">No sessions yet</div>
         {/if}
       </div>
-    {:else}
+    {:else if activeTab === 'files'}
       <FileTree />
+    {:else if activeTab === 'projects'}
+      <ProjectsPanel />
     {/if}
   </div>
 
