@@ -5,6 +5,7 @@
   import { projectInfo } from '../../stores/chat.js';
   import AreaZone from './AreaZone.svelte';
   import ActivityStream from './ActivityStream.svelte';
+  import CockpitStrip from './CockpitStrip.svelte';
 
   onMount(() => {
     if (!$boardData) fetchBoard();
@@ -70,6 +71,9 @@
       <span>Loading workspace...</span>
     </div>
   {:else if $boardData}
+    <!-- Cockpit strip at top -->
+    <CockpitStrip />
+
     {#if focused && focusedAreaData}
       <!-- ZOOMED MODE: focused area + compact pills for others -->
       <div class="cp-zoomed">
