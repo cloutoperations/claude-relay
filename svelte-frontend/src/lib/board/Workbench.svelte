@@ -12,7 +12,9 @@
     let count = 0;
     for (const p of area.projects) {
       count += p.sessions.length;
-      for (const sub of p.subProjects) count += sub.sessions.length;
+      for (const sub of p.subProjects) {
+        if (sub.sessions) count += sub.sessions.length;
+      }
     }
     return count;
   }

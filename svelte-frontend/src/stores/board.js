@@ -21,7 +21,7 @@ export const totalBoardSessions = derived(boardData, ($data) => {
   for (const area of $data.areas) {
     for (const project of area.projects) {
       count += project.sessions.length;
-      for (const sub of project.subProjects) count += sub.sessions.length;
+      for (const sub of project.subProjects) { if (sub.sessions) count += sub.sessions.length; }
     }
   }
   return count + ($data.looseSessions?.length || 0);

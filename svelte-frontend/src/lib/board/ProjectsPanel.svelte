@@ -13,7 +13,9 @@
     let count = 0;
     for (const p of area.projects) {
       count += p.sessions.length;
-      for (const sub of p.subProjects) count += sub.sessions.length;
+      for (const sub of p.subProjects) {
+        if (sub.sessions) count += sub.sessions.length;
+      }
     }
     return count;
   }
@@ -105,15 +107,15 @@
             </div>
 
             {#if projExpanded && (hasSessions || project.subProjects.length > 0)}
-              {#each project.subProjects as sub (sub.path)}
+              {#each project.subProjects as sub, si (sub.path || si)}
                 <!-- svelte-ignore a11y_click_events_have_key_events -->
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div class="sub-project-item" onclick={(e) => { e.stopPropagation(); navigateToProject(sub.path, area.name); }}>
+                <div class="sub-project-item" onclick={(e) => { e.stopPropagation(); if (sub.path) navigateToProject(sub.path, area.name); }}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                   </svg>
-                  <span class="sub-name">{sub.name}</span>
-                  {#if sub.sessions.length > 0}
+                  <span class="sub-name">{sub.name || sub}</span>
+                  {#if sub.sessions?.length > 0}
                     <span class="project-session-count">{sub.sessions.length}</span>
                   {/if}
                 </div>

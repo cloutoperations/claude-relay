@@ -187,17 +187,17 @@
         <div class="section">
           <h3 class="section-title">Sub-projects ({project.subProjects.length})</h3>
           <div class="project-list">
-            {#each project.subProjects as sub (sub.path)}
+            {#each project.subProjects as sub, si (sub.path || si)}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div class="project-card" onclick={() => navigateToProject(sub.path, view.areaName)}>
+              <div class="project-card" onclick={() => { if (sub.path) navigateToProject(sub.path, view.areaName); }}>
                 <div class="project-card-main">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                   </svg>
-                  <span class="project-card-name">{sub.name}</span>
+                  <span class="project-card-name">{sub.name || sub}</span>
                 </div>
-                {#if sub.sessions.length > 0}
+                {#if sub.sessions?.length > 0}
                   <div class="project-card-meta">
                     <span class="meta-badge sessions">{sub.sessions.length} sessions</span>
                   </div>
