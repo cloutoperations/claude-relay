@@ -1,11 +1,21 @@
 <script>
   import { toggleMinimize, closePopup, sendPopupMessage, sendPopupPermissionResponse, stopPopupProcessing, minimizeAll } from '../../stores/popups.js';
-  import { switchSession } from '../../stores/sessions.js';
-  import { seedChat } from '../../stores/chat.js';
+  import { sessions, switchSession } from '../../stores/sessions.js';
+  import { seedChat, projectInfo } from '../../stores/chat.js';
   import MessageList from '../chat/MessageList.svelte';
   import InputArea from '../chat/InputArea.svelte';
 
+  const ACCOUNT_COLORS = ['#da7756', '#5b9fd6', '#57ab5a', '#c084fc', '#f59e0b', '#ec4899'];
+
   let { popup } = $props();
+
+  let accounts = $derived($projectInfo.accounts || []);
+  let sessionData = $derived($sessions.find(s => s.id === popup.sessionId));
+  let accountColor = $derived.by(() => {
+    if (accounts.length < 2 || !sessionData?.accountId) return null;
+    const idx = accounts.findIndex(a => a.id === sessionData.accountId);
+    return ACCOUNT_COLORS[idx >= 0 ? idx % ACCOUNT_COLORS.length : 0];
+  });
 
   function handleHeaderClick(e) {
     if (e.target.closest('.cp-actions')) return;
@@ -67,7 +77,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="cp-header" onclick={handleHeaderClick}>
     <div class="cp-header-left">
-      <span class="cp-dot"></span>
+      <span class="cp-dot" style={accountColor ? '--acct-color: ' + accountColor : ''}></span>
       <span class="cp-title">{truncate(popup.title, 28)}</span>
     </div>
     <div class="cp-actions">
@@ -151,13 +161,13 @@
     height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
-    background: #4a4843;
+    background: var(--acct-color, #4a4843);
     transition: all 0.3s;
   }
 
   .cp-processing .cp-dot {
-    background: #da7756;
-    box-shadow: 0 0 6px rgba(218, 119, 86, 0.5);
+    background: var(--acct-color, #da7756);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--acct-color, #da7756) 50%, transparent);
     animation: cp-glow 2s ease-in-out infinite;
   }
 

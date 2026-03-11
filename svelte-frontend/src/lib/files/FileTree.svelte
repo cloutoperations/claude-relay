@@ -1,5 +1,5 @@
 <script>
-  import { treeData, expandedDirs, toggleDir, openFile, loadRootDir } from '../../stores/files.js';
+  import { treeData, expandedDirs, toggleDir, openFile, loadRootDir, activeFilePath } from '../../stores/files.js';
   import { onMount } from 'svelte';
 
   onMount(() => {
@@ -61,12 +61,14 @@
     {@const icon = getIcon(entry)}
     {@const isDir = entry.type === 'dir'}
     {@const isExpanded = $expandedDirs.has(entry.path)}
+    {@const isActive = !isDir && $activeFilePath === entry.path}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="tree-item"
       class:dir={isDir}
       class:expanded={isExpanded}
+      class:active={isActive}
       style="padding-left: {12 + depth * 16}px"
       onclick={() => handleClick(entry)}
     >
@@ -102,6 +104,8 @@
 <style>
   .file-tree {
     padding: 4px 0;
+    width: fit-content;
+    min-width: 100%;
   }
 
   .tree-item {
@@ -120,6 +124,11 @@
   .tree-item:hover {
     background: rgba(255, 255, 255, 0.04);
     color: #d4d0c8;
+  }
+
+  .tree-item.active {
+    background: rgba(218, 119, 86, 0.1);
+    color: #da7756;
   }
 
   .tree-chevron {
@@ -143,9 +152,7 @@
   }
 
   .tree-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
+    white-space: nowrap;
   }
 
   .tree-loading {

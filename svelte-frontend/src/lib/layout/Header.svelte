@@ -1,18 +1,37 @@
 <script>
   import { get } from 'svelte/store';
-  import { sidebarOpen } from '../../stores/ui.js';
+  import { sidebarOpen, filePanelVisible } from '../../stores/ui.js';
   import { connected } from '../../stores/ws.js';
   import { activeSessionId, leaveSession } from '../../stores/sessions.js';
   import { openPopup } from '../../stores/popups.js';
   import { messages, processing, thinking, currentDelta } from '../../stores/chat.js';
+  import { hasOpenFiles } from '../../stores/files.js';
+
+  const ACCOUNT_COLORS = ['#da7756', '#5b9fd6', '#57ab5a', '#c084fc', '#f59e0b', '#ec4899'];
 
   let {
     projectName = 'Claude Relay',
     sessionTitle = '',
-    clientCount = 0
+    clientCount = 0,
+    accountId = null,
+    accounts = [],
   } = $props();
 
   let displayTitle = $derived(sessionTitle || 'Claude Relay');
+
+  let accountColor = $derived.by(() => {
+    if (!accountId || accounts.length < 2) return null;
+    const idx = accounts.findIndex(a => a.id === accountId);
+    return ACCOUNT_COLORS[idx >= 0 ? idx % ACCOUNT_COLORS.length : 0];
+  });
+
+  let accountLabel = $derived.by(() => {
+    if (!accountId || accounts.length < 2) return null;
+    const acct = accounts.find(a => a.id === accountId);
+    if (!acct?.email) return null;
+    const email = acct.email;
+    return email.length > 20 ? email.substring(0, 20) + '...' : email;
+  });
 
   function popOutToPopup() {
     const id = $activeSessionId;
@@ -46,9 +65,15 @@
     <span class="header-project">{projectName}</span>
   </div>
 
-  <!-- Center: active session title -->
+  <!-- Center: active session title + account badge -->
   <div class="header-center">
+    {#if accountColor}
+      <span class="header-account-dot" style="background: {accountColor}"></span>
+    {/if}
     <span class="header-title">{displayTitle}</span>
+    {#if accountLabel}
+      <span class="header-account-badge" style="color: {accountColor}; background: {accountColor}12; border-color: {accountColor}30">{accountLabel}</span>
+    {/if}
     {#if $activeSessionId}
       <button class="popout-btn" onclick={popOutToPopup} title="Pop out to chat window">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -62,6 +87,19 @@
 
   <!-- Right: status indicators -->
   <div class="header-right">
+    {#if $hasOpenFiles}
+      <button
+        class="header-icon-btn"
+        class:active={$filePanelVisible}
+        onclick={() => filePanelVisible.update(v => !v)}
+        title={$filePanelVisible ? 'Hide file panel' : 'Show file panel'}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="15" y1="3" x2="15" y2="21"></line>
+        </svg>
+      </button>
+    {/if}
     {#if clientCount > 0}
       <span class="client-count" title="{clientCount} client{clientCount !== 1 ? 's' : ''} connected">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -156,6 +194,23 @@
     text-overflow: ellipsis;
   }
 
+  .header-account-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .header-account-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: 4px;
+  }
+
   .popout-btn {
     display: flex;
     align-items: center;
@@ -226,5 +281,29 @@
     .status-label {
       display: none;
     }
+  }
+
+  .header-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    color: #6b6760;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.15s;
+  }
+
+  .header-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #d4d0c8;
+  }
+
+  .header-icon-btn.active {
+    color: #da7756;
   }
 </style>

@@ -8,6 +8,7 @@
   import TurnMeta from './TurnMeta.svelte';
   import PermissionRequest from './PermissionRequest.svelte';
   import AskUser from './AskUser.svelte';
+  import SearchTimeline from './SearchTimeline.svelte';
   // ThinkingIndicator replaced by inline live-status
 
   let {
@@ -92,7 +93,13 @@
   ];
   let thinkingVerb = $state(thinkingVerbs[0]);
 
-  // Pick a new random verb when thinking starts
+  // Pick a new random verb when processing or thinking starts
+  $effect(() => {
+    if (processing) {
+      thinkingVerb = thinkingVerbs[Math.floor(Math.random() * thinkingVerbs.length)];
+    }
+  });
+
   $effect(() => {
     if (thinking.active) {
       thinkingVerb = thinkingVerbs[Math.floor(Math.random() * thinkingVerbs.length)];
@@ -132,6 +139,7 @@
   });
 </script>
 
+<div class="message-list-wrap" class:compact>
 <div class="message-list" class:compact bind:this={messagesEl} onscroll={handleScroll}>
   {#if loadingHistory}
     <div class="loading-history">
@@ -195,8 +203,20 @@
     </div>
   {/if}
 </div>
+{#if !compact}
+  <SearchTimeline {messagesEl} messageCount={messages.length} />
+{/if}
+</div>
 
 <style>
+  .message-list-wrap {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
   .message-list {
     flex: 1;
     overflow-y: auto;

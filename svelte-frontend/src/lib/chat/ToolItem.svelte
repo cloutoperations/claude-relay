@@ -1,4 +1,7 @@
 <script>
+  import DiffView from './DiffView.svelte';
+  import CodeView from './CodeView.svelte';
+
   let { name = '', status = 'running', input = null, output = null, subtitle = '', subTools = null, compact = false } = $props();
 
   let expanded = $state(false);
@@ -9,17 +12,43 @@
   // Display name: both "Task" and "Agent" are subagent spawners
   let displayName = $derived(name === 'Task' || name === 'Agent' ? 'Agent' : name);
 
+  // Rich rendering: Edit diffs auto-expand
+  let hasEditDiff = $derived(
+    name === 'Edit' && input && input.old_string && input.new_string && status !== 'running'
+  );
+  let hasReadOutput = $derived(
+    name === 'Read' && output && typeof output === 'string' && input?.file_path && status !== 'running'
+  );
+
+  // Auto-expand Edit tools when diff is available
+  $effect(() => {
+    if (hasEditDiff && !expanded) {
+      expanded = true;
+    }
+  });
+
   function formatInput(inp) {
     if (!inp) return '';
     if (typeof inp === 'string') return inp;
+    // For Edit tools, don't dump old_string/new_string in raw JSON — the diff view handles it
+    if (name === 'Edit' && inp.file_path) {
+      return inp.file_path + (inp.replace_all ? ' (replace all)' : '');
+    }
     try { return JSON.stringify(inp, null, 2); } catch { return String(inp); }
+  }
+
+  function cleanOutput(out) {
+    if (!out || typeof out !== 'string') return out;
+    return out.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim();
   }
 </script>
 
 {#if !isHidden}
   {#if compact}
-    <!-- Compact: single-line tool indicator, with subtools for agents -->
-    <div class="cp-tool cp-tool-{status}">
+    <!-- Compact: clickable tool indicator with expandable rich content -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="cp-tool cp-tool-{status}" onclick={() => expanded = !expanded}>
       <div class="cp-tool-indicator">
         {#if status === 'running'}
           <div class="cp-tool-spinner"></div>
@@ -33,7 +62,23 @@
       {#if subtitle}
         <span class="cp-tool-subtitle">{subtitle}</span>
       {/if}
+      {#if status !== 'running' && (hasEditDiff || hasReadOutput || output)}
+        <span class="cp-tool-chevron">{expanded ? '▾' : '▸'}</span>
+      {/if}
     </div>
+    {#if expanded && status !== 'running'}
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="cp-tool-details" onclick={e => e.stopPropagation()}>
+        {#if hasEditDiff}
+          <DiffView oldStr={input.old_string} newStr={input.new_string} filePath={input.file_path} />
+        {:else if hasReadOutput}
+          <CodeView content={cleanOutput(output)} filePath={input.file_path} />
+        {:else if output}
+          <pre class="cp-tool-output">{typeof output === 'string' ? cleanOutput(output) : JSON.stringify(output, null, 2)}</pre>
+        {/if}
+      </div>
+    {/if}
     {#if subTools && subTools.length > 0}
       <div class="cp-subtools">
         {#each subTools.slice(-5) as st}
@@ -90,18 +135,24 @@
       {/if}
 
       {#if expanded}
-        <div class="tool-details">
-          {#if input}
-            <div class="tool-section">
-              <div class="tool-section-label">Input</div>
-              <pre class="tool-pre">{formatInput(input)}</pre>
-            </div>
-          {/if}
-          {#if output}
-            <div class="tool-section">
-              <div class="tool-section-label">Output</div>
-              <pre class="tool-pre">{typeof output === 'string' ? output : JSON.stringify(output, null, 2)}</pre>
-            </div>
+        <div class="tool-details" onclick={e => e.stopPropagation()}>
+          {#if hasEditDiff}
+            <DiffView oldStr={input.old_string} newStr={input.new_string} filePath={input.file_path} />
+          {:else if hasReadOutput}
+            <CodeView content={cleanOutput(output)} filePath={input.file_path} />
+          {:else}
+            {#if input}
+              <div class="tool-section">
+                <div class="tool-section-label">Input</div>
+                <pre class="tool-pre">{formatInput(input)}</pre>
+              </div>
+            {/if}
+            {#if output}
+              <div class="tool-section">
+                <div class="tool-section-label">Output</div>
+                <pre class="tool-pre">{typeof output === 'string' ? cleanOutput(output) : JSON.stringify(output, null, 2)}</pre>
+              </div>
+            {/if}
           {/if}
         </div>
       {/if}
@@ -281,6 +332,8 @@
     animation: spin 0.7s linear infinite;
   }
 
+  .cp-tool { cursor: pointer; }
+  .cp-tool:hover { background: rgba(255, 255, 255, 0.03); }
   .cp-tool-name { font-weight: 500; flex-shrink: 0; }
   .cp-tool-subtitle {
     color: #4a4843;
@@ -289,11 +342,37 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+    flex: 1;
+  }
+  .cp-tool-chevron {
+    color: #4a4843;
+    font-size: 9px;
+    flex-shrink: 0;
+    margin-left: auto;
   }
   .cp-tool-running { color: #da7756; }
   .cp-tool-done { color: #4a4843; }
   .cp-tool-done .cp-tool-indicator { color: #57AB5A; }
   .cp-tool-error { color: #E5534B; }
+
+  .cp-tool-details {
+    margin: 2px 10px 4px 10px;
+  }
+
+  .cp-tool-output {
+    font-size: 10px;
+    color: #908b81;
+    background: #1a1918;
+    padding: 6px 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+    border: 1px solid #3e3c37;
+  }
 
   /* ─── Compact subtools ─── */
   .cp-subtools {

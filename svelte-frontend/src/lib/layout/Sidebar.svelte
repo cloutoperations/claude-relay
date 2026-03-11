@@ -1,10 +1,11 @@
 <script>
-  import { sessions, activeSessionId, leaveSession, createSession } from '../../stores/sessions.js';
-  import { sidebarOpen } from '../../stores/ui.js';
+  import { sessions, activeSessionId, leaveSession, createSession, renameSession } from '../../stores/sessions.js';
+  import { sidebarOpen, chatSearchQuery } from '../../stores/ui.js';
   import { openPopup } from '../../stores/popups.js';
   import { projectInfo } from '../../stores/chat.js';
+  import { send, onMessage } from '../../stores/ws.js';
   import FileTree from '../files/FileTree.svelte';
-  import { activeFile } from '../../stores/files.js';
+  import { activeFilePath } from '../../stores/files.js';
 
   const ACCOUNT_COLORS = ['#da7756', '#5b9fd6', '#57ab5a', '#c084fc', '#f59e0b', '#ec4899'];
 
@@ -13,13 +14,56 @@
   let activeTab = $state('sessions'); // 'sessions' | 'files'
   let showAccountPicker = $state(false);
   let pickerAnchorEl = $state(null);
+  let searchQuery = $state('');
+  let searchResults = $state(null); // null = no search, array = server results
+  let searchDebounce = null;
+  let renamingId = $state(null);
+  let renameValue = $state('');
 
   let accounts = $derived($projectInfo.accounts || []);
   let hasMultipleAccounts = $derived(accounts.length > 1);
 
+  // Listen for search results from server
+  onMessage((msg) => {
+    if (msg.type === 'search_results') {
+      if (msg.query !== searchQuery) return; // stale
+      searchResults = msg.results || [];
+    }
+  });
+
+  // Send search to server on query change
+  $effect(() => {
+    if (searchDebounce) clearTimeout(searchDebounce);
+    const q = searchQuery.trim();
+    chatSearchQuery.set(q); // sync to shared store for SearchTimeline
+    if (!q) {
+      searchResults = null;
+      return;
+    }
+    searchDebounce = setTimeout(() => {
+      send({ type: 'search_sessions', query: q });
+    }, 200);
+  });
+
+  // Merge server results with session list for display
+  let searchMatchMap = $derived.by(() => {
+    if (!searchResults) return null;
+    const map = new Map();
+    for (const r of searchResults) {
+      map.set(r.id, r.matchType);
+    }
+    return map;
+  });
+
+  let filteredSessions = $derived.by(() => {
+    if (!searchQuery.trim()) return $sessions;
+    if (!searchMatchMap) return $sessions; // still waiting for server
+    return $sessions.filter(s => searchMatchMap.has(s.id));
+  });
+
   function accountColor(accountId) {
     if (!accountId || !hasMultipleAccounts) return null;
-    const idx = accounts.findIndex(a => a.name === accountId);
+    const idx = accounts.findIndex(a => a.id === accountId);
     return ACCOUNT_COLORS[idx >= 0 ? idx % ACCOUNT_COLORS.length : 0];
   }
 
@@ -51,7 +95,7 @@
     return result;
   }
 
-  let grouped = $derived(groupByDate($sessions));
+  let grouped = $derived(groupByDate(filteredSessions));
 
   function handleSessionClick(sessionId) {
     // If fullscreen session is active, leave it first
@@ -91,6 +135,36 @@
     if (!id) return '';
     return id.length > 8 ? id.slice(0, 8) : id;
   }
+
+  function startRename(sessionId, currentTitle) {
+    renamingId = sessionId;
+    renameValue = currentTitle || 'New Session';
+  }
+
+  function commitRename() {
+    if (renamingId && renameValue.trim()) {
+      renameSession(renamingId, renameValue.trim());
+    }
+    renamingId = null;
+    renameValue = '';
+  }
+
+  function cancelRename() {
+    renamingId = null;
+    renameValue = '';
+  }
+
+  function handleRenameKeydown(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
+    if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
+  }
+
+  // Switch to files tab when a file is opened
+  $effect(() => {
+    if ($activeFilePath) {
+      activeTab = 'files';
+    }
+  });
 
   // Close picker when clicking outside
   function handleSidebarClick(e) {
@@ -143,33 +217,69 @@
   <!-- Tab content -->
   <div class="sidebar-content">
     {#if activeTab === 'sessions'}
-      <div class="session-list-header">
-        <span>Sessions</span>
+      <div class="session-search">
+        <svg class="session-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          class="session-search-input"
+          type="text"
+          placeholder="Search titles & content..."
+          bind:value={searchQuery}
+        />
+        {#if searchQuery}
+          <button class="session-search-clear" onclick={() => searchQuery = ''}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        {/if}
       </div>
 
       <div class="session-list">
         {#each grouped as group}
           <div class="session-group-label">{group.label}</div>
           {#each group.sessions as session (session.id)}
-            <button
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
               class="session-item"
               class:active={$activeSessionId === session.id}
-              onclick={() => handleSessionClick(session.id)}
-              title={session.title || 'Untitled'}
+              onclick={() => { if (renamingId !== session.id) handleSessionClick(session.id); }}
+              ondblclick={() => startRename(session.id, session.title)}
+              title={renamingId === session.id ? '' : (session.title || 'Untitled')}
             >
               {#if hasMultipleAccounts && accountColor(session.accountId)}
                 <span class="session-account-dot" style="background: {accountColor(session.accountId)}"></span>
               {/if}
-              <span class="session-item-text">{session.title || 'Untitled'}</span>
+              {#if renamingId === session.id}
+                <input
+                  class="session-rename-input"
+                  type="text"
+                  bind:value={renameValue}
+                  onkeydown={handleRenameKeydown}
+                  onblur={commitRename}
+                  onclick={e => e.stopPropagation()}
+                  autofocus
+                />
+              {:else}
+                <span class="session-item-text">{session.title || 'Untitled'}</span>
+              {/if}
               {#if session.isProcessing}
                 <span class="session-processing-dot"></span>
               {/if}
-              <span class="session-id">{truncateId(session.id)}</span>
-            </button>
+              {#if renamingId !== session.id}
+                {#if searchMatchMap && searchMatchMap.get(session.id) === 'content'}
+                  <span class="session-match-badge content">in chat</span>
+                {:else if searchMatchMap && searchMatchMap.get(session.id) === 'both'}
+                  <span class="session-match-badge both">title + chat</span>
+                {:else}
+                  <span class="session-id">{truncateId(session.id)}</span>
+                {/if}
+              {/if}
+            </div>
           {/each}
         {/each}
 
-        {#if $sessions.length === 0}
+        {#if filteredSessions.length === 0 && $sessions.length > 0}
+          <div class="session-empty">No matching sessions</div>
+        {:else if $sessions.length === 0}
           <div class="session-empty">No sessions yet</div>
         {/if}
       </div>
@@ -195,9 +305,9 @@
       <div class="account-picker">
         <div class="account-picker-label">Select account</div>
         {#each accounts as account, i}
-          <button class="account-option" onclick={() => handlePickAccount(account.name)}>
+          <button class="account-option" onclick={() => handlePickAccount(account.id)}>
             <span class="account-dot" style="background: {ACCOUNT_COLORS[i % ACCOUNT_COLORS.length]}"></span>
-            <span class="account-email">{account.email || account.name}</span>
+            <span class="account-email">{account.email || account.id}</span>
           </button>
         {/each}
       </div>
@@ -353,7 +463,7 @@
   .sidebar-content {
     flex: 1;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: auto;
     scrollbar-width: thin;
   }
 
@@ -368,20 +478,87 @@
     border-radius: 3px;
   }
 
-  /* Session list header */
-  .session-list-header {
+  .sidebar-content::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Session search */
+  .session-search {
     display: flex;
     align-items: center;
-    padding: 16px 16px 4px 20px;
-    font-size: 11px;
-    font-weight: 600;
+    gap: 6px;
+    margin: 8px 8px 4px;
+    padding: 6px 10px;
+    background: #262522;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .session-search:focus-within {
+    border-color: rgba(218, 119, 86, 0.3);
+  }
+
+  .session-search-icon {
     color: #6b6760;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  .session-search-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: #d4d0c8;
+    font-family: inherit;
+    font-size: 12px;
+    min-width: 0;
+  }
+
+  .session-search-input::placeholder {
+    color: #5a5650;
+  }
+
+  .session-search-clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: none;
+    background: none;
+    color: #6b6760;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .session-search-clear:hover {
+    color: #d4d0c8;
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .session-list {
     padding: 2px 8px;
+  }
+
+  /* Session rename */
+  .session-rename-input {
+    flex: 1;
+    background: #1e1d1a;
+    border: 1px solid rgba(218, 119, 86, 0.4);
+    border-radius: 4px;
+    color: #d4d0c8;
+    font-family: inherit;
+    font-size: 13px;
+    padding: 2px 6px;
+    outline: none;
+    min-width: 0;
+  }
+
+  .session-rename-input:focus {
+    border-color: #da7756;
   }
 
   .session-group-label {
@@ -404,10 +581,8 @@
     font-size: 13px;
     color: #b0ab9f;
     background: none;
-    border: none;
-    font-family: inherit;
-    text-align: left;
     transition: background 0.15s, color 0.15s, transform 0.15s;
+    user-select: none;
   }
 
   .session-item:hover {
@@ -449,6 +624,25 @@
     color: #6b6760;
     font-family: 'SF Mono', Menlo, Monaco, monospace;
     flex-shrink: 0;
+  }
+
+  .session-match-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+
+  .session-match-badge.content {
+    color: #5b9fd6;
+    background: rgba(91, 159, 214, 0.12);
+  }
+
+  .session-match-badge.both {
+    color: #57ab5a;
+    background: rgba(87, 171, 90, 0.12);
   }
 
   .session-empty {

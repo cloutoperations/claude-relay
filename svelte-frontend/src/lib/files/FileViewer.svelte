@@ -1,5 +1,5 @@
 <script>
-  import { activeFile, fileLoading, closeFile } from '../../stores/files.js';
+  import { openFiles, activeFile, activeFilePath, fileLoading, closeFileTab, switchTab } from '../../stores/files.js';
   import { renderMarkdown } from '../../utils/markdown.js';
 
   let copyState = $state('idle');
@@ -27,19 +27,42 @@
     });
   }
 
-  function handleClose() {
-    closeFile();
+  function handleCloseTab(e, path) {
+    e.stopPropagation();
+    closeFileTab(path);
+  }
+
+  function handleTabMiddleClick(e, path) {
+    if (e.button === 1) {
+      e.preventDefault();
+      closeFileTab(path);
+    }
   }
 </script>
 
-{#if $activeFile || $fileLoading}
+{#if $openFiles.length > 0}
   <div class="file-viewer">
-    <div class="fv-header">
-      <div class="fv-path" title={$activeFile?.path || ''}>
-        <span class="fv-name">{fileName($activeFile?.path || '')}</span>
-        <span class="fv-full-path">{$activeFile?.path || ''}</span>
+    <!-- Tab bar -->
+    <div class="fv-tabs">
+      <div class="fv-tab-list">
+        {#each $openFiles as file (file.path)}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
+            class="fv-tab"
+            class:active={$activeFilePath === file.path}
+            onclick={() => switchTab(file.path)}
+            onauxclick={(e) => handleTabMiddleClick(e, file.path)}
+            title={file.path}
+          >
+            <span class="fv-tab-name">{fileName(file.path)}</span>
+            <button class="fv-tab-close" onclick={(e) => handleCloseTab(e, file.path)}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        {/each}
       </div>
-      <div class="fv-actions">
+      <div class="fv-tab-actions">
         {#if $activeFile?.content}
           <button class="fv-btn" onclick={handleCopy} title="Copy content">
             {#if copyState === 'copied'}
@@ -49,14 +72,19 @@
             {/if}
           </button>
         {/if}
-        <button class="fv-btn" onclick={handleClose} title="Close">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
       </div>
     </div>
 
+    <!-- File path subtitle -->
+    {#if $activeFile}
+      <div class="fv-path-bar">
+        <span class="fv-full-path">{$activeFile.path}</span>
+      </div>
+    {/if}
+
+    <!-- Content -->
     <div class="fv-content">
-      {#if $fileLoading}
+      {#if $fileLoading && $activeFile?.loading}
         <div class="fv-loading">Loading file...</div>
       {:else if $activeFile?.error}
         <div class="fv-error">{$activeFile.error}</div>
@@ -72,6 +100,8 @@
         {:else}
           <pre class="fv-code"><code>{$activeFile.content}</code></pre>
         {/if}
+      {:else if $activeFile}
+        <div class="fv-loading">Loading file...</div>
       {/if}
     </div>
   </div>
@@ -85,29 +115,98 @@
     background: #1a1918;
   }
 
-  .fv-header {
+  /* ─── Tab bar ─── */
+  .fv-tabs {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
+    background: #1e1d1a;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     flex-shrink: 0;
     min-width: 0;
   }
 
-  .fv-path {
+  .fv-tab-list {
+    flex: 1;
     display: flex;
-    flex-direction: column;
+    overflow-x: auto;
     min-width: 0;
+    scrollbar-width: none;
   }
 
-  .fv-name {
-    font-size: 13px;
-    font-weight: 600;
+  .fv-tab-list::-webkit-scrollbar { display: none; }
+
+  .fv-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px 6px 12px;
+    font-size: 12px;
+    color: #908b81;
+    cursor: pointer;
+    white-space: nowrap;
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+    user-select: none;
+  }
+
+  .fv-tab:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: #b0ab9f;
+  }
+
+  .fv-tab.active {
+    background: #1a1918;
     color: #d4d0c8;
+    border-bottom: 2px solid #da7756;
+    margin-bottom: -1px;
+  }
+
+  .fv-tab-name {
+    max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+  }
+
+  .fv-tab-close {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: #5a5650;
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 0;
+    opacity: 0;
+    transition: opacity 0.12s, background 0.12s, color 0.12s;
+  }
+
+  .fv-tab:hover .fv-tab-close,
+  .fv-tab.active .fv-tab-close {
+    opacity: 1;
+  }
+
+  .fv-tab-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #d4d0c8;
+  }
+
+  .fv-tab-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    padding: 0 8px;
+  }
+
+  /* ─── Path bar ─── */
+  .fv-path-bar {
+    padding: 4px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    flex-shrink: 0;
   }
 
   .fv-full-path {
@@ -117,14 +216,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    display: block;
   }
 
-  .fv-actions {
-    display: flex;
-    gap: 2px;
-    flex-shrink: 0;
-  }
-
+  /* ─── Actions ─── */
   .fv-btn {
     width: 28px;
     height: 28px;
@@ -145,6 +240,7 @@
     color: #b0ab9f;
   }
 
+  /* ─── Content ─── */
   .fv-content {
     flex: 1;
     overflow-y: auto;

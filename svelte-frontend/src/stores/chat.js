@@ -266,16 +266,22 @@ onMessage((msg) => {
 
   switch (msg.type) {
     case 'info':
-      projectInfo.set({
-        name: msg.project || msg.cwd || '',
-        cwd: msg.cwd || '',
-        version: msg.version || '',
-        slug: msg.slug || '',
-        accounts: msg.accounts || [],
-        debug: msg.debug || false,
-        accountLabel: msg.accountLabel || '',
-        dangerouslySkipPermissions: msg.dangerouslySkipPermissions || false,
-      });
+      if (msg.cwd || msg.slug) {
+        // Project-level info (has cwd/slug) — update projectInfo store
+        projectInfo.set({
+          name: msg.project || msg.cwd || '',
+          cwd: msg.cwd || '',
+          version: msg.version || '',
+          slug: msg.slug || '',
+          accounts: msg.accounts || [],
+          debug: msg.debug || false,
+          accountLabel: msg.accountLabel || '',
+          dangerouslySkipPermissions: msg.dangerouslySkipPermissions || false,
+        });
+      } else if (msg.text) {
+        // Session-level info notification (interrupt, force-stop, etc.)
+        updateMsgs(msgs => [...msgs, { type: 'system', text: msg.text }]);
+      }
       break;
 
     case 'client_count':
