@@ -54,8 +54,10 @@
   }
 
   let focused = $derived($focusedArea);
+  // Strategy focus is handled by CockpitStrip, not here
+  let isStrategyFocused = $derived(focused === 'strategy');
   let focusedAreaData = $derived.by(() => {
-    if (!focused || !$boardData) return null;
+    if (!focused || isStrategyFocused || !$boardData) return null;
     return $boardData.areas.find(a => a.name === focused) || null;
   });
   let otherAreas = $derived.by(() => {
@@ -74,7 +76,22 @@
     <!-- Cockpit strip at top -->
     <CockpitStrip />
 
-    {#if focused && focusedAreaData}
+    {#if isStrategyFocused}
+      <!-- STRATEGY FOCUSED: compact strip + CockpitStrip renders the focused view -->
+      <div class="cp-zoomed">
+        <div class="compact-strip">
+          {#each sortedAreas as area (area.name)}
+            <AreaZone
+              {area}
+              compact={true}
+              onFocus={() => focusedArea.set(area.name)}
+            />
+          {/each}
+        </div>
+        <!-- CockpitStrip's focused-view fills the rest (position: absolute) -->
+        <div class="strategy-focused-container"></div>
+      </div>
+    {:else if focused && focusedAreaData}
       <!-- ZOOMED MODE: focused area + compact pills for others -->
       <div class="cp-zoomed">
         <!-- Compact strip at top -->
@@ -129,6 +146,7 @@
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
+    position: relative;
   }
 
   .cp-loading {
@@ -222,5 +240,11 @@
 
   .compact-strip::-webkit-scrollbar {
     display: none;
+  }
+
+  .strategy-focused-container {
+    flex: 1;
+    position: relative;
+    min-height: 0;
   }
 </style>

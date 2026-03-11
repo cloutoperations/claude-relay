@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { getBasePath } from '../../stores/ws.js';
-  import { boardData, fetchBoard } from '../../stores/board.js';
+  import { boardData, fetchBoard, focusedArea } from '../../stores/board.js';
   import { onMessage, send } from '../../stores/ws.js';
   import { sessions, createSession } from '../../stores/sessions.js';
   import { openPopup } from '../../stores/popups.js';
@@ -248,6 +248,7 @@
   function scrollChat() {
     requestAnimationFrame(() => {
       if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+      if (focusedChatEl) focusedChatEl.scrollTop = focusedChatEl.scrollHeight;
     });
   }
 
@@ -296,12 +297,29 @@
     setTimeout(() => fetchBoard(), 2000);
   }
 
+  let isFocused = $derived($focusedArea === 'strategy');
+
+  // Reference for the focused-mode chat log
+  let focusedChatEl = $state(null);
+
   function openInPopup() {
     if (strategySession) openPopup(strategySession.id, strategySession.title || 'Strategy');
   }
 
   function toggleMinimize() {
     minimized = !minimized;
+    saveMinimized();
+  }
+
+  function expandFocused() {
+    focusedArea.set('strategy');
+    minimized = true;
+    saveMinimized();
+  }
+
+  function collapseFocused() {
+    focusedArea.set(null);
+    minimized = false;
     saveMinimized();
   }
 
@@ -481,6 +499,11 @@
           {/if}
         </div>
         <div class="header-right">
+          <button class="hdr-btn" onclick={expandFocused} title="Focus view">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+            </svg>
+          </button>
           {#if strategySession}
             <button class="hdr-btn" onclick={openInPopup} title="Open full popup">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -664,6 +687,176 @@
       </div>
     </div>
   {/if}
+{/if}
+
+<!-- ========= FOCUSED VIEW (replaces command post grid) ========= -->
+{#if isFocused && strategyData}
+  <div class="focused-view">
+    <!-- Header bar -->
+    <div class="focused-header">
+      <button class="focused-back" onclick={collapseFocused}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+        </svg>
+        Back
+      </button>
+      <span class="focused-title">Strategy</span>
+      {#if strategyData.gate}
+        <span class="focused-gate">{strategyData.gate}</span>
+      {/if}
+      <div class="focused-header-right">
+        {#if chatProcessing}
+          <span class="focused-status">
+            {#if chatThinking}thinking{:else if chatActivity}{chatActivity.substring(0, 40)}{:else}working{/if}
+            <span class="dots"><span>.</span><span>.</span><span>.</span></span>
+          </span>
+        {/if}
+        {#if processingCount > 0}
+          <span class="focused-active">{processingCount} active<span class="header-dot"></span></span>
+        {/if}
+      </div>
+    </div>
+
+    <!-- Two-panel layout -->
+    <div class="focused-panels">
+      <!-- Left: Strategy data -->
+      <div class="focused-left">
+        {#if strategyData.candidateName}
+          <div class="f-candidate">{strategyData.candidateName}</div>
+        {/if}
+
+        {#if strategyData.allocation.length > 0}
+          <div class="f-section">
+            <div class="f-label">ALLOCATION</div>
+            {#each strategyData.allocation as track}
+              {@const live = areaSessionCount(track.track)}
+              <div class="f-alloc-row">
+                <div class="f-alloc-bar"><div class="f-alloc-fill" style="width: {track.percent}%"></div></div>
+                <span class="f-alloc-name">{track.track}</span>
+                <span class="f-alloc-pct">{track.percent}%</span>
+                {#if live.processing > 0}
+                  <span class="f-alloc-live"><span class="live-dot"></span>{live.processing}</span>
+                {:else if live.total > 0}
+                  <span class="f-alloc-live idle">{live.total}</span>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        {#if strategyData.gaps.length > 0}
+          <div class="f-section">
+            <div class="f-label">GAPS</div>
+            {#each strategyData.gaps as gap}
+              <div class="f-gap-row">
+                <div class="gap-bars">
+                  {#each Array(urgencyBars(gap.urgency)) as _}
+                    <span class="f-gap-bar" style="background: {urgencyColor(gap.urgency)}"></span>
+                  {/each}
+                  {#each Array(4 - urgencyBars(gap.urgency)) as _}
+                    <span class="f-gap-bar empty"></span>
+                  {/each}
+                </div>
+                <span class="f-gap-name">{gap.area}</span>
+                <span class="f-gap-detail">{gap.present} → {gap.desired}</span>
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        {#if testsTotal > 0}
+          <div class="f-section">
+            <div class="f-label">TESTS — {strategyData.nextReview || 'TBD'} ({testsPassing}/{testsTotal})</div>
+            {#each strategyData.tests as test}
+              <label class="f-test-row">
+                <input
+                  type="checkbox"
+                  checked={cockpitState.testStatus[test.label] || false}
+                  onchange={() => toggleTest(test.label)}
+                />
+                <span class="f-test-text" class:done={cockpitState.testStatus[test.label]}>{test.label}</span>
+              </label>
+            {/each}
+          </div>
+        {/if}
+
+        {#if strategyData.oneSentence}
+          <div class="f-sentence">{strategyData.oneSentence}</div>
+        {/if}
+
+        {#if strategyData.sessionDate || strategyData.lastReviewed}
+          <div class="f-meta">
+            {#if strategyData.nextReview}<span>Next review: {strategyData.nextReview}</span>{/if}
+            {#if strategyData.sessionDate}<span>Session: {strategyData.sessionDate}</span>{/if}
+            {#if strategyData.lastReviewed}<span>Reviewed: {strategyData.lastReviewed}</span>{/if}
+          </div>
+        {/if}
+      </div>
+
+      <!-- Right: Full chat -->
+      <div class="focused-right">
+        <div class="f-chat-header">
+          <span class="f-label">STRATEGY AGENT</span>
+          {#if strategySession}
+            <button class="f-popup-btn" onclick={openInPopup}>Open in popup</button>
+          {/if}
+        </div>
+
+        <div class="f-chat-log" bind:this={focusedChatEl}>
+          {#if !strategySession}
+            <div class="f-chat-empty">
+              <button class="create-btn" onclick={handleCreateSession}>+ New strategy session</button>
+            </div>
+          {:else if visibleMessages.length === 0}
+            <div class="f-chat-empty">
+              <span class="empty-hint">Ask about focus, status, progress, or give commands to the strategy agent.</span>
+            </div>
+          {:else}
+            {#each visibleMessages as msg}
+              {#if msg.type === 'system'}
+                <div class="f-msg system"><span class="f-msg-pre">!</span><span class="f-msg-text" class:err={msg.isError}>{msg.text}</span></div>
+              {:else}
+                <div class="f-msg" class:user={msg.type === 'user'} class:assistant={msg.type === 'assistant'}>
+                  <span class="f-msg-pre">{msg.type === 'user' ? '>' : '<'}</span>
+                  <span class="f-msg-text">{msg.text}</span>
+                </div>
+              {/if}
+            {/each}
+            {#if chatProcessing && (chatThinking || chatActivity)}
+              <div class="f-msg assistant">
+                <span class="f-msg-pre">&lt;</span>
+                <span class="f-msg-text thinking">{chatActivity || 'thinking...'}</span>
+              </div>
+            {/if}
+          {/if}
+        </div>
+
+        {#if strategySession}
+          <div class="f-chat-input-row">
+            <input
+              type="text"
+              class="f-chat-input"
+              placeholder="ask strategy agent..."
+              disabled={chatProcessing}
+              bind:value={chatInput}
+              onkeydown={handleChatKeydown}
+            />
+            {#if chatProcessing}
+              <button class="f-input-btn stop" onclick={handleChatStop} title="Stop">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              </button>
+            {:else}
+              <button class="f-input-btn send" onclick={handleChatSend} disabled={!chatInput.trim()} title="Send">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                </svg>
+              </button>
+            {/if}
+          </div>
+        {/if}
+      </div>
+    </div>
+  </div>
 {/if}
 
 <style>
@@ -1254,5 +1447,401 @@
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
+  }
+
+  /* ========= FOCUSED VIEW ========= */
+  .focused-view {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: #1a1918;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .focused-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+  }
+
+  .focused-back {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #6b6760;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.1s, color 0.1s;
+    flex-shrink: 0;
+  }
+
+  .focused-back:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #b0ab9f;
+  }
+
+  .focused-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #b0ab9f;
+    flex-shrink: 0;
+  }
+
+  .focused-gate {
+    font-size: 13px;
+    font-weight: 600;
+    color: #da7756;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .focused-header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .focused-status {
+    font-size: 11px;
+    color: #6b6760;
+    font-style: italic;
+  }
+
+  .focused-active {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #da7756;
+    font-weight: 500;
+  }
+
+  /* Two-panel layout */
+  .focused-panels {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  @media (max-width: 800px) {
+    .focused-panels {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Left panel: strategy data */
+  .focused-left {
+    padding: 20px 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+    scrollbar-width: thin;
+    scrollbar-color: #3e3c37 transparent;
+  }
+
+  .f-candidate {
+    font-size: 14px;
+    color: #908b81;
+  }
+
+  .f-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .f-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #5a5650;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 4px;
+  }
+
+  .f-alloc-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 26px;
+  }
+
+  .f-alloc-bar {
+    width: 100px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .f-alloc-fill {
+    height: 100%;
+    background: #5b9fd6;
+    border-radius: 3px;
+  }
+
+  .f-alloc-name {
+    font-size: 14px;
+    color: #b0ab9f;
+    flex: 1;
+  }
+
+  .f-alloc-pct {
+    font-size: 13px;
+    color: #6b6760;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  .f-alloc-live {
+    font-size: 10px;
+    color: #da7756;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  .f-alloc-live.idle {
+    color: #5b9fd6;
+  }
+
+  .f-gap-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+  }
+
+  .f-gap-bar {
+    width: 4px;
+    height: 12px;
+    border-radius: 1px;
+  }
+
+  .f-gap-bar.empty {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .f-gap-name {
+    font-size: 14px;
+    color: #b0ab9f;
+    font-weight: 500;
+  }
+
+  .f-gap-detail {
+    font-size: 12px;
+    color: #6b6760;
+  }
+
+  .f-test-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+    cursor: pointer;
+  }
+
+  .f-test-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #57ab5a;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .f-test-text {
+    font-size: 14px;
+    color: #b0ab9f;
+  }
+
+  .f-test-text.done {
+    color: #57ab5a;
+    text-decoration: line-through;
+    text-decoration-color: rgba(87, 171, 90, 0.3);
+  }
+
+  .f-sentence {
+    font-size: 13px;
+    color: #6b6760;
+    font-style: italic;
+    line-height: 1.6;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .f-meta {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: #4a4640;
+    flex-wrap: wrap;
+  }
+
+  /* Right panel: chat */
+  .focused-right {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .f-chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    flex-shrink: 0;
+  }
+
+  .f-popup-btn {
+    font-size: 11px;
+    color: #5a5650;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .f-popup-btn:hover {
+    color: #b0ab9f;
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .f-chat-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: #3e3c37 transparent;
+  }
+
+  .f-chat-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 0;
+  }
+
+  .f-msg {
+    display: flex;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .f-msg-pre {
+    flex-shrink: 0;
+    font-family: monospace;
+    font-size: 13px;
+    width: 14px;
+    color: #5a5650;
+  }
+
+  .f-msg.user .f-msg-pre { color: #5b9fd6; }
+  .f-msg.assistant .f-msg-pre { color: #da7756; }
+  .f-msg.system .f-msg-pre { color: #d4a72c; }
+
+  .f-msg-text {
+    color: #b0ab9f;
+    word-break: break-word;
+  }
+
+  .f-msg.user .f-msg-text { color: #d4d0c8; }
+  .f-msg.system .f-msg-text { color: #908b81; font-style: italic; }
+  .f-msg-text.err { color: #e5534b; }
+  .f-msg-text.thinking { color: #5a5650; font-style: italic; animation: pulse 1.5s ease-in-out infinite; }
+
+  .f-chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 12px 20px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    flex-shrink: 0;
+  }
+
+  .f-chat-input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 14px;
+    color: #d4d0c8;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.12s;
+  }
+
+  .f-chat-input:focus {
+    border-color: rgba(218, 119, 86, 0.3);
+  }
+
+  .f-chat-input::placeholder {
+    color: #4a4640;
+  }
+
+  .f-chat-input:disabled {
+    opacity: 0.4;
+  }
+
+  .f-input-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.1s;
+  }
+
+  .f-input-btn.send {
+    background: rgba(218, 119, 86, 0.12);
+    color: #da7756;
+  }
+
+  .f-input-btn.send:hover:not(:disabled) {
+    background: rgba(218, 119, 86, 0.25);
+  }
+
+  .f-input-btn.send:disabled {
+    opacity: 0.2;
+    cursor: default;
+  }
+
+  .f-input-btn.stop {
+    background: rgba(229, 83, 75, 0.12);
+    color: #e5534b;
+  }
+
+  .f-input-btn.stop:hover {
+    background: rgba(229, 83, 75, 0.25);
   }
 </style>
