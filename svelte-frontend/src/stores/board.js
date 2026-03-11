@@ -11,6 +11,9 @@ export const expandedProjects = writable(new Set());
 // Drill-down navigation: null | { type: 'area', name } | { type: 'project', path, areaName }
 export const drilldownView = writable(null);
 
+// Command Post focused area (null = overview, string = zoomed into that area)
+export const focusedArea = writable(null);
+
 // Cached file content for project docs
 export const fileCache = writable({});
 

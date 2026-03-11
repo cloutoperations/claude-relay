@@ -12,11 +12,10 @@
   import FileViewer from './lib/files/FileViewer.svelte';
   import QuickOpen from './lib/files/QuickOpen.svelte';
   import ChatPopupManager from './lib/popup/ChatPopupManager.svelte';
-  import Workbench from './lib/board/Workbench.svelte';
-  import DrilldownView from './lib/board/DrilldownView.svelte';
+  import CommandPost from './lib/board/CommandPost.svelte';
   import { hasOpenFiles } from './stores/files.js';
   import { filePanelVisible } from './stores/ui.js';
-  import { drilldownView, navigateHome } from './stores/board.js';
+  import { focusedArea } from './stores/board.js';
 
   let quickOpenVisible = $state(false);
 
@@ -121,10 +120,8 @@
             onSend={handleSend}
             onStop={handleStop}
           />
-        {:else if $drilldownView}
-          <DrilldownView />
         {:else}
-          <Workbench />
+          <CommandPost />
         {/if}
       </div>
 
