@@ -674,10 +674,10 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    padding: 6px 14px;
+    padding: 8px 18px;
     background: #1a1918;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 20px;
+    border-radius: 22px;
     cursor: grab;
     user-select: none;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
@@ -713,7 +713,7 @@
   }
 
   .badge-label {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: #da7756;
     white-space: nowrap;
@@ -736,10 +736,10 @@
   .widget {
     position: fixed;
     z-index: 9999;
-    width: 320px;
+    width: 420px;
     background: #1a1918;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
+    border-radius: 14px;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
     display: flex;
     flex-direction: column;
@@ -762,10 +762,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 10px;
+    padding: 10px 14px;
     cursor: grab;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    min-height: 32px;
+    min-height: 38px;
   }
 
   .widget.dragging .widget-header {
@@ -780,7 +780,7 @@
   }
 
   .header-gate {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 600;
     color: #da7756;
     white-space: nowrap;
@@ -789,7 +789,7 @@
   }
 
   .header-title {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: #b0ab9f;
   }
@@ -798,7 +798,7 @@
     display: flex;
     align-items: center;
     gap: 3px;
-    font-size: 9px;
+    font-size: 10px;
     color: #da7756;
     font-weight: 600;
     flex-shrink: 0;
@@ -822,8 +822,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     border: none;
     background: transparent;
     color: #5a5650;
@@ -842,14 +842,14 @@
     display: flex;
     align-items: center;
     gap: 0;
-    padding: 0 8px;
+    padding: 0 12px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   }
 
   .tab {
-    font-size: 10px;
+    font-size: 12px;
     color: #5a5650;
-    padding: 6px 8px;
+    padding: 8px 10px;
     cursor: pointer;
     border-bottom: 2px solid transparent;
     transition: color 0.1s, border-color 0.1s;
@@ -867,14 +867,14 @@
   }
 
   .tab-badge {
-    font-size: 9px;
+    font-size: 10px;
     color: #57ab5a;
     font-weight: 600;
   }
 
   .tab-status {
     margin-left: auto;
-    font-size: 9px;
+    font-size: 10px;
     color: #5a5650;
     font-style: italic;
     white-space: nowrap;
@@ -911,12 +911,12 @@
   .chat-log {
     flex: 1;
     overflow-y: auto;
-    padding: 8px 10px;
+    padding: 10px 14px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    max-height: 280px;
-    min-height: 80px;
+    gap: 6px;
+    max-height: 360px;
+    min-height: 120px;
     scrollbar-width: thin;
     scrollbar-color: #3e3c37 transparent;
     user-select: text;
@@ -930,7 +930,7 @@
   }
 
   .empty-hint {
-    font-size: 10px;
+    font-size: 12px;
     color: #4a4640;
   }
 
@@ -953,16 +953,16 @@
 
   .msg {
     display: flex;
-    gap: 5px;
-    font-size: 11px;
-    line-height: 1.45;
+    gap: 6px;
+    font-size: 13px;
+    line-height: 1.5;
   }
 
   .msg-pre {
     flex-shrink: 0;
     font-family: monospace;
-    font-size: 10px;
-    width: 10px;
+    font-size: 12px;
+    width: 12px;
     color: #5a5650;
   }
 
@@ -983,8 +983,8 @@
 
   .chat-input-row {
     display: flex;
-    gap: 4px;
-    padding: 6px 8px 8px;
+    gap: 6px;
+    padding: 8px 12px 10px;
     border-top: 1px solid rgba(255, 255, 255, 0.04);
   }
 
@@ -992,9 +992,9 @@
     flex: 1;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 8px;
-    padding: 5px 10px;
-    font-size: 11px;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 13px;
     color: #d4d0c8;
     outline: none;
     font-family: inherit;
@@ -1018,10 +1018,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 30px;
+    height: 30px;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
     flex-shrink: 0;
     transition: background 0.1s;
@@ -1052,11 +1052,11 @@
 
   /* Strategy tab */
   .strat-content {
-    padding: 8px 10px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    max-height: 340px;
+    gap: 10px;
+    max-height: 400px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: #3e3c37 transparent;
@@ -1064,17 +1064,17 @@
   }
 
   .strat-gate {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: #da7756;
-    padding: 6px 10px;
+    padding: 8px 12px;
     background: rgba(218, 119, 86, 0.06);
     border-left: 2px solid rgba(218, 119, 86, 0.4);
     border-radius: 0 6px 6px 0;
   }
 
   .strat-candidate {
-    font-size: 10px;
+    font-size: 12px;
     color: #908b81;
   }
 
@@ -1085,24 +1085,24 @@
   }
 
   .strat-label {
-    font-size: 8px;
+    font-size: 9px;
     font-weight: 700;
     color: #5a5650;
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
   }
 
   .alloc-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    height: 16px;
+    gap: 8px;
+    height: 20px;
   }
 
   .alloc-bar {
-    width: 50px;
-    height: 3px;
+    width: 70px;
+    height: 4px;
     background: rgba(255, 255, 255, 0.04);
     border-radius: 2px;
     overflow: hidden;
@@ -1116,7 +1116,7 @@
   }
 
   .alloc-name {
-    font-size: 10px;
+    font-size: 12px;
     color: #b0ab9f;
     flex: 1;
     overflow: hidden;
@@ -1125,7 +1125,7 @@
   }
 
   .alloc-pct {
-    font-size: 9px;
+    font-size: 11px;
     color: #5a5650;
     flex-shrink: 0;
   }
@@ -1176,13 +1176,13 @@
   }
 
   .gap-name {
-    font-size: 10px;
+    font-size: 12px;
     color: #b0ab9f;
     font-weight: 500;
   }
 
   .gap-arrow {
-    font-size: 9px;
+    font-size: 11px;
     color: #5a5650;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1190,7 +1190,7 @@
   }
 
   .strat-sentence {
-    font-size: 10px;
+    font-size: 12px;
     color: #6b6760;
     font-style: italic;
     line-height: 1.5;
@@ -1201,24 +1201,24 @@
   .strat-meta {
     display: flex;
     gap: 10px;
-    font-size: 9px;
+    font-size: 10px;
     color: #4a4640;
   }
 
   /* Tests tab */
   .tests-content {
-    padding: 8px 10px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    max-height: 340px;
+    gap: 5px;
+    max-height: 400px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: #3e3c37 transparent;
   }
 
   .tests-header {
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 600;
     color: #57ab5a;
     margin-bottom: 4px;
@@ -1227,21 +1227,21 @@
   .test-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 0;
+    gap: 8px;
+    padding: 3px 0;
     cursor: pointer;
   }
 
   .test-row input[type="checkbox"] {
-    width: 13px;
-    height: 13px;
+    width: 15px;
+    height: 15px;
     accent-color: #57ab5a;
     cursor: pointer;
     flex-shrink: 0;
   }
 
   .test-text {
-    font-size: 11px;
+    font-size: 13px;
     color: #b0ab9f;
   }
 
