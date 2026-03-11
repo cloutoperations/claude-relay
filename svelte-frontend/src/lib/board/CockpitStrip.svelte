@@ -1,29 +1,43 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { getBasePath } from '../../stores/ws.js';
-  import { boardData } from '../../stores/board.js';
-  import { popups, openPopup, sendPopupMessage, stopPopupProcessing } from '../../stores/popups.js';
+  import { boardData, fetchBoard } from '../../stores/board.js';
+  import { onMessage, send } from '../../stores/ws.js';
   import { sessions, createSession } from '../../stores/sessions.js';
-  import { fetchBoard } from '../../stores/board.js';
+  import { openPopup } from '../../stores/popups.js';
 
-  let expanded = $state(false);
+  // --- Widget state ---
+  let minimized = $state(false);
+  let activeTab = $state('chat'); // 'chat' | 'strategy' | 'tests'
   let strategyData = $state(null);
   let cockpitState = $state({ sessionDate: null, testStatus: {}, notes: [] });
   let loading = $state(true);
 
-  // Mini-chat state
-  let chatInput = $state('');
-  let chatSending = $state(false);
-  let inputEl = $state(null);
+  // --- Drag state ---
+  let posX = $state(20);
+  let posY = $state(80);
+  let dragging = $state(false);
+  let dragStart = { x: 0, y: 0, posX: 0, posY: 0 };
 
-  // Find existing strategy session (tagged to strategy area or area-level)
+  // --- Chat state (independent of popup store) ---
+  let chatInput = $state('');
+  let chatMessages = $state([]);
+  let chatProcessing = $state(false);
+  let chatThinking = $state(false);
+  let chatActivity = $state(null);
+  let chatStreamText = $state('');
+  let chatIsStreaming = $state(false);
+  let chatSessionLinked = $state(false);
+  let inputEl = $state(null);
+  let chatEl = $state(null);
+  let unsubWs = null;
+
+  // --- Strategy session ---
   let strategySession = $derived.by(() => {
     if (!$boardData) return null;
     const stratArea = $boardData.areas.find(a => a.name === 'strategy');
     if (!stratArea) return null;
-    // Check area-level sessions first (projectPath === 'strategy')
     if (stratArea.areaSessions?.length > 0) return stratArea.areaSessions[0];
-    // Then check project-level sessions
     for (const proj of stratArea.projects) {
       if (proj.sessions.length > 0) return proj.sessions[0];
       for (const sub of proj.subProjects) {
@@ -33,32 +47,211 @@
     return null;
   });
 
-  // Strategy session popup data (for inline chat display)
-  let strategyPopup = $derived.by(() => {
-    if (!strategySession) return null;
-    return $popups[strategySession.id] || null;
+  // Link to WS when strategy session appears
+  $effect(() => {
+    if (strategySession && !chatSessionLinked) {
+      chatSessionLinked = true;
+      send({ type: 'popup_open', sessionId: strategySession.id });
+    }
   });
 
-  // Get the last few chat messages from the strategy popup
-  let chatMessages = $derived.by(() => {
-    if (!strategyPopup) return [];
-    const msgs = strategyPopup.messages || [];
-    // Show user, assistant, and system (error) messages, last 8
-    return msgs
+  // Derived stats
+  let processingCount = $derived.by(() => {
+    if (!$boardData) return 0;
+    let count = 0;
+    for (const area of $boardData.areas) {
+      for (const proj of area.projects) {
+        count += proj.sessions.filter(s => s.isProcessing).length;
+        for (const sub of proj.subProjects) {
+          if (sub.sessions) count += sub.sessions.filter(s => s.isProcessing).length;
+        }
+      }
+    }
+    return count;
+  });
+
+  let testsPassing = $derived.by(() => {
+    if (!strategyData?.tests) return 0;
+    return strategyData.tests.filter(t => cockpitState.testStatus[t.label]).length;
+  });
+
+  let testsTotal = $derived(strategyData?.tests?.length || 0);
+
+  let visibleMessages = $derived(
+    chatMessages
       .filter(m => m.type === 'user' || (m.type === 'assistant' && m.text) || m.type === 'system')
-      .slice(-8);
-  });
+      .slice(-20)
+  );
 
-  let chatProcessing = $derived(strategyPopup?.processing || false);
-  let chatThinking = $derived(strategyPopup?.thinking || false);
-  let chatActivity = $derived(strategyPopup?.activity || null);
-  let chatLoading = $derived(strategyPopup?.loadingHistory || false);
+  // --- Persistence ---
+  function loadPosition() {
+    try {
+      const raw = localStorage.getItem('cockpit-widget-pos');
+      if (raw) {
+        const p = JSON.parse(raw);
+        posX = p.x ?? 20;
+        posY = p.y ?? 80;
+      }
+    } catch {}
+    try {
+      minimized = localStorage.getItem('cockpit-widget-min') === '1';
+    } catch {}
+  }
 
+  function savePosition() {
+    try {
+      localStorage.setItem('cockpit-widget-pos', JSON.stringify({ x: posX, y: posY }));
+    } catch {}
+  }
+
+  function saveMinimized() {
+    try {
+      localStorage.setItem('cockpit-widget-min', minimized ? '1' : '0');
+    } catch {}
+  }
+
+  // --- Drag handling ---
+  function handleDragStart(e) {
+    if (e.target.closest('button, input, label, .chat-log, .tab-content')) return;
+    dragging = true;
+    dragStart = { x: e.clientX, y: e.clientY, posX, posY };
+    e.preventDefault();
+  }
+
+  function handleMouseMove(e) {
+    if (!dragging) return;
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    posX = Math.max(0, Math.min(window.innerWidth - 100, dragStart.posX + dx));
+    posY = Math.max(0, Math.min(window.innerHeight - 50, dragStart.posY + dy));
+  }
+
+  function handleMouseUp() {
+    if (dragging) {
+      dragging = false;
+      savePosition();
+    }
+  }
+
+  // --- Lifecycle ---
   onMount(() => {
+    loadPosition();
     loadStrategy();
     loadCockpitState();
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    unsubWs = onMessage((msg) => {
+      if (!strategySession) return;
+      if (!msg._popupSessionId && msg.type !== 'popup_history_start' && msg.type !== 'popup_history_done') return;
+      const sid = msg._popupSessionId || msg.sessionId;
+      if (sid !== strategySession.id) return;
+      handleWsMessage(msg);
+    });
   });
 
+  onDestroy(() => {
+    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mouseup', handleMouseUp);
+    if (unsubWs) unsubWs();
+  });
+
+  // --- WS message handler ---
+  function handleWsMessage(msg) {
+    const t = msg.type;
+
+    if (t === 'popup_history_start') { chatMessages = []; return; }
+    if (t === 'popup_history_done') { finalizeStream(); return; }
+
+    if (t === 'user_message') {
+      finalizeStream();
+      chatMessages = [...chatMessages, { type: 'user', text: msg.text || '' }];
+    } else if (t === 'delta' || t === 'assistant_delta') {
+      chatThinking = false;
+      chatActivity = null;
+      const delta = msg.text || msg.delta || '';
+      if (!chatIsStreaming) {
+        chatIsStreaming = true;
+        chatStreamText = delta;
+        chatMessages = [...chatMessages, { type: 'assistant', text: delta, streaming: true }];
+      } else {
+        chatStreamText += delta;
+        const msgs = [...chatMessages];
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          if (msgs[i].type === 'assistant' && msgs[i].streaming) {
+            msgs[i] = { ...msgs[i], text: chatStreamText };
+            break;
+          }
+        }
+        chatMessages = msgs;
+      }
+      scrollChat();
+    } else if (t === 'thinking_start') {
+      chatThinking = true;
+    } else if (t === 'thinking_stop') {
+      chatThinking = false;
+    } else if (t === 'tool_start') {
+      finalizeStream();
+      chatThinking = false;
+      chatActivity = (msg.name || msg.toolName || 'tool');
+    } else if (t === 'tool_executing') {
+      const name = msg.name || '';
+      const input = msg.input;
+      if (input) {
+        const detail = input.description || input.command?.substring(0, 50) || input.file_path || input.pattern || '';
+        chatActivity = detail ? name + ' · ' + detail : name;
+      }
+    } else if (t === 'status') {
+      chatProcessing = msg.status === 'processing';
+    } else if (t === 'result') {
+      finalizeStream();
+      chatProcessing = false;
+    } else if (t === 'done') {
+      finalizeStream();
+      chatProcessing = false;
+      chatThinking = false;
+      chatActivity = null;
+    } else if (t === 'error') {
+      finalizeStream();
+      chatMessages = [...chatMessages, { type: 'system', text: msg.text || msg.message || 'Error', isError: true }];
+    } else if (t === 'subagent_activity') {
+      if (msg.text) chatActivity = msg.text;
+    } else if (t === 'subagent_tool') {
+      const name = msg.toolName || '';
+      const text = msg.text || '';
+      chatActivity = name && text ? name + ' · ' + text : text || name || 'Agent working...';
+    } else if (t === 'tool_progress') {
+      const elapsed = msg.elapsed ? Math.round(msg.elapsed) : 0;
+      chatActivity = (msg.toolName || 'tool') + (elapsed > 3 ? ' · ' + elapsed + 's' : '');
+    } else if (t === 'session_id') {
+      if (msg.cliSessionId && msg.cliSessionId !== strategySession?.id) {
+        chatSessionLinked = false;
+      }
+    }
+  }
+
+  function finalizeStream() {
+    if (!chatIsStreaming) return;
+    const msgs = [...chatMessages];
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].type === 'assistant' && msgs[i].streaming) {
+        msgs[i] = { ...msgs[i], text: chatStreamText, streaming: false };
+        break;
+      }
+    }
+    chatMessages = msgs;
+    chatIsStreaming = false;
+    chatStreamText = '';
+  }
+
+  function scrollChat() {
+    requestAnimationFrame(() => {
+      if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+    });
+  }
+
+  // --- Data loading ---
   async function loadStrategy() {
     loading = true;
     try {
@@ -77,9 +270,7 @@
   async function loadCockpitState() {
     try {
       const res = await fetch(getBasePath() + 'api/board/cockpit-state');
-      if (res.ok) {
-        cockpitState = await res.json();
-      }
+      if (res.ok) cockpitState = await res.json();
     } catch (e) {}
   }
 
@@ -99,54 +290,96 @@
     saveCockpitState();
   }
 
-  // Computed: live processing count
-  let processingCount = $derived.by(() => {
-    if (!$boardData) return 0;
-    let count = 0;
+  // --- Actions ---
+  function handleCreateSession() {
+    createSession(null, false, 'strategy');
+    setTimeout(() => fetchBoard(), 2000);
+  }
+
+  function openInPopup() {
+    if (strategySession) openPopup(strategySession.id, strategySession.title || 'Strategy');
+  }
+
+  function toggleMinimize() {
+    minimized = !minimized;
+    saveMinimized();
+  }
+
+  async function gatherSessionContext() {
+    if (!$boardData) return '';
+    const activeSessions = [];
     for (const area of $boardData.areas) {
       for (const proj of area.projects) {
-        count += proj.sessions.filter(s => s.isProcessing).length;
-        for (const sub of proj.subProjects) {
-          if (sub.sessions) count += sub.sessions.filter(s => s.isProcessing).length;
+        for (const s of proj.sessions) {
+          activeSessions.push({ id: s.id, title: s.title, area: area.name, project: proj.name, processing: s.isProcessing });
         }
-      }
-    }
-    return count;
-  });
-
-  // Computed: tests passing count
-  let testsPassing = $derived.by(() => {
-    if (!strategyData?.tests) return 0;
-    return strategyData.tests.filter(t => cockpitState.testStatus[t.label]).length;
-  });
-
-  let testsTotal = $derived(strategyData?.tests?.length || 0);
-
-  // Computed: map allocation tracks to areas for live overlay
-  function areaSessionCount(trackName) {
-    if (!$boardData) return { total: 0, processing: 0 };
-    // Try to match track name to an area name (fuzzy)
-    const normalizedTrack = trackName.toLowerCase().replace(/[^a-z0-9]/g, '');
-    for (const area of $boardData.areas) {
-      const normalizedArea = area.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-      // Match if area name is contained in track name or vice versa
-      if (normalizedTrack.includes(normalizedArea) || normalizedArea.includes(normalizedTrack)) {
-        let total = (area.areaSessions?.length || 0);
-        let processing = (area.areaSessions?.filter(s => s.isProcessing).length || 0);
-        for (const p of area.projects) {
-          total += p.sessions.length;
-          processing += p.sessions.filter(s => s.isProcessing).length;
-          for (const sub of p.subProjects) {
-            if (sub.sessions) {
-              total += sub.sessions.length;
-              processing += sub.sessions.filter(s => s.isProcessing).length;
+        for (const sub of proj.subProjects) {
+          if (sub.sessions) {
+            for (const s of sub.sessions) {
+              activeSessions.push({ id: s.id, title: s.title, area: area.name, project: proj.name + '/' + sub.name, processing: s.isProcessing });
             }
           }
         }
-        return { total, processing };
       }
     }
-    return { total: 0, processing: 0 };
+
+    const fetches = activeSessions.map(async (s) => {
+      try {
+        const res = await fetch(getBasePath() + `api/sessions/${encodeURIComponent(s.id)}/messages?limit=10`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return { ...s, messages: data.messages || [] };
+      } catch { return null; }
+    });
+
+    const results = await Promise.all(fetches);
+    const parts = [];
+    for (const r of results) {
+      if (!r || r.messages.length === 0) continue;
+      let part = `--- "${r.title || 'Untitled'}" (${r.area}/${r.project}) ${r.processing ? '[PROCESSING]' : '[idle]'} ---\n`;
+      for (const m of r.messages) {
+        if (m.type === 'user') part += `User: ${m.text.substring(0, 200)}\n`;
+        else if (m.type === 'assistant') part += `Claude: ${m.text.substring(0, 300)}\n`;
+        else if (m.type === 'tool') part += `[tool: ${m.name}]\n`;
+      }
+      parts.push(part);
+    }
+    if (parts.length === 0) return '';
+    return '\n\n[LIVE SESSION CONTEXT]\n\n' + parts.join('\n') + '\n[END CONTEXT]\n\n';
+  }
+
+  async function handleChatSend() {
+    const text = chatInput.trim();
+    if (!text || !strategySession) return;
+
+    chatInput = '';
+    chatMessages = [...chatMessages, { type: 'user', text }];
+    chatProcessing = true;
+    chatThinking = true;
+    scrollChat();
+
+    const contextKeywords = ['status', 'update', 'what did', 'what should', 'where am i', 'on track', 'drift', 'focus', 'today', 'this week', 'progress', 'recap'];
+    const needsContext = contextKeywords.some(k => text.toLowerCase().includes(k));
+
+    let fullMessage = text;
+    if (needsContext) {
+      const context = await gatherSessionContext();
+      if (context) fullMessage = context + text;
+    }
+
+    send({ type: 'popup_message', sessionId: strategySession.id, text: fullMessage });
+  }
+
+  function handleChatKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleChatSend();
+    }
+  }
+
+  function handleChatStop() {
+    if (strategySession) send({ type: 'popup_stop', sessionId: strategySession.id });
   }
 
   function urgencyColor(urgency) {
@@ -167,220 +400,211 @@
     return 1;
   }
 
-  // Ensure the strategy session popup is open (minimized) for chat
-  function ensureStrategyPopup() {
-    if (!strategySession) return false;
-    if (!$popups[strategySession.id]) {
-      openPopup(strategySession.id, strategySession.title || 'Strategy');
-      // Auto-minimize so it doesn't visually pop up
-      // The popup store will handle it
-    }
-    return true;
-  }
-
-  function handleStrategyChat() {
-    if (strategySession) {
-      openPopup(strategySession.id, strategySession.title || 'Strategy');
-    } else {
-      createSession(null, false, 'strategy');
-      setTimeout(() => {
-        fetchBoard();
-      }, 2000);
-    }
-  }
-
-  // Gather live context from all active sessions for the observer agent
-  async function gatherSessionContext() {
-    if (!$boardData) return '';
-    const activeSessions = [];
+  function areaSessionCount(trackName) {
+    if (!$boardData) return { total: 0, processing: 0 };
+    const nt = trackName.toLowerCase().replace(/[^a-z0-9]/g, '');
     for (const area of $boardData.areas) {
-      for (const proj of area.projects) {
-        for (const s of proj.sessions) {
-          activeSessions.push({ id: s.id, title: s.title, area: area.name, project: proj.name, processing: s.isProcessing });
-        }
-        for (const sub of proj.subProjects) {
-          if (sub.sessions) {
-            for (const s of sub.sessions) {
-              activeSessions.push({ id: s.id, title: s.title, area: area.name, project: proj.name + '/' + sub.name, processing: s.isProcessing });
+      const na = area.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (nt.includes(na) || na.includes(nt)) {
+        let total = (area.areaSessions?.length || 0);
+        let processing = (area.areaSessions?.filter(s => s.isProcessing).length || 0);
+        for (const p of area.projects) {
+          total += p.sessions.length;
+          processing += p.sessions.filter(s => s.isProcessing).length;
+          for (const sub of p.subProjects) {
+            if (sub.sessions) {
+              total += sub.sessions.length;
+              processing += sub.sessions.filter(s => s.isProcessing).length;
             }
           }
         }
+        return { total, processing };
       }
     }
-
-    // Fetch recent messages from each active session (parallel, max 10 messages each)
-    const contextParts = [];
-    const fetches = activeSessions.map(async (s) => {
-      try {
-        const res = await fetch(getBasePath() + `api/sessions/${encodeURIComponent(s.id)}/messages?limit=10`);
-        if (!res.ok) return null;
-        const data = await res.json();
-        return { ...s, messages: data.messages || [] };
-      } catch { return null; }
-    });
-
-    const results = await Promise.all(fetches);
-    for (const r of results) {
-      if (!r || r.messages.length === 0) continue;
-      let part = `--- Session: "${r.title || 'Untitled'}" (${r.area}/${r.project}) ${r.processing ? '[PROCESSING]' : '[idle]'} ---\n`;
-      for (const m of r.messages) {
-        if (m.type === 'user') part += `User: ${m.text.substring(0, 200)}\n`;
-        else if (m.type === 'assistant') part += `Claude: ${m.text.substring(0, 300)}\n`;
-        else if (m.type === 'tool') part += `[tool: ${m.name}]\n`;
-      }
-      contextParts.push(part);
-    }
-
-    if (contextParts.length === 0) return '';
-    return '\n\n[LIVE SESSION CONTEXT — You have read access to all active sessions. Here are recent messages:]\n\n' + contextParts.join('\n') + '\n[END SESSION CONTEXT]\n\n';
+    return { total: 0, processing: 0 };
   }
 
-  // Send message to strategy session with optional context
-  async function handleChatSend() {
-    const text = chatInput.trim();
-    if (!text) return;
-    console.log('[cockpit] handleChatSend, strategySession:', strategySession);
-    if (!strategySession) {
-      console.log('[cockpit] No strategy session found, creating one');
-      handleStrategyChat();
-      return;
-    }
-
-    chatInput = '';
-    chatSending = true;
-
-    // Ensure popup is open
-    const popupOk = ensureStrategyPopup();
-    console.log('[cockpit] ensureStrategyPopup:', popupOk, 'sessionId:', strategySession.id);
-
-    // Wait a tick for popup to initialize
-    await new Promise(r => setTimeout(r, 300));
-
-    // Check if this is a status/context query — prepend session context
-    const contextKeywords = ['status', 'update', 'what did', 'what should', 'where am i', 'on track', 'drift', 'focus', 'today', 'this week', 'progress', 'recap'];
-    const needsContext = contextKeywords.some(k => text.toLowerCase().includes(k));
-
-    let fullMessage = text;
-    if (needsContext) {
-      const context = await gatherSessionContext();
-      if (context) {
-        fullMessage = context + text;
-      }
-    }
-
-    console.log('[cockpit] sendPopupMessage to:', strategySession.id, 'text length:', fullMessage.length, 'popup exists:', !!$popups[strategySession.id]);
-    sendPopupMessage(strategySession.id, fullMessage);
-    chatSending = false;
-  }
-
-  function handleChatKeydown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      handleChatSend();
-    }
-  }
-
-  function handleChatStop() {
-    if (strategySession) {
-      stopPopupProcessing(strategySession.id);
-    }
-  }
-
-  function toggleExpanded() {
-    expanded = !expanded;
-    // When expanding, ensure strategy popup is open for chat
-    if (expanded && strategySession) {
-      ensureStrategyPopup();
-    }
-  }
-
-  function handleKeydown(e) {
-    if (e.key === 'Escape' && expanded) {
-      expanded = false;
-    }
-  }
-
-  // Truncate assistant text for inline display
-  function truncateText(text, max = 500) {
+  function truncate(text, max = 400) {
     if (!text || text.length <= max) return text || '';
     return text.substring(0, max) + '...';
   }
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-{#if strategyData && (strategyData.gate || strategyData.allocation.length > 0)}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="cockpit" class:expanded>
-    <!-- Collapsed bar -->
-    <div class="cockpit-bar" onclick={toggleExpanded}>
-      <span class="cockpit-toggle">{expanded ? '▾' : '▸'}</span>
-
-      {#if strategyData.gate}
-        <span class="cockpit-gate">GATE: {strategyData.gate}</span>
+{#if strategyData}
+  <!-- Minimized badge -->
+  {#if minimized}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="widget-badge"
+      class:processing={chatProcessing}
+      class:has-sessions={processingCount > 0}
+      style="left: {posX}px; top: {posY}px;"
+      onclick={toggleMinimize}
+      onmousedown={handleDragStart}
+    >
+      {#if chatProcessing}
+        <span class="badge-dot"></span>
       {/if}
-
-      {#if strategyData.candidateName}
-        <span class="cockpit-sep">·</span>
-        <span class="cockpit-candidate">{strategyData.candidateName}</span>
-      {/if}
-
-      {#if strategyData.nextReview}
-        <span class="cockpit-sep">·</span>
-        <span class="cockpit-next">Check {strategyData.nextReview}</span>
-      {/if}
-
-      {#if testsTotal > 0}
-        <span class="cockpit-sep">·</span>
-        <span class="cockpit-tests">{testsPassing}/{testsTotal} tests</span>
-      {/if}
-
+      <span class="badge-label">
+        {#if chatProcessing}
+          {chatActivity ? chatActivity.substring(0, 20) : 'thinking'}
+        {:else}
+          S
+        {/if}
+      </span>
       {#if processingCount > 0}
-        <span class="cockpit-sep">·</span>
-        <span class="cockpit-processing">{processingCount}<span class="processing-dot"></span></span>
+        <span class="badge-count">{processingCount}</span>
       {/if}
-
-      <button class="cockpit-chat-btn" onclick={(e) => { e.stopPropagation(); handleStrategyChat(); }} title="Open strategy session (full popup)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-      </button>
     </div>
 
-    <!-- Expanded panel (floats over content) -->
-    {#if expanded}
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="cockpit-backdrop" onclick={toggleExpanded}></div>
-      <div class="cockpit-expanded">
-        <div class="cockpit-columns">
-          <!-- Left: Allocation + Gaps -->
-          <div class="cockpit-col">
+  <!-- Expanded widget -->
+  {:else}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="widget"
+      class:dragging
+      class:processing={chatProcessing}
+      style="left: {posX}px; top: {posY}px;"
+      onmousedown={handleDragStart}
+    >
+      <!-- Header -->
+      <div class="widget-header">
+        <div class="header-left">
+          {#if strategyData.gate}
+            <span class="header-gate">{strategyData.gate}</span>
+          {:else}
+            <span class="header-title">Strategy</span>
+          {/if}
+          {#if processingCount > 0}
+            <span class="header-active">{processingCount}<span class="header-dot"></span></span>
+          {/if}
+        </div>
+        <div class="header-right">
+          {#if strategySession}
+            <button class="hdr-btn" onclick={openInPopup} title="Open full popup">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </button>
+          {/if}
+          <button class="hdr-btn" onclick={toggleMinimize} title="Minimize">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="widget-tabs">
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <span class="tab" class:active={activeTab === 'chat'} role="button" tabindex="0" onclick={() => activeTab = 'chat'}>Chat</span>
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <span class="tab" class:active={activeTab === 'strategy'} role="button" tabindex="0" onclick={() => activeTab = 'strategy'}>
+          Strategy
+        </span>
+        {#if testsTotal > 0}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <span class="tab" class:active={activeTab === 'tests'} role="button" tabindex="0" onclick={() => activeTab = 'tests'}>
+            Tests <span class="tab-badge">{testsPassing}/{testsTotal}</span>
+          </span>
+        {/if}
+
+        <!-- Status in tab bar -->
+        {#if chatProcessing}
+          <span class="tab-status">
+            {#if chatThinking}
+              thinking<span class="dots"><span>.</span><span>.</span><span>.</span></span>
+            {:else if chatActivity}
+              {chatActivity.substring(0, 30)}
+            {/if}
+          </span>
+        {/if}
+      </div>
+
+      <!-- Tab content -->
+      <div class="tab-content">
+        {#if activeTab === 'chat'}
+          <!-- Chat tab -->
+          <div class="chat-log" bind:this={chatEl}>
+            {#if !strategySession}
+              <div class="chat-empty">
+                <button class="create-btn" onclick={handleCreateSession}>+ New strategy session</button>
+              </div>
+            {:else if visibleMessages.length === 0}
+              <div class="chat-empty">
+                <span class="empty-hint">Ask about focus, status, progress...</span>
+              </div>
+            {:else}
+              {#each visibleMessages as msg}
+                {#if msg.type === 'system'}
+                  <div class="msg system"><span class="msg-pre">!</span><span class="msg-text" class:err={msg.isError}>{msg.text}</span></div>
+                {:else}
+                  <div class="msg" class:user={msg.type === 'user'} class:assistant={msg.type === 'assistant'}>
+                    <span class="msg-pre">{msg.type === 'user' ? '>' : '<'}</span>
+                    <span class="msg-text">{truncate(msg.text)}</span>
+                  </div>
+                {/if}
+              {/each}
+              {#if chatProcessing && (chatThinking || chatActivity)}
+                <div class="msg assistant">
+                  <span class="msg-pre">&lt;</span>
+                  <span class="msg-text thinking">{chatActivity || 'thinking...'}</span>
+                </div>
+              {/if}
+            {/if}
+          </div>
+
+          {#if strategySession}
+            <div class="chat-input-row">
+              <input
+                type="text"
+                class="chat-input"
+                placeholder="ask strategy agent..."
+                disabled={chatProcessing}
+                bind:value={chatInput}
+                bind:this={inputEl}
+                onkeydown={handleChatKeydown}
+              />
+              {#if chatProcessing}
+                <button class="input-btn stop" onclick={handleChatStop} title="Stop">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                </button>
+              {:else}
+                <button class="input-btn send" onclick={handleChatSend} disabled={!chatInput.trim()} title="Send">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+                  </svg>
+                </button>
+              {/if}
+            </div>
+          {/if}
+
+        {:else if activeTab === 'strategy'}
+          <!-- Strategy tab -->
+          <div class="strat-content">
             {#if strategyData.gate}
-              <div class="cockpit-gate-full">THE GATE: {strategyData.gate}</div>
+              <div class="strat-gate">{strategyData.gate}</div>
+            {/if}
+
+            {#if strategyData.candidateName}
+              <div class="strat-candidate">{strategyData.candidateName}</div>
             {/if}
 
             {#if strategyData.allocation.length > 0}
-              <div class="cockpit-section">
-                <div class="section-label">ALLOCATION</div>
+              <div class="strat-section">
+                <div class="strat-label">ALLOCATION</div>
                 {#each strategyData.allocation as track}
                   {@const live = areaSessionCount(track.track)}
                   <div class="alloc-row">
-                    <div class="alloc-bar-container">
-                      <div class="alloc-bar" style="width: {track.percent}%"></div>
-                    </div>
-                    <span class="alloc-label">{track.track}</span>
+                    <div class="alloc-bar"><div class="alloc-fill" style="width: {track.percent}%"></div></div>
+                    <span class="alloc-name">{track.track}</span>
                     <span class="alloc-pct">{track.percent}%</span>
-                    {#if live.total > 0}
-                      <span class="alloc-live" class:has-processing={live.processing > 0}>
-                        {#if live.processing > 0}
-                          <span class="alloc-live-dot"></span>{live.processing}
-                        {:else}
-                          {live.total} sess
-                        {/if}
-                      </span>
+                    {#if live.processing > 0}
+                      <span class="alloc-live"><span class="live-dot"></span>{live.processing}</span>
+                    {:else if live.total > 0}
+                      <span class="alloc-live idle">{live.total}</span>
                     {/if}
                   </div>
                 {/each}
@@ -388,155 +612,175 @@
             {/if}
 
             {#if strategyData.gaps.length > 0}
-              <div class="cockpit-section">
-                <div class="section-label">GAPS</div>
+              <div class="strat-section">
+                <div class="strat-label">GAPS</div>
                 {#each strategyData.gaps as gap}
                   <div class="gap-row">
-                    <div class="gap-urgency">
-                      {#each Array(urgencyBars(gap.urgency)) as _, i}
-                        <span class="urgency-bar" style="background: {urgencyColor(gap.urgency)}"></span>
+                    <div class="gap-bars">
+                      {#each Array(urgencyBars(gap.urgency)) as _}
+                        <span class="gap-bar" style="background: {urgencyColor(gap.urgency)}"></span>
                       {/each}
-                      {#each Array(4 - urgencyBars(gap.urgency)) as _, i}
-                        <span class="urgency-bar empty"></span>
+                      {#each Array(4 - urgencyBars(gap.urgency)) as _}
+                        <span class="gap-bar empty"></span>
                       {/each}
                     </div>
-                    <span class="gap-area">{gap.area}</span>
-                    <span class="gap-detail">({gap.present} → {gap.desired})</span>
+                    <span class="gap-name">{gap.area}</span>
+                    <span class="gap-arrow">{gap.present} → {gap.desired}</span>
                   </div>
                 {/each}
               </div>
             {/if}
 
             {#if strategyData.oneSentence}
-              <div class="cockpit-sentence">{strategyData.oneSentence}</div>
+              <div class="strat-sentence">{strategyData.oneSentence}</div>
+            {/if}
+
+            {#if strategyData.sessionDate || strategyData.nextReview}
+              <div class="strat-meta">
+                {#if strategyData.nextReview}<span>Next: {strategyData.nextReview}</span>{/if}
+                {#if strategyData.sessionDate}<span>Session: {strategyData.sessionDate}</span>{/if}
+              </div>
             {/if}
           </div>
 
-          <!-- Right: Tests + Chat -->
-          <div class="cockpit-col">
+        {:else if activeTab === 'tests'}
+          <!-- Tests tab -->
+          <div class="tests-content">
             {#if strategyData.tests.length > 0}
-              <div class="cockpit-section">
-                <div class="section-label">TESTS — {strategyData.nextReview || 'TBD'} ({testsPassing} of {testsTotal})</div>
-                {#each strategyData.tests as test}
-                  <label class="test-row">
-                    <input
-                      type="checkbox"
-                      checked={cockpitState.testStatus[test.label] || false}
-                      onchange={() => toggleTest(test.label)}
-                    />
-                    <span class="test-label" class:done={cockpitState.testStatus[test.label]}>{test.label}</span>
-                  </label>
-                {/each}
-              </div>
+              <div class="tests-header">{testsPassing} of {testsTotal} passing — {strategyData.nextReview || 'TBD'}</div>
+              {#each strategyData.tests as test}
+                <label class="test-row">
+                  <input
+                    type="checkbox"
+                    checked={cockpitState.testStatus[test.label] || false}
+                    onchange={() => toggleTest(test.label)}
+                  />
+                  <span class="test-text" class:done={cockpitState.testStatus[test.label]}>{test.label}</span>
+                </label>
+              {/each}
             {/if}
-
-            <div class="cockpit-meta">
-              {#if strategyData.sessionDate}
-                <span class="meta-item">Session: {strategyData.sessionDate}</span>
-              {/if}
-              {#if strategyData.lastReviewed}
-                <span class="meta-item">Last reviewed: {strategyData.lastReviewed}</span>
-              {/if}
-            </div>
-
-            <!-- Mini-chat for strategy agent -->
-            <div class="cockpit-chat">
-              <div class="section-label">STRATEGY AGENT</div>
-
-              {#if chatLoading}
-                <div class="chat-empty">Loading session history...</div>
-              {:else if chatMessages.length > 0}
-                <div class="chat-messages">
-                  {#each chatMessages as msg}
-                    {#if msg.type === 'system'}
-                      <div class="chat-msg system">
-                        <span class="chat-msg-role">!</span>
-                        <span class="chat-msg-text" class:error={msg.isError}>{msg.text}</span>
-                      </div>
-                    {:else}
-                      <div class="chat-msg" class:user={msg.type === 'user'} class:assistant={msg.type === 'assistant'}>
-                        <span class="chat-msg-role">{msg.type === 'user' ? '>' : '←'}</span>
-                        <span class="chat-msg-text">{truncateText(msg.text)}</span>
-                      </div>
-                    {/if}
-                  {/each}
-                  {#if chatProcessing && (chatThinking || chatActivity)}
-                    <div class="chat-msg assistant">
-                      <span class="chat-msg-role">←</span>
-                      <span class="chat-msg-text thinking">{chatActivity || 'Thinking...'}</span>
-                    </div>
-                  {/if}
-                </div>
-              {:else if !strategySession}
-                <div class="chat-empty">No strategy session. Click the chat icon to create one.</div>
-              {:else}
-                <div class="chat-empty">Ask about status, focus, progress, or give quick commands.</div>
-              {/if}
-
-              <!-- svelte-ignore a11y_autofocus -->
-              <div class="chat-input-row">
-                <input
-                  type="text"
-                  class="chat-input"
-                  placeholder={strategySession ? 'what should I focus on today?' : 'Create a strategy session first...'}
-                  disabled={!strategySession || chatSending}
-                  bind:value={chatInput}
-                  bind:this={inputEl}
-                  onkeydown={handleChatKeydown}
-                />
-                {#if chatProcessing}
-                  <button class="chat-stop-btn" onclick={handleChatStop} title="Stop">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-                  </button>
-                {:else}
-                  <button class="chat-send-btn" onclick={handleChatSend} disabled={!strategySession || !chatInput.trim()} title="Send">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                    </svg>
-                  </button>
-                {/if}
-              </div>
-            </div>
           </div>
-        </div>
+        {/if}
       </div>
-    {/if}
-  </div>
+    </div>
+  {/if}
 {/if}
 
 <style>
-  .cockpit {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    flex-shrink: 0;
-    background: #1e1d1a;
-    position: relative;
-    z-index: 20;
-  }
-
-  /* Collapsed bar */
-  .cockpit-bar {
+  /* --- Minimized badge --- */
+  .widget-badge {
+    position: fixed;
+    z-index: 9999;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    cursor: pointer;
-    transition: background 0.12s;
-    min-height: 36px;
+    gap: 5px;
+    padding: 6px 14px;
+    background: #1a1918;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    cursor: grab;
+    user-select: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    transition: box-shadow 0.3s, border-color 0.3s;
   }
 
-  .cockpit-bar:hover {
-    background: rgba(255, 255, 255, 0.03);
+  .widget-badge:hover {
+    border-color: rgba(218, 119, 86, 0.3);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
   }
 
-  .cockpit-toggle {
-    font-size: 10px;
-    color: #6b6760;
-    width: 12px;
+  .widget-badge.processing {
+    animation: badge-glow 2s ease-in-out infinite;
+    border-color: rgba(218, 119, 86, 0.4);
+  }
+
+  .widget-badge.has-sessions {
+    border-color: rgba(218, 119, 86, 0.2);
+  }
+
+  @keyframes badge-glow {
+    0%, 100% { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 8px rgba(218, 119, 86, 0.2); }
+    50% { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(218, 119, 86, 0.5); }
+  }
+
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #da7756;
+    animation: pulse 1.5s ease-in-out infinite;
     flex-shrink: 0;
   }
 
-  .cockpit-gate {
+  .badge-label {
     font-size: 11px;
+    font-weight: 600;
+    color: #da7756;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+  }
+
+  .badge-count {
+    font-size: 9px;
+    font-weight: 700;
+    color: #1a1918;
+    background: #da7756;
+    border-radius: 8px;
+    padding: 1px 5px;
+    flex-shrink: 0;
+  }
+
+  /* --- Expanded widget --- */
+  .widget {
+    position: fixed;
+    z-index: 9999;
+    width: 320px;
+    background: #1a1918;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+    transition: box-shadow 0.3s, border-color 0.3s;
+  }
+
+  .widget.dragging {
+    cursor: grabbing;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.7);
+  }
+
+  .widget.processing {
+    border-color: rgba(218, 119, 86, 0.25);
+  }
+
+  /* Header */
+  .widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    cursor: grab;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    min-height: 32px;
+  }
+
+  .widget.dragging .widget-header {
+    cursor: grabbing;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .header-gate {
+    font-size: 10px;
     font-weight: 600;
     color: #da7756;
     white-space: nowrap;
@@ -544,168 +788,335 @@
     text-overflow: ellipsis;
   }
 
-  .cockpit-sep {
-    color: #3e3c37;
-    font-size: 10px;
+  .header-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #b0ab9f;
+  }
+
+  .header-active {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    color: #da7756;
+    font-weight: 600;
     flex-shrink: 0;
   }
 
-  .cockpit-candidate {
-    font-size: 11px;
-    color: #b0ab9f;
-    white-space: nowrap;
-  }
-
-  .cockpit-next {
-    font-size: 10px;
-    color: #6b6760;
-    white-space: nowrap;
-  }
-
-  .cockpit-tests {
-    font-size: 10px;
-    color: #57ab5a;
-    white-space: nowrap;
-    font-weight: 500;
-  }
-
-  .cockpit-processing {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    color: #da7756;
-    font-weight: 500;
-    white-space: nowrap;
-  }
-
-  .processing-dot {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
+  .header-dot {
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: #da7756;
     animation: pulse 1.5s ease-in-out infinite;
   }
 
-  .cockpit-chat-btn {
-    margin-left: auto;
+  .header-right {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border: none;
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 6px;
-    color: #6b6760;
-    cursor: pointer;
-    transition: background 0.12s, color 0.12s;
+    gap: 2px;
     flex-shrink: 0;
   }
 
-  .cockpit-chat-btn:hover {
-    background: rgba(218, 119, 86, 0.15);
+  .hdr-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: transparent;
+    color: #5a5650;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .hdr-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #b0ab9f;
+  }
+
+  /* Tabs */
+  .widget-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .tab {
+    font-size: 10px;
+    color: #5a5650;
+    padding: 6px 8px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.1s, border-color 0.1s;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .tab:hover {
+    color: #908b81;
+  }
+
+  .tab.active {
     color: #da7756;
+    border-bottom-color: #da7756;
   }
 
-  /* Backdrop to catch clicks outside */
-  .cockpit-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 19;
+  .tab-badge {
+    font-size: 9px;
+    color: #57ab5a;
+    font-weight: 600;
   }
 
-  /* Expanded panel — floats over content */
-  .cockpit-expanded {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    padding: 12px 16px 16px;
-    background: #1e1d1a;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-    z-index: 21;
-    animation: expandIn 0.15s ease-out;
-    max-height: 80vh;
-    overflow-y: auto;
+  .tab-status {
+    margin-left: auto;
+    font-size: 9px;
+    color: #5a5650;
+    font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
   }
 
-  @keyframes expandIn {
-    from { opacity: 0; transform: translateY(-8px); }
-    to { opacity: 1; transform: translateY(0); }
+  .dots {
+    display: inline;
   }
 
-  .cockpit-columns {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
+  .dots span {
+    animation: dotPulse 1.4s ease-in-out infinite;
   }
 
-  @media (max-width: 700px) {
-    .cockpit-columns {
-      grid-template-columns: 1fr;
-    }
+  .dots span:nth-child(2) { animation-delay: 0.2s; }
+  .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes dotPulse {
+    0%, 80%, 100% { opacity: 0.2; }
+    40% { opacity: 1; }
   }
 
-  .cockpit-col {
+  /* Tab content */
+  .tab-content {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
   }
 
-  .cockpit-gate-full {
-    font-size: 13px;
-    font-weight: 600;
-    color: #da7756;
-    padding: 8px 12px;
-    background: rgba(218, 119, 86, 0.08);
-    border: 1px solid rgba(218, 119, 86, 0.15);
-    border-radius: 8px;
-  }
-
-  .cockpit-section {
+  /* Chat */
+  .chat-log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 10px;
     display: flex;
     flex-direction: column;
     gap: 4px;
+    max-height: 280px;
+    min-height: 80px;
+    scrollbar-width: thin;
+    scrollbar-color: #3e3c37 transparent;
+    user-select: text;
   }
 
-  .section-label {
-    font-size: 9px;
-    font-weight: 700;
+  .chat-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+  }
+
+  .empty-hint {
+    font-size: 10px;
+    color: #4a4640;
+  }
+
+  .create-btn {
+    font-size: 10px;
     color: #6b6760;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+
+  .create-btn:hover {
+    background: rgba(218, 119, 86, 0.08);
+    color: #da7756;
+    border-color: rgba(218, 119, 86, 0.2);
+  }
+
+  .msg {
+    display: flex;
+    gap: 5px;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .msg-pre {
+    flex-shrink: 0;
+    font-family: monospace;
+    font-size: 10px;
+    width: 10px;
+    color: #5a5650;
+  }
+
+  .msg.user .msg-pre { color: #5b9fd6; }
+  .msg.assistant .msg-pre { color: #da7756; }
+  .msg.system .msg-pre { color: #d4a72c; }
+
+  .msg-text {
+    color: #b0ab9f;
+    word-break: break-word;
+    user-select: text;
+  }
+
+  .msg.user .msg-text { color: #d4d0c8; }
+  .msg.system .msg-text { color: #908b81; font-style: italic; }
+  .msg-text.err { color: #e5534b; }
+  .msg-text.thinking { color: #5a5650; font-style: italic; animation: pulse 1.5s ease-in-out infinite; }
+
+  .chat-input-row {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .chat-input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11px;
+    color: #d4d0c8;
+    outline: none;
+    font-family: inherit;
+    user-select: text;
+    transition: border-color 0.12s;
+  }
+
+  .chat-input:focus {
+    border-color: rgba(218, 119, 86, 0.25);
+  }
+
+  .chat-input::placeholder {
+    color: #4a4640;
+  }
+
+  .chat-input:disabled {
+    opacity: 0.4;
+  }
+
+  .input-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.1s;
+  }
+
+  .input-btn.send {
+    background: rgba(218, 119, 86, 0.12);
+    color: #da7756;
+  }
+
+  .input-btn.send:hover:not(:disabled) {
+    background: rgba(218, 119, 86, 0.25);
+  }
+
+  .input-btn.send:disabled {
+    opacity: 0.2;
+    cursor: default;
+  }
+
+  .input-btn.stop {
+    background: rgba(229, 83, 75, 0.12);
+    color: #e5534b;
+  }
+
+  .input-btn.stop:hover {
+    background: rgba(229, 83, 75, 0.25);
+  }
+
+  /* Strategy tab */
+  .strat-content {
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 340px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #3e3c37 transparent;
+    user-select: text;
+  }
+
+  .strat-gate {
+    font-size: 11px;
+    font-weight: 600;
+    color: #da7756;
+    padding: 6px 10px;
+    background: rgba(218, 119, 86, 0.06);
+    border-left: 2px solid rgba(218, 119, 86, 0.4);
+    border-radius: 0 6px 6px 0;
+  }
+
+  .strat-candidate {
+    font-size: 10px;
+    color: #908b81;
+  }
+
+  .strat-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .strat-label {
+    font-size: 8px;
+    font-weight: 700;
+    color: #5a5650;
     text-transform: uppercase;
     letter-spacing: 0.8px;
     margin-bottom: 2px;
   }
 
-  /* Allocation bars */
   .alloc-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    height: 20px;
+    gap: 6px;
+    height: 16px;
   }
 
-  .alloc-bar-container {
-    width: 80px;
-    height: 6px;
+  .alloc-bar {
+    width: 50px;
+    height: 3px;
     background: rgba(255, 255, 255, 0.04);
-    border-radius: 3px;
+    border-radius: 2px;
     overflow: hidden;
     flex-shrink: 0;
   }
 
-  .alloc-bar {
+  .alloc-fill {
     height: 100%;
     background: #5b9fd6;
-    border-radius: 3px;
-    transition: width 0.3s;
+    border-radius: 2px;
   }
 
-  .alloc-label {
-    font-size: 11px;
+  .alloc-name {
+    font-size: 10px;
     color: #b0ab9f;
     flex: 1;
     overflow: hidden;
@@ -714,271 +1125,130 @@
   }
 
   .alloc-pct {
-    font-size: 10px;
-    color: #6b6760;
-    font-weight: 500;
+    font-size: 9px;
+    color: #5a5650;
     flex-shrink: 0;
   }
 
-  /* Live session overlay on allocation */
   .alloc-live {
-    font-size: 9px;
-    color: #5b9fd6;
-    font-weight: 500;
-    flex-shrink: 0;
+    font-size: 8px;
+    color: #da7756;
+    font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 3px;
-    white-space: nowrap;
+    gap: 2px;
+    flex-shrink: 0;
   }
 
-  .alloc-live.has-processing {
-    color: #da7756;
+  .alloc-live.idle {
+    color: #5b9fd6;
   }
 
-  .alloc-live-dot {
-    display: inline-block;
-    width: 5px;
-    height: 5px;
+  .live-dot {
+    width: 4px;
+    height: 4px;
     border-radius: 50%;
     background: #da7756;
     animation: pulse 1.5s ease-in-out infinite;
   }
 
-  /* Gaps */
   .gap-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 2px 0;
+    gap: 5px;
+    padding: 1px 0;
   }
 
-  .gap-urgency {
+  .gap-bars {
     display: flex;
-    gap: 2px;
+    gap: 1px;
     flex-shrink: 0;
   }
 
-  .urgency-bar {
-    width: 4px;
-    height: 12px;
+  .gap-bar {
+    width: 3px;
+    height: 9px;
     border-radius: 1px;
   }
 
-  .urgency-bar.empty {
-    background: rgba(255, 255, 255, 0.06);
+  .gap-bar.empty {
+    background: rgba(255, 255, 255, 0.05);
   }
 
-  .gap-area {
-    font-size: 11px;
+  .gap-name {
+    font-size: 10px;
     color: #b0ab9f;
     font-weight: 500;
-    white-space: nowrap;
   }
 
-  .gap-detail {
-    font-size: 10px;
-    color: #6b6760;
+  .gap-arrow {
+    font-size: 9px;
+    color: #5a5650;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  /* One sentence */
-  .cockpit-sentence {
-    font-size: 11px;
-    color: #908b81;
-    line-height: 1.5;
-    padding: 8px 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
-    font-style: italic;
-  }
-
-  /* Tests */
-  .test-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 2px 0;
-    cursor: pointer;
-  }
-
-  .test-row input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    accent-color: #57ab5a;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-
-  .test-label {
-    font-size: 11px;
-    color: #b0ab9f;
-    transition: color 0.12s;
-  }
-
-  .test-label.done {
-    color: #57ab5a;
-    text-decoration: line-through;
-    text-decoration-color: rgba(87, 171, 90, 0.4);
-  }
-
-  /* Meta */
-  .cockpit-meta {
-    display: flex;
-    gap: 12px;
-    padding-top: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
-  }
-
-  .meta-item {
+  .strat-sentence {
     font-size: 10px;
-    color: #5a5650;
+    color: #6b6760;
+    font-style: italic;
+    line-height: 1.5;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.03);
   }
 
-  /* Mini-chat */
-  .cockpit-chat {
+  .strat-meta {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    gap: 10px;
+    font-size: 9px;
+    color: #4a4640;
   }
 
-  .chat-messages {
+  /* Tests tab */
+  .tests-content {
+    padding: 8px 10px;
     display: flex;
     flex-direction: column;
     gap: 4px;
-    max-height: 200px;
+    max-height: 340px;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: #3e3c37 transparent;
   }
 
-  .chat-msg {
-    display: flex;
-    gap: 6px;
-    font-size: 11px;
-    line-height: 1.4;
+  .tests-header {
+    font-size: 9px;
+    font-weight: 600;
+    color: #57ab5a;
+    margin-bottom: 4px;
   }
 
-  .chat-msg-role {
-    flex-shrink: 0;
-    color: #6b6760;
-    font-family: monospace;
-    font-size: 10px;
-    width: 14px;
-    text-align: center;
-  }
-
-  .chat-msg.user .chat-msg-role {
-    color: #5b9fd6;
-  }
-
-  .chat-msg.assistant .chat-msg-role {
-    color: #da7756;
-  }
-
-  .chat-msg-text {
-    color: #b0ab9f;
-    word-break: break-word;
-  }
-
-  .chat-msg.user .chat-msg-text {
-    color: #d4d0c8;
-  }
-
-  .chat-msg-text.thinking {
-    color: #6b6760;
-    font-style: italic;
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-
-  .chat-msg.system .chat-msg-role {
-    color: #d4a72c;
-  }
-
-  .chat-msg.system .chat-msg-text {
-    color: #908b81;
-    font-style: italic;
-  }
-
-  .chat-msg-text.error {
-    color: #e5534b;
-  }
-
-  .chat-empty {
-    font-size: 10px;
-    color: #5a5650;
-    padding: 4px 0;
-  }
-
-  .chat-input-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-
-  .chat-input {
-    flex: 1;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 6px;
-    padding: 6px 10px;
-    font-size: 11px;
-    color: #d4d0c8;
-    outline: none;
-    font-family: inherit;
-    transition: border-color 0.12s;
-  }
-
-  .chat-input:focus {
-    border-color: rgba(218, 119, 86, 0.3);
-  }
-
-  .chat-input::placeholder {
-    color: #5a5650;
-  }
-
-  .chat-input:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .chat-send-btn, .chat-stop-btn {
+  .test-row {
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 6px;
+    gap: 6px;
+    padding: 2px 0;
+    cursor: pointer;
+  }
+
+  .test-row input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    accent-color: #57ab5a;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background 0.12s, color 0.12s;
   }
 
-  .chat-send-btn {
-    background: rgba(218, 119, 86, 0.15);
-    color: #da7756;
+  .test-text {
+    font-size: 11px;
+    color: #b0ab9f;
   }
 
-  .chat-send-btn:hover:not(:disabled) {
-    background: rgba(218, 119, 86, 0.25);
-  }
-
-  .chat-send-btn:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-  }
-
-  .chat-stop-btn {
-    background: rgba(229, 83, 75, 0.15);
-    color: #e5534b;
-  }
-
-  .chat-stop-btn:hover {
-    background: rgba(229, 83, 75, 0.25);
+  .test-text.done {
+    color: #57ab5a;
+    text-decoration: line-through;
+    text-decoration-color: rgba(87, 171, 90, 0.3);
   }
 
   @keyframes pulse {
