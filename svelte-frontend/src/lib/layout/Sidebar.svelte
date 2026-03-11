@@ -329,7 +329,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    transition: width 0.2s ease;
     height: 100%;
   }
 
@@ -349,11 +348,17 @@
     }
   }
 
-  /* Desktop: always visible when open */
+  /* Desktop: collapse/expand */
   @media (min-width: 1024px) {
     .sidebar {
       position: relative;
-      transform: none;
+      transition: width 0.2s ease, opacity 0.2s ease;
+    }
+    .sidebar:not(.open) {
+      width: 0;
+      border-right: none;
+      opacity: 0;
+      pointer-events: none;
     }
     .sidebar-overlay {
       display: none !important;

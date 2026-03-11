@@ -154,12 +154,6 @@
     color: #d4d0c8;
   }
 
-  /* Hide hamburger on desktop where sidebar is always present */
-  @media (min-width: 1024px) {
-    .hamburger-btn {
-      display: none;
-    }
-  }
 
   .header-project {
     font-size: 13px;
