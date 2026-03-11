@@ -3,7 +3,7 @@
   import { getBasePath } from '../../stores/ws.js';
   import { boardData } from '../../stores/board.js';
   import { openPopup } from '../../stores/popups.js';
-  import { activeSessionId, leaveSession, createSession } from '../../stores/sessions.js';
+  import { sessions, createSession } from '../../stores/sessions.js';
   import { fetchBoard } from '../../stores/board.js';
 
   let expanded = $state(false);
@@ -11,12 +11,20 @@
   let cockpitState = $state({ sessionDate: null, testStatus: {}, notes: [] });
   let loading = $state(true);
 
-  // Strategy session ID (if one exists tagged to strategy)
-  let strategySessionId = $state(null);
-
-  // Mini-chat state
-  let chatInput = $state('');
-  let chatMessages = $state([]);
+  // Find existing strategy session (tagged to strategy area)
+  let strategySession = $derived.by(() => {
+    if (!$boardData) return null;
+    const stratArea = $boardData.areas.find(a => a.name === 'strategy');
+    if (!stratArea) return null;
+    // Look for a session in strategy projects
+    for (const proj of stratArea.projects) {
+      if (proj.sessions.length > 0) return proj.sessions[0];
+      for (const sub of proj.subProjects) {
+        if (sub.sessions?.length > 0) return sub.sessions[0];
+      }
+    }
+    return null;
+  });
 
   onMount(() => {
     loadStrategy();
@@ -128,9 +136,19 @@
     return 1;
   }
 
-  function handleNewStrategySession() {
-    createSession(null, true, 'strategy/02-operations');
-    setTimeout(() => fetchBoard(), 1500);
+  function handleStrategyChat() {
+    if (strategySession) {
+      // Open existing strategy session as popup
+      openPopup(strategySession.id, strategySession.title || 'Strategy');
+    } else {
+      // Create new session tagged to strategy
+      createSession(null, false, 'strategy');
+      setTimeout(() => {
+        fetchBoard();
+        // After board refreshes, the derived will find the new session
+        // and next click will open it as popup
+      }, 2000);
+    }
   }
 
   function toggleExpanded() {
@@ -178,7 +196,7 @@
         <span class="cockpit-processing">{processingCount}<span class="processing-dot"></span></span>
       {/if}
 
-      <button class="cockpit-chat-btn" onclick={(e) => { e.stopPropagation(); handleNewStrategySession(); }} title="Open strategy session">
+      <button class="cockpit-chat-btn" onclick={(e) => { e.stopPropagation(); handleStrategyChat(); }} title="Open strategy session">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
