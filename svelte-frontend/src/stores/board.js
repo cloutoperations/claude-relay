@@ -21,6 +21,7 @@ export const totalBoardSessions = derived(boardData, ($data) => {
   for (const area of $data.areas) {
     for (const project of area.projects) {
       count += project.sessions.length;
+      for (const sub of project.subProjects) count += sub.sessions.length;
     }
   }
   return count + ($data.looseSessions?.length || 0);
@@ -105,13 +106,31 @@ export function getArea(name) {
   return data.areas.find(a => a.name === name) || null;
 }
 
-// Helper: get project by path
+// Helper: get project or sub-project by path
 export function getProject(path) {
   const data = get(boardData);
   if (!data) return null;
   for (const area of data.areas) {
     const proj = area.projects.find(p => p.path === path);
     if (proj) return proj;
+    // Check sub-projects
+    for (const p of area.projects) {
+      const sub = p.subProjects.find(s => s.path === path);
+      if (sub) return { ...sub, isDir: true, subProjects: [], parentProject: p.name };
+    }
+  }
+  return null;
+}
+
+// Helper: get area name for a project path
+export function getAreaForProject(projectPath) {
+  const data = get(boardData);
+  if (!data) return null;
+  for (const area of data.areas) {
+    if (area.projects.some(p => p.path === projectPath)) return area.name;
+    for (const p of area.projects) {
+      if (p.subProjects.some(s => s.path === projectPath)) return area.name;
+    }
   }
   return null;
 }

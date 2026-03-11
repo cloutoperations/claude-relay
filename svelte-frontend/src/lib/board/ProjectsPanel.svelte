@@ -11,7 +11,10 @@
 
   function areaSessionCount(area) {
     let count = 0;
-    for (const p of area.projects) count += p.sessions.length;
+    for (const p of area.projects) {
+      count += p.sessions.length;
+      for (const sub of p.subProjects) count += sub.sessions.length;
+    }
     return count;
   }
 
@@ -102,12 +105,17 @@
             </div>
 
             {#if projExpanded && (hasSessions || project.subProjects.length > 0)}
-              {#each project.subProjects as sub}
-                <div class="sub-project-item">
+              {#each project.subProjects as sub (sub.path)}
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div class="sub-project-item" onclick={(e) => { e.stopPropagation(); navigateToProject(sub.path, area.name); }}>
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                   </svg>
-                  <span class="sub-name">{sub}</span>
+                  <span class="sub-name">{sub.name}</span>
+                  {#if sub.sessions.length > 0}
+                    <span class="project-session-count">{sub.sessions.length}</span>
+                  {/if}
                 </div>
               {/each}
               {#each project.sessions as session (session.id)}
@@ -368,6 +376,15 @@
     padding: 4px 8px 4px 46px;
     font-size: 11px;
     color: #908b81;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    user-select: none;
+  }
+
+  .sub-project-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: #b0ab9f;
   }
 
   .sub-name {

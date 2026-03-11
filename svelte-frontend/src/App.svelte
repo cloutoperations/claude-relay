@@ -53,8 +53,8 @@
   });
 
   let sessionTitle = $derived($activeSession?.title || '');
-  let showSplit = $derived($activeSessionId && $hasOpenFiles && $filePanelVisible && $connected);
-  let showFilesOnly = $derived(!$activeSessionId && $hasOpenFiles && $filePanelVisible && $connected);
+  let showFilePanel = $derived($hasOpenFiles && $filePanelVisible && $connected);
+  let showSplit = $derived(showFilePanel);
 
   function handleSend(text) {
     sendMessage(text);
@@ -106,50 +106,36 @@
         <div class="connect-spinner"></div>
         <div class="connect-text">Connecting to relay...</div>
       </div>
-    {:else if showSplit}
-      <!-- Split view: chat left, files right -->
-      <div class="chat-panel">
-        <MessageList
-          messages={$messages}
-          processing={$processing}
-          activity={$activity}
-          thinking={$thinking}
-        />
-        <InputArea
-          processing={$processing}
-          onSend={handleSend}
-          onStop={handleStop}
-        />
-      </div>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="resize-handle" onmousedown={startResize}></div>
-      <div class="file-panel" style="width: {filePanelWidth}px">
-        <FileViewer />
-      </div>
-    {:else if showFilesOnly}
-      <!-- Files only, full width -->
-      <div class="chat-panel">
-        <FileViewer />
-      </div>
-    {:else if !$activeSessionId && $drilldownView}
-      <DrilldownView />
-    {:else if !$activeSessionId}
-      <Workbench />
     {:else}
-      <!-- Session only, full width -->
+      <!-- Left panel: chat (if session) or workbench/drilldown -->
       <div class="chat-panel">
-        <MessageList
-          messages={$messages}
-          processing={$processing}
-          activity={$activity}
-          thinking={$thinking}
-        />
-        <InputArea
-          processing={$processing}
-          onSend={handleSend}
-          onStop={handleStop}
-        />
+        {#if $activeSessionId}
+          <MessageList
+            messages={$messages}
+            processing={$processing}
+            activity={$activity}
+            thinking={$thinking}
+          />
+          <InputArea
+            processing={$processing}
+            onSend={handleSend}
+            onStop={handleStop}
+          />
+        {:else if $drilldownView}
+          <DrilldownView />
+        {:else}
+          <Workbench />
+        {/if}
       </div>
+
+      <!-- Right panel: files (split) -->
+      {#if showFilePanel}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="resize-handle" onmousedown={startResize}></div>
+        <div class="file-panel" style="width: {filePanelWidth}px">
+          <FileViewer />
+        </div>
+      {/if}
     {/if}
   </div>
 </div>
