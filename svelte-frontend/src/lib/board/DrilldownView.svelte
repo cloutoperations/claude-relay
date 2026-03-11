@@ -5,8 +5,14 @@
   import { sidebarOpen } from '../../stores/ui.js';
   import { renderMarkdown } from '../../utils/markdown.js';
 
+  import { onMount } from 'svelte';
+
   let docContent = $state(null);
   let docLoading = $state(false);
+
+  onMount(() => {
+    if (!$boardData) fetchBoard();
+  });
 
   let view = $derived($drilldownView);
   let area = $derived.by(() => {
@@ -20,6 +26,11 @@
     for (const a of $boardData.areas) {
       const p = a.projects.find(p => p.path === view.path);
       if (p) return p;
+      // Check sub-projects
+      for (const parent of a.projects) {
+        const sub = parent.subProjects?.find(s => s.path === view.path);
+        if (sub) return { ...sub, isDir: true, subProjects: [], parentProject: parent.name };
+      }
     }
     return null;
   });
