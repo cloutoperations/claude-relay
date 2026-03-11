@@ -1,4 +1,4 @@
-// Board store — GTD areas, projects, sessions
+// Board store — GTD areas, projects, sessions, drill-down navigation
 import { writable, derived, get } from 'svelte/store';
 import { getBasePath } from './ws.js';
 
@@ -7,6 +7,12 @@ export const boardLoading = writable(false);
 export const boardError = writable(null);
 export const expandedAreas = writable(new Set());
 export const expandedProjects = writable(new Set());
+
+// Drill-down navigation: null | { type: 'area', name } | { type: 'project', path, areaName }
+export const drilldownView = writable(null);
+
+// Cached file content for project docs
+export const fileCache = writable({});
 
 // Total session count across all areas
 export const totalBoardSessions = derived(boardData, ($data) => {
@@ -35,6 +41,20 @@ export async function fetchBoard() {
   }
 }
 
+export async function fetchBoardFile(filePath) {
+  const cache = get(fileCache);
+  if (cache[filePath]) return cache[filePath];
+  try {
+    const res = await fetch(getBasePath() + 'api/board/file?path=' + encodeURIComponent(filePath));
+    if (!res.ok) return null;
+    const content = await res.text();
+    fileCache.update(c => ({ ...c, [filePath]: content }));
+    return content;
+  } catch (e) {
+    return null;
+  }
+}
+
 export function toggleArea(areaName) {
   expandedAreas.update(set => {
     const next = new Set(set);
@@ -53,6 +73,18 @@ export function toggleProject(projectPath) {
   });
 }
 
+export function navigateToArea(areaName) {
+  drilldownView.set({ type: 'area', name: areaName });
+}
+
+export function navigateToProject(projectPath, areaName) {
+  drilldownView.set({ type: 'project', path: projectPath, areaName });
+}
+
+export function navigateHome() {
+  drilldownView.set(null);
+}
+
 export async function tagSession(sessionId, projectPath) {
   try {
     await fetch(getBasePath() + 'api/board/tag-session', {
@@ -60,9 +92,26 @@ export async function tagSession(sessionId, projectPath) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId, projectPath }),
     });
-    // Refresh board data
     await fetchBoard();
   } catch (e) {
     console.error('Failed to tag session:', e);
   }
+}
+
+// Helper: get area by name
+export function getArea(name) {
+  const data = get(boardData);
+  if (!data) return null;
+  return data.areas.find(a => a.name === name) || null;
+}
+
+// Helper: get project by path
+export function getProject(path) {
+  const data = get(boardData);
+  if (!data) return null;
+  for (const area of data.areas) {
+    const proj = area.projects.find(p => p.path === path);
+    if (proj) return proj;
+  }
+  return null;
 }

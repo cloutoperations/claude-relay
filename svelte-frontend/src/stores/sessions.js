@@ -55,9 +55,11 @@ export function switchSession(sessionId) {
   send({ type: 'switch_session', id: sessionId });
 }
 
-export function createSession(accountId, openFullscreen = true) {
+export function createSession(accountId, openFullscreen = true, projectPath = null) {
   if (openFullscreen) expectingSwitch = true;
-  send({ type: 'new_session', accountId: accountId || undefined });
+  const msg = { type: 'new_session', accountId: accountId || undefined };
+  if (projectPath) msg.projectPath = projectPath;
+  send(msg);
 }
 
 export function deleteSession(sessionId) {

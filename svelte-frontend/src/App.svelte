@@ -12,8 +12,11 @@
   import FileViewer from './lib/files/FileViewer.svelte';
   import QuickOpen from './lib/files/QuickOpen.svelte';
   import ChatPopupManager from './lib/popup/ChatPopupManager.svelte';
+  import Workbench from './lib/board/Workbench.svelte';
+  import DrilldownView from './lib/board/DrilldownView.svelte';
   import { hasOpenFiles } from './stores/files.js';
   import { filePanelVisible } from './stores/ui.js';
+  import { drilldownView, navigateHome } from './stores/board.js';
 
   let quickOpenVisible = $state(false);
 
@@ -128,19 +131,10 @@
       <div class="chat-panel">
         <FileViewer />
       </div>
+    {:else if !$activeSessionId && $drilldownView}
+      <DrilldownView />
     {:else if !$activeSessionId}
-      <div class="home-view">
-        <div class="home-content">
-          <h1 class="home-title">Claude Relay</h1>
-          <p class="home-subtitle">Click a session to open it as a popup</p>
-          <div class="home-stats">
-            <span class="home-stat">{$sessions.length} sessions</span>
-            {#if $projectInfo.version}
-              <span class="home-stat">v{$projectInfo.version}</span>
-            {/if}
-          </div>
-        </div>
-      </div>
+      <Workbench />
     {:else}
       <!-- Session only, full width -->
       <div class="chat-panel">
@@ -246,45 +240,6 @@
   .connect-text {
     font-size: 14px;
     color: #908b81;
-  }
-
-  .home-view {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .home-content {
-    text-align: center;
-    padding: 40px;
-  }
-
-  .home-title {
-    font-size: 28px;
-    font-weight: 600;
-    color: #d4d0c8;
-    margin-bottom: 8px;
-  }
-
-  .home-subtitle {
-    font-size: 15px;
-    color: #908b81;
-    margin-bottom: 20px;
-  }
-
-  .home-stats {
-    display: flex;
-    gap: 16px;
-    justify-content: center;
-  }
-
-  .home-stat {
-    font-size: 13px;
-    color: #6d6860;
-    background: #2a2924;
-    padding: 6px 14px;
-    border-radius: 20px;
   }
 
   @media (max-width: 768px) {

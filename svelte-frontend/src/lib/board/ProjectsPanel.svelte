@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { boardData, boardLoading, boardError, expandedAreas, expandedProjects, fetchBoard, toggleArea, toggleProject } from '../../stores/board.js';
+  import { boardData, boardLoading, boardError, expandedAreas, expandedProjects, fetchBoard, toggleArea, toggleProject, navigateToArea, navigateToProject } from '../../stores/board.js';
   import { openPopup } from '../../stores/popups.js';
   import { sidebarOpen } from '../../stores/ui.js';
   import { activeSessionId, leaveSession } from '../../stores/sessions.js';
@@ -57,6 +57,11 @@
           {#if sessionCount > 0}
             <span class="area-session-count">{sessionCount}</span>
           {/if}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <span class="drilldown-btn" onclick={(e) => { e.stopPropagation(); navigateToArea(area.name); }} title="Open area view">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </span>
         </div>
 
         {#if expanded}
@@ -89,6 +94,11 @@
               {#if hasSessions}
                 <span class="project-session-count">{project.sessions.length}</span>
               {/if}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <span class="drilldown-btn small" onclick={(e) => { e.stopPropagation(); navigateToProject(project.path, area.name); }} title="Open project view">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </span>
             </div>
 
             {#if projExpanded && (hasSessions || project.subProjects.length > 0)}
@@ -417,6 +427,30 @@
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
+  }
+
+  .drilldown-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    color: #5a5650;
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.12s, background 0.12s, color 0.12s;
+  }
+
+  .area-header:hover .drilldown-btn,
+  .project-item:hover .drilldown-btn {
+    opacity: 1;
+  }
+
+  .drilldown-btn:hover {
+    background: rgba(218, 119, 86, 0.15);
+    color: #da7756;
   }
 
   .area-empty {

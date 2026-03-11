@@ -6,6 +6,7 @@
   import { send, onMessage } from '../../stores/ws.js';
   import FileTree from '../files/FileTree.svelte';
   import ProjectsPanel from '../board/ProjectsPanel.svelte';
+  import SessionTagger from '../board/SessionTagger.svelte';
   import { activeFilePath } from '../../stores/files.js';
 
   const ACCOUNT_COLORS = ['#da7756', '#5b9fd6', '#57ab5a', '#c084fc', '#f59e0b', '#ec4899'];
@@ -20,6 +21,9 @@
   let searchDebounce = null;
   let renamingId = $state(null);
   let renameValue = $state('');
+  let taggerSessionId = $state(null);
+  let taggerX = $state(0);
+  let taggerY = $state(0);
 
   let accounts = $derived($projectInfo.accounts || []);
   let hasMultipleAccounts = $derived(accounts.length > 1);
@@ -160,6 +164,13 @@
     if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
   }
 
+  function handleSessionContext(e, sessionId) {
+    e.preventDefault();
+    taggerSessionId = sessionId;
+    taggerX = e.clientX;
+    taggerY = e.clientY;
+  }
+
   // Switch to files tab when a file is opened
   $effect(() => {
     if ($activeFilePath) {
@@ -256,6 +267,7 @@
               class:active={$activeSessionId === session.id}
               onclick={() => { if (renamingId !== session.id) handleSessionClick(session.id); }}
               ondblclick={() => startRename(session.id, session.title)}
+              oncontextmenu={(e) => handleSessionContext(e, session.id)}
               title={renamingId === session.id ? '' : (session.title || 'Untitled')}
             >
               {#if hasMultipleAccounts && accountColor(session.accountId)}
@@ -328,6 +340,14 @@
       </div>
     {/if}
   </div>
+  {#if taggerSessionId}
+    <SessionTagger
+      sessionId={taggerSessionId}
+      x={taggerX}
+      y={taggerY}
+      onClose={() => taggerSessionId = null}
+    />
+  {/if}
 </aside>
 
 <!-- Mobile overlay -->
