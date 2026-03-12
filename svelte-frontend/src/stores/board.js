@@ -12,7 +12,16 @@ export const expandedProjects = writable(new Set());
 export const drilldownView = writable(null);
 
 // Command Post focused area (null = overview, string = zoomed into that area)
-export const focusedArea = writable(null);
+function createPersistedFocusedArea() {
+  let initial = null;
+  try { initial = localStorage.getItem('focusedArea') || null; } catch {}
+  const store = writable(initial);
+  store.subscribe(v => {
+    try { if (v) localStorage.setItem('focusedArea', v); else localStorage.removeItem('focusedArea'); } catch {}
+  });
+  return store;
+}
+export const focusedArea = createPersistedFocusedArea();
 
 // Cached file content for project docs
 export const fileCache = writable({});

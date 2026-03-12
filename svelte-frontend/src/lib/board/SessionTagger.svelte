@@ -62,37 +62,40 @@
   {#if $boardData}
     <div class="tagger-list">
       {#each $boardData.areas as area (area.name)}
-        {#if area.projects.length > 0}
-          <div class="tagger-area">{formatAreaName(area.name)}</div>
-          {#each area.projects as project (project.path)}
-            <button class="tagger-option" onclick={() => handleTag(project.path)}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                {#if project.isDir}
+        <button class="tagger-option area-btn" onclick={() => handleTag(area.name)}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+          </svg>
+          {formatAreaName(area.name)}
+        </button>
+        {#each area.projects as project (project.path)}
+          <button class="tagger-option" onclick={() => handleTag(project.path)}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              {#if project.isDir}
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              {:else}
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              {/if}
+            </svg>
+            {project.name}
+            {#if project.sessions.some(s => s.id === sessionId)}
+              <svg class="check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#57ab5a" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {/if}
+          </button>
+          {#each project.subProjects as sub, si (sub.path || si)}
+            {#if sub.path}
+              <button class="tagger-option sub" onclick={() => handleTag(sub.path)}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                {:else}
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                {sub.name || sub}
+                {#if sub.sessions?.some(s => s.id === sessionId)}
+                  <svg class="check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#57ab5a" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
                 {/if}
-              </svg>
-              {project.name}
-              {#if project.sessions.some(s => s.id === sessionId)}
-                <svg class="check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#57ab5a" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-              {/if}
-            </button>
-            {#each project.subProjects as sub, si (sub.path || si)}
-              {#if sub.path}
-                <button class="tagger-option sub" onclick={() => handleTag(sub.path)}>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                  </svg>
-                  {sub.name || sub}
-                  {#if sub.sessions?.some(s => s.id === sessionId)}
-                    <svg class="check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#57ab5a" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  {/if}
-                </button>
-              {/if}
-            {/each}
+              </button>
+            {/if}
           {/each}
-        {/if}
+        {/each}
       {/each}
     </div>
     <div class="tagger-divider"></div>
@@ -171,6 +174,18 @@
 
   .tagger-option .check {
     margin-left: auto;
+  }
+
+  .tagger-option.area-btn {
+    padding-left: 12px;
+    font-weight: 600;
+    color: #d4d0c8;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .tagger-option.area-btn svg {
+    color: #908b81;
   }
 
   .tagger-option.sub {

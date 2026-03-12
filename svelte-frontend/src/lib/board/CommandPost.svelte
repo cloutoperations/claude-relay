@@ -5,7 +5,7 @@
   import { projectInfo } from '../../stores/chat.js';
   import AreaZone from './AreaZone.svelte';
   import ActivityStream from './ActivityStream.svelte';
-  import CockpitStrip from './CockpitStrip.svelte';
+
 
   onMount(() => {
     if (!$boardData) fetchBoard();
@@ -54,10 +54,8 @@
   }
 
   let focused = $derived($focusedArea);
-  // Strategy focus is handled by CockpitStrip, not here
-  let isStrategyFocused = $derived(focused === 'strategy');
   let focusedAreaData = $derived.by(() => {
-    if (!focused || isStrategyFocused || !$boardData) return null;
+    if (!focused || !$boardData) return null;
     return $boardData.areas.find(a => a.name === focused) || null;
   });
   let otherAreas = $derived.by(() => {
@@ -73,25 +71,7 @@
       <span>Loading workspace...</span>
     </div>
   {:else if $boardData}
-    <!-- Cockpit strip at top -->
-    <CockpitStrip />
-
-    {#if isStrategyFocused}
-      <!-- STRATEGY FOCUSED: compact strip + CockpitStrip renders the focused view -->
-      <div class="cp-zoomed">
-        <div class="compact-strip">
-          {#each sortedAreas as area (area.name)}
-            <AreaZone
-              {area}
-              compact={true}
-              onFocus={() => focusedArea.set(area.name)}
-            />
-          {/each}
-        </div>
-        <!-- CockpitStrip's focused-view fills the rest (position: absolute) -->
-        <div class="strategy-focused-container"></div>
-      </div>
-    {:else if focused && focusedAreaData}
+    {#if focused && focusedAreaData}
       <!-- ZOOMED MODE: focused area + compact pills for others -->
       <div class="cp-zoomed">
         <!-- Compact strip at top -->
@@ -242,9 +222,4 @@
     display: none;
   }
 
-  .strategy-focused-container {
-    flex: 1;
-    position: relative;
-    min-height: 0;
-  }
 </style>

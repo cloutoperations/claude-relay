@@ -19,6 +19,7 @@
     "lucide-svelte": "^0.577.0",
     "marked": "^17.0.4",
     "mermaid": "^11.13.0",
+    "puppeteer": "^24.39.0",
     "qrcode-generator": "^2.0.4"
   }
 }

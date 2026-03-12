@@ -294,6 +294,8 @@
                   <span class="session-match-badge content">in chat</span>
                 {:else if searchMatchMap && searchMatchMap.get(session.id) === 'both'}
                   <span class="session-match-badge both">title + chat</span>
+                {:else if session.projectPath}
+                  <span class="session-area-tag">{session.projectPath.split('/')[0]}</span>
                 {:else}
                   <span class="session-id">{truncateId(session.id)}</span>
                 {/if}
@@ -664,6 +666,19 @@
     color: #6b6760;
     font-family: 'SF Mono', Menlo, Monaco, monospace;
     flex-shrink: 0;
+  }
+
+  .session-area-tag {
+    font-size: 9px;
+    color: #908b81;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 1px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .session-match-badge {

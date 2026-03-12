@@ -13,6 +13,7 @@
   import QuickOpen from './lib/files/QuickOpen.svelte';
   import ChatPopupManager from './lib/popup/ChatPopupManager.svelte';
   import CommandPost from './lib/board/CommandPost.svelte';
+  import CockpitStrip from './lib/board/CockpitStrip.svelte';
   import { hasOpenFiles } from './stores/files.js';
   import { filePanelVisible } from './stores/ui.js';
   import { focusedArea } from './stores/board.js';
@@ -135,6 +136,7 @@
       {/if}
     {/if}
   </div>
+  <CockpitStrip />
 </div>
 
 <ChatPopupManager />
@@ -142,6 +144,7 @@
 
 <style>
   .main-area {
+    position: relative;
     flex: 1;
     display: flex;
     flex-direction: column;
