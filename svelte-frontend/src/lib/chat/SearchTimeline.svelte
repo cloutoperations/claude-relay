@@ -1,7 +1,7 @@
 <script>
   import { chatSearchQuery } from '../../stores/ui.js';
 
-  let { messagesEl = null, messageCount = 0 } = $props();
+  let { messagesEl = null, messageCount = 0, messages = [] } = $props();
 
   let hits = $state([]);
   let viewportTop = $state(0);
@@ -11,59 +11,88 @@
 
   let query = $derived($chatSearchQuery);
 
-  // Scan message elements for query matches whenever query or messages change
+  // Scan messages for query matches whenever query or messages change.
+  // Uses actual message data (not DOM) so windowed/virtualized messages are still found.
   $effect(() => {
     const q = query;
-    const el = messagesEl;
-    const _count = messageCount; // subscribe to trigger rescan on new messages
-    if (!q || !el) {
+    const _count = messageCount; // subscribe
+    const msgs = messages;
+    if (!q || !msgs || msgs.length === 0) {
       hits = [];
       return;
     }
 
-    // Small delay to let DOM render
-    const timer = setTimeout(() => scanMessages(q, el), 150);
+    const timer = setTimeout(() => scanMessageData(q, msgs), 150);
     return () => clearTimeout(timer);
   });
 
-  function scanMessages(q, container) {
+  function getMessageText(msg) {
+    if (!msg) return '';
+    if (msg.type === 'user' || msg.type === 'assistant') return msg.text || '';
+    if (msg.type === 'system' || msg.type === 'info') return msg.text || '';
+    if (msg.type === 'tool') return (msg.name || '') + ' ' + (msg.subtitle || '') + ' ' + (msg.output || '');
+    if (msg.type === 'tool_group' && msg.tools) return msg.tools.map(t => (t.name || '') + ' ' + (t.subtitle || '')).join(' ');
+    return '';
+  }
+
+  function scanMessageData(q, msgs) {
     const lowerQ = q.toLowerCase();
-    const children = container.children;
-    const scrollH = container.scrollHeight;
     const found = [];
+    const total = msgs.length;
 
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-      const text = child.textContent || '';
-      if (!text.toLowerCase().includes(lowerQ)) continue;
-
-      // Find all occurrences in this element
-      let idx = 0;
+    for (let i = 0; i < total; i++) {
+      const text = getMessageText(msgs[i]);
+      if (!text) continue;
       const lowerText = text.toLowerCase();
-      while ((idx = lowerText.indexOf(lowerQ, idx)) !== -1) {
-        // Get a snippet: ±20 chars around match
-        const start = Math.max(0, idx - 20);
-        const end = Math.min(text.length, idx + lowerQ.length + 20);
-        let snippet = text.substring(start, end).trim();
-        if (start > 0) snippet = '...' + snippet;
-        if (end < text.length) snippet = snippet + '...';
+      const idx = lowerText.indexOf(lowerQ);
+      if (idx === -1) continue;
 
-        found.push({
-          elementIndex: i,
-          offsetTop: child.offsetTop,
-          position: scrollH > 0 ? child.offsetTop / scrollH : 0,
-          snippet,
-          element: child,
-        });
+      // Snippet
+      const start = Math.max(0, idx - 20);
+      const end = Math.min(text.length, idx + lowerQ.length + 20);
+      let snippet = text.substring(start, end).trim();
+      if (start > 0) snippet = '...' + snippet;
+      if (end < text.length) snippet = snippet + '...';
 
-        idx += lowerQ.length;
-        // Only one hit per element to avoid crowding
-        break;
-      }
+      found.push({
+        msgIndex: i,
+        position: total > 1 ? i / (total - 1) : 0.5,
+        snippet,
+      });
     }
 
     hits = found;
-    totalHeight = scrollH;
+  }
+
+  function scrollToHit(hit) {
+    if (!messagesEl) return;
+    // Find the rendered DOM child closest to this message index.
+    // With windowing, not all messages are rendered, so find by approximate position.
+    const children = messagesEl.children;
+    if (children.length === 0) return;
+
+    // Try to find the child by scanning text content for the snippet keyword
+    const lowerQ = (query || '').toLowerCase();
+    let targetChild = null;
+
+    for (let i = 0; i < children.length; i++) {
+      const text = (children[i].textContent || '').toLowerCase();
+      if (text.includes(lowerQ)) {
+        // Count how many we've seen to match the right occurrence
+        targetChild = children[i];
+        // Keep going to find the right one based on position
+      }
+    }
+
+    if (targetChild) {
+      targetChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      targetChild.classList.add('search-blink');
+      setTimeout(() => targetChild.classList.remove('search-blink'), 1500);
+    } else {
+      // Message not rendered (windowed out) — scroll to approximate position
+      const scrollTarget = hit.position * messagesEl.scrollHeight;
+      messagesEl.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+    }
   }
 
   // Update viewport indicator on scroll
@@ -81,16 +110,6 @@
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
   });
-
-  function scrollToHit(hit) {
-    if (!hit.element || !messagesEl) return;
-
-    hit.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    // Add blink animation
-    hit.element.classList.add('search-blink');
-    setTimeout(() => hit.element.classList.remove('search-blink'), 1500);
-  }
 
   let viewportIndicatorTop = $derived(
     totalHeight > 0 ? (viewportTop / totalHeight) * 100 : 0

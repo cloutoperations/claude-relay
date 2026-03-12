@@ -151,7 +151,25 @@
     isUserScrolledUp = !atBottom;
   }
 
-  // Auto-scroll on new messages
+  // Reset scroll state when loading new session history
+  $effect(() => {
+    if (loadingHistory) {
+      isUserScrolledUp = false;
+    }
+  });
+
+  // Scroll to bottom when history finishes loading
+  $effect(() => {
+    if (!loadingHistory && messages.length > 0) {
+      isUserScrolledUp = false;
+      // Use setTimeout to ensure DOM has rendered all items
+      setTimeout(() => {
+        if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+      }, 50);
+    }
+  });
+
+  // Auto-scroll on new messages (during live streaming)
   $effect(() => {
     messages; // subscribe
     scrollToBottom();
@@ -235,7 +253,7 @@
   {/if}
 </div>
 {#if !compact}
-  <SearchTimeline {messagesEl} messageCount={messages.length} />
+  <SearchTimeline {messagesEl} messageCount={messages.length} {messages} />
 {/if}
 </div>
 
@@ -262,10 +280,7 @@
     gap: 6px;
   }
 
-  .msg-item {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 80px;
-  }
+  /* msg-item wrapper — no content-visibility (breaks scroll-to-bottom) */
 
   .load-earlier {
     align-self: center;
