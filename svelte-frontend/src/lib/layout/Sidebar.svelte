@@ -1,5 +1,5 @@
 <script>
-  import { sessions, activeSessionId, leaveSession, createSession, renameSession } from '../../stores/sessions.js';
+  import { sessions, activeSessionId, leaveSession, createSession, renameSession, switchSession } from '../../stores/sessions.js';
   import { sidebarOpen, chatSearchQuery } from '../../stores/ui.js';
   import { openPopup } from '../../stores/popups.js';
   import { projectInfo } from '../../stores/chat.js';
@@ -111,14 +111,20 @@
   let grouped = $derived(groupByDate(filteredSessions));
 
   function handleSessionClick(sessionId) {
-    // If fullscreen session is active, leave it first
+    // When searching, open fullscreen so the search timeline + highlights work
+    if (searchQuery.trim()) {
+      switchSession(sessionId);
+      if (window.innerWidth < 1024) {
+        sidebarOpen.set(false);
+      }
+      return;
+    }
+    // Default: open as popup
     if ($activeSessionId) {
       leaveSession();
     }
-    // Open as popup
     const session = $sessions.find(s => s.id === sessionId);
     openPopup(sessionId, session?.title || 'Session');
-    // Close sidebar on mobile
     if (window.innerWidth < 1024) {
       sidebarOpen.set(false);
     }
