@@ -3,8 +3,10 @@
   import { boardData, boardLoading, fetchBoard, focusedArea } from '../../stores/board.js';
   import { sessions } from '../../stores/sessions.js';
   import { projectInfo } from '../../stores/chat.js';
+  import { cockpitMode } from '../../stores/ui.js';
   import AreaZone from './AreaZone.svelte';
   import ActivityStream from './ActivityStream.svelte';
+  import CockpitStrip from './CockpitStrip.svelte';
 
 
   onMount(() => {
@@ -24,6 +26,10 @@
     if (!$boardData) return [];
     return [...$boardData.areas].sort((a, b) => areaWeight(b) - areaWeight(a));
   });
+
+  // Split into active (has processing or recent sessions) vs quiet areas
+  let activeAreas = $derived(sortedAreas.filter(a => areaWeight(a) >= 8));
+  let quietAreas = $derived(sortedAreas.filter(a => areaWeight(a) < 8));
 
   function areaWeight(area) {
     let sessionCount = (area.areaSessions?.length || 0);
@@ -45,10 +51,10 @@
       + ((area.presentState || area.desiredState) ? 1 : 0);
   }
 
-  // Grid sizing class based on weight
-  function areaGridClass(area) {
+  // Grid sizing class based on weight — only the top 2 areas span 2 cols
+  function areaGridClass(area, index) {
     const w = areaWeight(area);
-    if (w >= 9) return 'grid-large';
+    if (w >= 20 && index < 2) return 'grid-large';
     if (w >= 4) return 'grid-medium';
     return 'grid-small';
   }
@@ -71,6 +77,24 @@
       <span>Loading workspace...</span>
     </div>
   {:else if $boardData}
+    {#if $cockpitMode !== 'docked' && $cockpitMode !== 'floating'}
+      <!-- Cockpit is detached (popup/tab) — show restore button -->
+      <div class="cockpit-restore">
+        <button class="cockpit-restore-btn" onclick={() => cockpitMode.set('docked')}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/>
+          </svg>
+          Dock Strategy
+        </button>
+        <button class="cockpit-restore-btn" onclick={() => cockpitMode.set('floating')}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          </svg>
+          Float
+        </button>
+      </div>
+    {/if}
+
     {#if focused && focusedAreaData}
       <!-- ZOOMED MODE: focused area + compact pills for others -->
       <div class="cp-zoomed">
@@ -93,24 +117,45 @@
         />
       </div>
     {:else}
-      <!-- OVERVIEW MODE: grid of all areas -->
-      <div class="cp-overview">
-        <div class="cp-grid">
-          {#each sortedAreas as area (area.name)}
-            <div class="grid-cell {areaGridClass(area)}">
-              <AreaZone
-                {area}
-                onFocus={() => focusedArea.set(area.name)}
-              />
-            </div>
-          {/each}
+      <!-- OVERVIEW MODE — always side-by-side on widescreen -->
+      <div class="cp-split-overview">
+        <div class="cp-split-left">
+          <CockpitStrip mode="docked" />
         </div>
-
-        {#if $boardData.looseSessions?.length > 0}
-          <div class="loose-bar">
-            <span class="loose-label">{$boardData.looseSessions.length} untagged sessions</span>
+        <div class="cp-split-right">
+          <div class="cp-grid">
+            {#each activeAreas as area, i (area.name)}
+              <div class="grid-cell {areaGridClass(area, i)}">
+                <AreaZone
+                  {area}
+                  onFocus={() => focusedArea.set(area.name)}
+                />
+              </div>
+            {/each}
           </div>
-        {/if}
+
+          {#if quietAreas.length > 0}
+            <div class="grid-divider">
+              <span class="grid-divider-text">Other areas</span>
+            </div>
+            <div class="cp-grid cp-grid-quiet">
+              {#each quietAreas as area, i (area.name)}
+                <div class="grid-cell grid-small">
+                  <AreaZone
+                    {area}
+                    onFocus={() => focusedArea.set(area.name)}
+                  />
+                </div>
+              {/each}
+            </div>
+          {/if}
+
+          {#if $boardData.looseSessions?.length > 0}
+            <div class="loose-bar">
+              <span class="loose-label">{$boardData.looseSessions.length} untagged sessions</span>
+            </div>
+          {/if}
+        </div>
       </div>
     {/if}
 
@@ -136,15 +181,15 @@
     align-items: center;
     justify-content: center;
     gap: 12px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     font-size: 14px;
   }
 
   .cp-spinner {
     width: 24px;
     height: 24px;
-    border: 2px solid #3e3c37;
-    border-top-color: #da7756;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -162,9 +207,8 @@
 
   .cp-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 12px;
-    max-width: 1400px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
     margin: 0 auto;
   }
 
@@ -187,16 +231,44 @@
     }
   }
 
+  .grid-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0 8px;
+    padding: 0 4px;
+  }
+
+  .grid-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(var(--overlay-rgb), 0.06);
+  }
+
+  .grid-divider-text {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+
+  .cp-grid-quiet {
+    opacity: 0.85;
+  }
+
   .loose-bar {
     text-align: center;
     margin-top: 16px;
     padding-top: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.04);
   }
 
   .loose-label {
     font-size: 12px;
-    color: #6b6760;
+    color: var(--text-dimmer);
   }
 
   /* Zoomed mode */
@@ -214,12 +286,68 @@
     padding: 10px 16px;
     overflow-x: auto;
     flex-shrink: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(var(--overlay-rgb), 0.04);
     scrollbar-width: none;
   }
 
   .compact-strip::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Cockpit restore bar */
+  .cockpit-restore {
+    display: flex;
+    gap: 8px;
+    padding: 8px 24px;
+    flex-shrink: 0;
+  }
+
+  .cockpit-restore-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    font-size: 11px;
+    color: var(--text-dimmer);
+    background: rgba(var(--overlay-rgb), 0.03);
+    border: 1px dashed rgba(var(--overlay-rgb), 0.1);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+
+  .cockpit-restore-btn:hover {
+    background: var(--accent-8);
+    color: var(--accent);
+    border-color: var(--accent-20);
+  }
+
+  /* Split layout: strategy left, areas right */
+  .cp-split-overview {
+    flex: 1;
+    display: flex;
+    overflow-y: auto;
+    padding: 16px;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .cp-split-left {
+    flex: 0 0 auto;
+    width: min(50%, 1000px);
+    min-width: 600px;
+  }
+
+  .cp-split-right {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* On narrower screens, stack vertically */
+  @media (max-width: 900px) {
+    .cp-split-overview {
+      flex-direction: column;
+    }
   }
 
 </style>

@@ -1,7 +1,8 @@
 <script>
-  import { toggleMinimize, closePopup, sendPopupMessage, sendPopupPermissionResponse, stopPopupProcessing, minimizeAll } from '../../stores/popups.js';
-  import { sessions, switchSession } from '../../stores/sessions.js';
-  import { seedChat, projectInfo } from '../../stores/chat.js';
+  import { toggleMinimize, closePopup, sendPopupMessage, sendPopupPermissionResponse, stopPopupProcessing } from '../../stores/popups.js';
+  import { promotePopupToTab } from '../../stores/tabs.js';
+  import { sessions } from '../../stores/sessions.js';
+  import { projectInfo } from '../../stores/chat.js';
   import MessageList from '../chat/MessageList.svelte';
   import InputArea from '../chat/InputArea.svelte';
 
@@ -24,17 +25,7 @@
 
   function handleExpand(e) {
     e.stopPropagation();
-    // Seed fullscreen chat with popup's current state before switching
-    seedChat({
-      messages: popup.messages,
-      processing: popup.processing,
-      thinking: popup.thinking,
-      currentText: popup.currentText,
-      tasks: popup.tasks,
-    });
-    minimizeAll();
-    closePopup(popup.sessionId);
-    switchSession(popup.sessionId);
+    promotePopupToTab(popup.sessionId);
   }
 
   function handleClose(e) {
@@ -84,7 +75,7 @@
       <button onclick={handleMinimize} title="Minimize">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
-      <button onclick={handleExpand} title="Open full">
+      <button onclick={handleExpand} title="Open as tab">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
       </button>
       <button onclick={handleClose} title="Close">
@@ -115,17 +106,15 @@
 
 <style>
   .chat-popup {
-    width: 340px;
+    width: clamp(340px, 18vw, 440px);
     height: 480px;
     display: flex;
     flex-direction: column;
-    background: #1a1918;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-alt);
+    border: 1px solid rgba(var(--overlay-rgb), 0.08);
     border-bottom: none;
     border-radius: 14px 14px 0 0;
-    box-shadow:
-      0 -2px 16px rgba(0, 0, 0, 0.4),
-      0 0 0 1px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 -1px 8px rgba(var(--shadow-rgb), 0.15);
     overflow: hidden;
     transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -143,7 +132,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 6px 0 14px;
-    background: #222120;
+    background: var(--bg-raised);
     cursor: pointer;
     user-select: none;
   }
@@ -161,7 +150,7 @@
     height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
-    background: var(--acct-color, #4a4843);
+    background: var(--acct-color, var(--border));
     transition: all 0.3s;
   }
 
@@ -172,8 +161,8 @@
   }
 
   .cp-permission .cp-dot {
-    background: #E5534B;
-    box-shadow: 0 0 8px rgba(229, 83, 75, 0.6);
+    background: var(--error);
+    box-shadow: 0 0 8px rgba(var(--error-rgb), 0.6);
     animation: cp-glow 1s ease-in-out infinite;
   }
 
@@ -186,7 +175,7 @@
     flex: 1;
     font-size: 13px;
     font-weight: 600;
-    color: #c8c3b8;
+    color: var(--text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -194,7 +183,7 @@
   }
 
   .has-unread .cp-title {
-    color: #da7756;
+    color: var(--accent);
   }
 
   .cp-actions {
@@ -211,7 +200,7 @@
     justify-content: center;
     background: none;
     border: none;
-    color: #5a5650;
+    color: var(--text-dimmer);
     cursor: pointer;
     border-radius: 6px;
     transition: all 0.15s;
@@ -219,8 +208,8 @@
   }
 
   .cp-actions button:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #a09a90;
+    background: rgba(var(--overlay-rgb), 0.06);
+    color: var(--text-muted);
   }
 
   /* ─── Responsive ─── */

@@ -35,44 +35,72 @@
 /* --- CSS Custom Properties (defaults — overridden at runtime by theme store) --- */
 
 :root {
-  --bg: #2F2E2B;
-  --bg-alt: #35332F;
+  /* Surfaces */
+  --bg: #2B2A27;
+  --bg-alt: #343230;
+  --bg-deeper: #242220;
+  --bg-raised: #3D3B37;
+  --code-bg: #242220;
+  --input-bg: #3D3B37;
+  --user-bubble: #46423A;
+
+  /* Text */
   --text: #E8E5DE;
-  --text-secondary: #B5B0A6;
-  --text-muted: #908B81;
-  --text-dimmer: #6D6860;
+  --text-secondary: #C2BDB3;
+  --text-muted: #A09A90;
+  --text-dimmer: #807A70;
+
+  /* Accent */
   --accent: #DA7756;
   --accent-hover: #E5886A;
   --accent-bg: rgba(218, 119, 86, 0.12);
-  --code-bg: #1E1D1A;
+  --accent-rgb: 218, 119, 86;
+
+  /* Borders */
   --border: #3E3C37;
   --border-subtle: #36342F;
-  --input-bg: #393733;
-  --user-bubble: #46423A;
+
+  /* Status */
   --error: #E5534B;
   --success: #57AB5A;
   --warning: #E5A84B;
-  --sidebar-bg: #262522;
-  --sidebar-hover: #302E2A;
-  --sidebar-active: #3A3834;
+  --error-rgb: 229, 83, 75;
+  --success-rgb: 87, 171, 90;
+  --warning-rgb: 229, 168, 75;
+
+  /* Sidebar */
+  --sidebar-bg: #282623;
+  --sidebar-hover: #33312D;
+  --sidebar-active: #3C3A36;
+
+  /* Overlay / shadow base (flips for light theme) */
   --overlay-rgb: 255, 255, 255;
   --shadow-rgb: 0, 0, 0;
 
-  /* Alpha variants */
+  /* Alpha variants — accent */
   --accent-8: rgba(218, 119, 86, 0.08);
   --accent-12: rgba(218, 119, 86, 0.12);
   --accent-15: rgba(218, 119, 86, 0.15);
   --accent-20: rgba(218, 119, 86, 0.20);
   --accent-25: rgba(218, 119, 86, 0.25);
   --accent-30: rgba(218, 119, 86, 0.30);
+  --accent-40: rgba(218, 119, 86, 0.40);
+  --accent-50: rgba(218, 119, 86, 0.50);
+
+  /* Alpha variants — error */
   --error-8: rgba(229, 83, 75, 0.08);
   --error-12: rgba(229, 83, 75, 0.12);
   --error-15: rgba(229, 83, 75, 0.15);
   --error-25: rgba(229, 83, 75, 0.25);
+
+  /* Alpha variants — success */
   --success-8: rgba(87, 171, 90, 0.08);
   --success-12: rgba(87, 171, 90, 0.12);
   --success-15: rgba(87, 171, 90, 0.15);
   --success-25: rgba(87, 171, 90, 0.25);
+  --success-40: rgba(87, 171, 90, 0.40);
+
+  /* Alpha variants — warning */
   --warning-bg: rgba(229, 168, 75, 0.12);
 
   /* Syntax highlighting */
@@ -195,6 +223,14 @@ pre {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* --- Line clamping (Svelte scoped styles break -webkit-box) --- */
+
+.state-text {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 /* --- Lucide icons --- */

@@ -1,14 +1,76 @@
 <script>
-  import { popups } from '../../stores/popups.js';
+  import { popups, popupOrder, movePopup } from '../../stores/popups.js';
   import { workspaceEnabled } from '../../stores/ui.js';
   import ChatPopup from './ChatPopup.svelte';
 
-  let popupList = $derived(Object.values($popups));
+  // Ordered list of popups based on popupOrder
+  let popupList = $derived.by(() => {
+    const order = $popupOrder;
+    const all = $popups;
+    // Use order for known popups, append any unordered ones at the end
+    const ordered = order.filter(id => all[id]).map(id => all[id]);
+    const orderedIds = new Set(order);
+    for (const p of Object.values(all)) {
+      if (!orderedIds.has(p.sessionId)) ordered.push(p);
+    }
+    return ordered;
+  });
+
+  // Drag state
+  let dragId = $state(null);
+  let dropTargetId = $state(null);
+
+  function handleDragStart(e, sessionId) {
+    dragId = sessionId;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', sessionId);
+  }
+
+  function handleDragEnd() {
+    dragId = null;
+    dropTargetId = null;
+  }
+
+  function handleDragOver(e, sessionId) {
+    if (!dragId || dragId === sessionId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    dropTargetId = sessionId;
+  }
+
+  function handleDragLeave(e, sessionId) {
+    if (dropTargetId === sessionId) dropTargetId = null;
+  }
+
+  function handleDrop(e, sessionId) {
+    e.preventDefault();
+    if (!dragId || dragId === sessionId) return;
+    const order = $popupOrder;
+    const targetIndex = order.indexOf(sessionId);
+    if (targetIndex >= 0) {
+      movePopup(dragId, targetIndex);
+    }
+    dragId = null;
+    dropTargetId = null;
+  }
 </script>
 
 <div class="chat-popups" class:rail-offset={$workspaceEnabled}>
   {#each popupList as popup (popup.sessionId)}
-    <ChatPopup {popup} />
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="popup-drag-wrapper"
+      class:dragging={dragId === popup.sessionId}
+      class:drop-target={dropTargetId === popup.sessionId}
+      draggable="true"
+      ondragstart={(e) => handleDragStart(e, popup.sessionId)}
+      ondragend={handleDragEnd}
+      ondragover={(e) => handleDragOver(e, popup.sessionId)}
+      ondragleave={(e) => handleDragLeave(e, popup.sessionId)}
+      ondrop={(e) => handleDrop(e, popup.sessionId)}
+    >
+      <ChatPopup {popup} />
+    </div>
   {/each}
 </div>
 
@@ -32,11 +94,21 @@
   /* Hide scrollbar by default, show on hover */
   .chat-popups::-webkit-scrollbar { height: 4px; }
   .chat-popups::-webkit-scrollbar-track { background: transparent; }
-  .chat-popups::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
-  .chat-popups::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+  .chat-popups::-webkit-scrollbar-thumb { background: rgba(var(--overlay-rgb), 0.1); border-radius: 2px; }
+  .chat-popups::-webkit-scrollbar-thumb:hover { background: rgba(var(--overlay-rgb), 0.2); }
 
-  .chat-popups > :global(*) {
+  .popup-drag-wrapper {
     pointer-events: auto;
+    transition: opacity 0.15s;
+  }
+
+  .popup-drag-wrapper.dragging {
+    opacity: 0.4;
+  }
+
+  .popup-drag-wrapper.drop-target {
+    border-left: 2px solid var(--accent);
+    border-radius: 2px;
   }
 
   /* Shift when rail is visible */

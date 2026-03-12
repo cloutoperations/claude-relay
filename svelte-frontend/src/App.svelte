@@ -17,14 +17,14 @@
   import CommandPost from './lib/board/CommandPost.svelte';
   import CockpitStrip from './lib/board/CockpitStrip.svelte';
   import { hasOpenFiles } from './stores/files.js';
-  import { filePanelVisible } from './stores/ui.js';
+  import { filePanelVisible, cockpitMode } from './stores/ui.js';
 
   let quickOpenVisible = $state(false);
 
   // Resizable split panel — persist width across refresh
   const SPLIT_KEY = 'claude-relay-split-width';
   let filePanelWidth = $state(
-    (() => { try { return parseInt(localStorage.getItem(SPLIT_KEY)) || 480; } catch { return 480; } })()
+    (() => { try { return parseInt(localStorage.getItem(SPLIT_KEY)) || Math.min(Math.round(window.innerWidth * 0.35), 640); } catch { return 520; } })()
   );
   let isResizing = $state(false);
 
@@ -181,7 +181,7 @@
       </div>
     {:else}
       <!-- Left panel: chat (if session tab) or command post (home tab) -->
-      <div class="chat-panel" bind:this={chatPanelEl} style:padding-bottom="{popupBarHeight}px">
+      <div class="chat-panel" bind:this={chatPanelEl} style:padding-bottom="{isSessionTab ? popupBarHeight : 0}px">
         {#if isSessionTab}
           {#key $activeTabId}
             <MessageList
@@ -214,7 +214,9 @@
       {/if}
     {/if}
   </div>
-  <CockpitStrip />
+  {#if $cockpitMode === 'floating'}
+    <CockpitStrip mode="floating" />
+  {/if}
 </div>
 
 <ChatPopupManager />
@@ -260,7 +262,7 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 1px solid rgba(var(--overlay-rgb), 0.06);
   }
 
   .resize-handle {
@@ -275,7 +277,7 @@
 
   .resize-handle:hover,
   .resizing .resize-handle {
-    background: rgba(218, 119, 86, 0.3);
+    background: var(--accent-30);
   }
 
   .connect-overlay {
@@ -290,8 +292,8 @@
   .connect-spinner {
     width: 24px;
     height: 24px;
-    border: 2px solid #3e3c37;
-    border-top-color: #da7756;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -302,7 +304,7 @@
 
   .connect-text {
     font-size: 14px;
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   @media (max-width: 768px) {
@@ -314,7 +316,7 @@
       width: 100% !important;
       height: 40vh;
       border-left: none;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      border-top: 1px solid rgba(var(--overlay-rgb), 0.06);
     }
 
     .resize-handle {
