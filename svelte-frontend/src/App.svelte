@@ -56,6 +56,38 @@
   let showFilePanel = $derived($hasOpenFiles && $filePanelVisible && $connected);
   let showSplit = $derived(showFilePanel);
 
+  // Calculate popup bar height — only if popups overlap with the centered input area
+  let chatPanelEl = $state(null);
+  let popupBarHeight = $derived.by(() => {
+    const list = Object.values($popups);
+    if (list.length === 0) return 0;
+
+    // Input is centered at max 900px within the chat panel
+    // Calculate where the input actually sits horizontally
+    const panelRect = chatPanelEl?.getBoundingClientRect();
+    if (!panelRect) return 0;
+    const inputW = Math.min(900, panelRect.width);
+    const inputLeft = panelRect.left + (panelRect.width - inputW) / 2;
+    const inputRight = inputLeft + inputW;
+
+    // Popups stack from the right edge: right:16px, each 340px wide, 6px gap
+    // Check if any popup overlaps horizontally with the input
+    const vpWidth = window.innerWidth;
+    let popupRight = vpWidth - 16; // first popup right edge
+    let maxH = 0;
+
+    for (const p of list) {
+      const popupLeft = popupRight - 340;
+      // Check horizontal overlap
+      if (popupLeft < inputRight && popupRight > inputLeft) {
+        maxH = Math.max(maxH, p.minimized ? 40 : 480);
+      }
+      popupRight = popupLeft - 6; // next popup stacks left
+    }
+
+    return maxH > 0 ? maxH + 8 : 0;
+  });
+
   function handleSend(text) {
     sendMessage(text);
   }
@@ -108,7 +140,7 @@
       </div>
     {:else}
       <!-- Left panel: chat (if session) or workbench/drilldown -->
-      <div class="chat-panel">
+      <div class="chat-panel" bind:this={chatPanelEl} style:padding-bottom="{popupBarHeight}px">
         {#if $activeSessionId}
           <MessageList
             messages={$messages}

@@ -1,6 +1,6 @@
 <script>
   import { sessions, activeSessionId, leaveSession, createSession, renameSession, switchSession } from '../../stores/sessions.js';
-  import { sidebarOpen, chatSearchQuery } from '../../stores/ui.js';
+  import { sidebarOpen, chatSearchQuery, activeSidebarTab } from '../../stores/ui.js';
   import { openPopup } from '../../stores/popups.js';
   import { projectInfo } from '../../stores/chat.js';
   import { send, onMessage } from '../../stores/ws.js';
@@ -12,7 +12,7 @@
 
   let { projectName = 'Claude Relay' } = $props();
 
-  let activeTab = $state('sessions'); // 'sessions' | 'files' | 'projects'
+  let activeTab = $derived($activeSidebarTab);
   let showAccountPicker = $state(false);
   let pickerAnchorEl = $state(null);
   let searchQuery = $state('');
@@ -187,7 +187,7 @@
   // Switch to files tab when a file is opened
   $effect(() => {
     if ($activeFilePath) {
-      activeTab = 'files';
+      activeSidebarTab.set('files');
     }
   });
 
@@ -220,7 +220,7 @@
     <button
       class="sidebar-tab"
       class:active={activeTab === 'sessions'}
-      onclick={() => activeTab = 'sessions'}
+      onclick={() => activeSidebarTab.set('sessions')}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -230,7 +230,7 @@
     <button
       class="sidebar-tab"
       class:active={activeTab === 'files'}
-      onclick={() => activeTab = 'files'}
+      onclick={() => activeSidebarTab.set('files')}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>

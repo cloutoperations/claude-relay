@@ -2,7 +2,7 @@
 import { writable, get } from 'svelte/store';
 import { onMessage, send } from './ws.js';
 
-const MAX_POPUPS = 5;
+const MAX_POPUPS = 20;
 const STORAGE_KEY = 'claude-relay-popups';
 
 // Map of sessionId -> popup state

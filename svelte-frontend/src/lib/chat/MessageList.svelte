@@ -280,7 +280,12 @@
     gap: 6px;
   }
 
-  /* msg-item wrapper — no content-visibility (breaks scroll-to-bottom) */
+  .msg-item {
+    max-width: 900px;
+    width: 100%;
+    align-self: center;
+    box-sizing: border-box;
+  }
 
   .load-earlier {
     align-self: center;

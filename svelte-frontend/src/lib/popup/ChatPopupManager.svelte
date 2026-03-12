@@ -17,13 +17,23 @@
     position: fixed;
     bottom: 0;
     right: 16px;
+    left: 0;
     display: flex;
     flex-direction: row-reverse;
     align-items: flex-end;
     gap: 6px;
     z-index: 1000;
     pointer-events: none;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-left: 16px;
   }
+
+  /* Hide scrollbar by default, show on hover */
+  .chat-popups::-webkit-scrollbar { height: 4px; }
+  .chat-popups::-webkit-scrollbar-track { background: transparent; }
+  .chat-popups::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
+  .chat-popups::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
 
   .chat-popups > :global(*) {
     pointer-events: auto;

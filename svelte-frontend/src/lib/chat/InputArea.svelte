@@ -184,7 +184,6 @@
   .input-area {
     flex-shrink: 0;
     position: relative;
-    z-index: 1001;
   }
 
   .input-area.disconnected {
@@ -239,6 +238,11 @@
   .input-area:not(.compact) {
     padding: 12px 20px 16px;
     border-top: 1px solid #2a2924;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .input-wrapper {
