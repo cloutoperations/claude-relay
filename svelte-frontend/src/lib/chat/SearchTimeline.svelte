@@ -4,15 +4,14 @@
   let { messagesEl = null, messageCount = 0, messages = [] } = $props();
 
   let hits = $state([]);
+  let containerRect = $state(null);
   let viewportTop = $state(0);
   let viewportHeight = $state(100);
   let totalHeight = $state(1);
-  let timelineEl = $state(null);
 
   let query = $derived($chatSearchQuery);
 
   // Scan messages for query matches whenever query or messages change.
-  // Uses actual message data (not DOM) so windowed/virtualized messages are still found.
   $effect(() => {
     const q = query;
     const _count = messageCount; // subscribe
@@ -66,49 +65,60 @@
 
   function scrollToHit(hit) {
     if (!messagesEl) return;
-    // Find the rendered DOM child closest to this message index.
-    // With windowing, not all messages are rendered, so find by approximate position.
-    const children = messagesEl.children;
-    if (children.length === 0) return;
 
-    // Try to find the child by scanning text content for the snippet keyword
+    // Scroll to position in the scroll container (maps linearly to message index)
+    const scrollTarget = hit.position * (messagesEl.scrollHeight - messagesEl.clientHeight);
+    messagesEl.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+
+    // After scroll completes, find and highlight the nearest matching element
     const lowerQ = (query || '').toLowerCase();
-    let targetChild = null;
+    if (!lowerQ) return;
 
-    for (let i = 0; i < children.length; i++) {
-      const text = (children[i].textContent || '').toLowerCase();
-      if (text.includes(lowerQ)) {
-        // Count how many we've seen to match the right occurrence
-        targetChild = children[i];
-        // Keep going to find the right one based on position
+    setTimeout(() => {
+      const children = messagesEl.querySelectorAll('.msg-item');
+      // Find the visible element closest to the scroll target that contains the query
+      let best = null;
+      let bestDist = Infinity;
+      const viewMid = messagesEl.scrollTop + messagesEl.clientHeight / 2;
+
+      for (let i = 0; i < children.length; i++) {
+        const text = (children[i].textContent || '').toLowerCase();
+        if (!text.includes(lowerQ)) continue;
+        const elMid = children[i].offsetTop + children[i].offsetHeight / 2;
+        const dist = Math.abs(elMid - viewMid);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = children[i];
+        }
       }
-    }
 
-    if (targetChild) {
-      targetChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      targetChild.classList.add('search-blink');
-      setTimeout(() => targetChild.classList.remove('search-blink'), 1500);
-    } else {
-      // Message not rendered (windowed out) — scroll to approximate position
-      const scrollTarget = hit.position * messagesEl.scrollHeight;
-      messagesEl.scrollTo({ top: scrollTarget, behavior: 'smooth' });
-    }
+      if (best) {
+        best.classList.add('search-blink');
+        setTimeout(() => best.classList.remove('search-blink'), 1500);
+      }
+    }, 400);
   }
 
-  // Update viewport indicator on scroll
+  // Track container position + scroll state using rAF for fixed positioning
   $effect(() => {
     const el = messagesEl;
-    if (!el || !query) return;
+    if (!el || !query || hits.length === 0) {
+      containerRect = null;
+      return;
+    }
 
-    function onScroll() {
+    let rafId;
+    function update() {
+      const rect = el.getBoundingClientRect();
+      containerRect = { top: rect.top, right: rect.right, height: rect.height };
       viewportTop = el.scrollTop;
       viewportHeight = el.clientHeight;
       totalHeight = el.scrollHeight;
+      rafId = requestAnimationFrame(update);
     }
 
-    onScroll();
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
+    update();
+    return () => cancelAnimationFrame(rafId);
   });
 
   let viewportIndicatorTop = $derived(
@@ -119,20 +129,19 @@
   );
 </script>
 
-{#if query && hits.length > 0}
-  <div class="search-timeline" bind:this={timelineEl}>
-    <!-- Hit count label -->
+{#if query && hits.length > 0 && containerRect}
+  <div
+    class="search-timeline"
+    style="position:fixed; top:{containerRect.top}px; left:{containerRect.right - 24}px; height:{containerRect.height}px; width:24px; z-index:9999;"
+  >
     <div class="st-count">{hits.length} hit{hits.length !== 1 ? 's' : ''}</div>
 
-    <!-- Track -->
     <div class="st-track">
-      <!-- Viewport indicator -->
       <div
         class="st-viewport"
         style="top: {viewportIndicatorTop}%; height: {viewportIndicatorHeight}%"
       ></div>
 
-      <!-- Hit markers -->
       {#each hits as hit, i}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -151,12 +160,6 @@
 
 <style>
   .search-timeline {
-    position: absolute;
-    right: 4px;
-    top: 0;
-    bottom: 0;
-    width: 20px;
-    z-index: 10;
     display: flex;
     flex-direction: column;
     pointer-events: none;
@@ -194,8 +197,8 @@
     position: absolute;
     left: 0;
     right: 0;
-    height: 12px;
-    margin-top: -6px;
+    height: 14px;
+    margin-top: -7px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -209,16 +212,16 @@
   }
 
   .st-marker-dot {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: #da7756;
-    box-shadow: 0 0 4px rgba(218, 119, 86, 0.5);
+    box-shadow: 0 0 6px rgba(218, 119, 86, 0.6);
   }
 
   .st-marker:hover .st-marker-dot {
     background: #e8956e;
-    box-shadow: 0 0 8px rgba(218, 119, 86, 0.7);
+    box-shadow: 0 0 10px rgba(218, 119, 86, 0.8);
   }
 
   /* Global blink animation for search hits */
