@@ -49,6 +49,8 @@ export const fileSearchResults = writable([]);
 export const fileSearchQuery = writable('');
 
 let searchDebounce = null;
+// Track pending file reads for timeout handling
+const pendingReads = new Map(); // path -> timeoutId
 
 // Only persist after initial restore is done, so we don't overwrite saved state with empty defaults
 let persistEnabled = false;
@@ -74,6 +76,19 @@ onMessage((msg) => {
     activeFilePath.set(savedActive && savedPaths.includes(savedActive) ? savedActive : savedPaths[0]);
     for (const p of savedPaths) {
       send({ type: 'fs_read', path: p });
+      // Timeout for restored tabs too
+      pendingReads.set(p, setTimeout(() => {
+        pendingReads.delete(p);
+        openFiles.update(files => {
+          const idx = files.findIndex(f => f.path === p && f.loading);
+          if (idx >= 0) {
+            const next = [...files];
+            next[idx] = { path: p, error: 'Request timed out' };
+            return next;
+          }
+          return files;
+        });
+      }, 10000));
     }
     if (savedActive) revealInTree(savedActive);
   }
@@ -133,6 +148,22 @@ export function openFile(filePath) {
   openFiles.update(f => [...f, { path: filePath, content: null, loading: true }]);
   send({ type: 'fs_read', path: filePath });
   revealInTree(filePath);
+
+  // Timeout: if server doesn't respond in 10s, show error
+  if (pendingReads.has(filePath)) clearTimeout(pendingReads.get(filePath));
+  pendingReads.set(filePath, setTimeout(() => {
+    pendingReads.delete(filePath);
+    openFiles.update(files => {
+      const idx = files.findIndex(f => f.path === filePath && f.loading);
+      if (idx >= 0) {
+        const next = [...files];
+        next[idx] = { path: filePath, error: 'Request timed out — server did not respond' };
+        return next;
+      }
+      return files;
+    });
+    fileLoading.set(false);
+  }, 10000));
 }
 
 export function closeFileTab(filePath) {
@@ -190,6 +221,11 @@ onMessage((msg) => {
       expandedDirs.update(s => { s.add('.'); return new Set(s); });
     }
   } else if (msg.type === 'fs_read_result') {
+    // Clear timeout for this file
+    if (pendingReads.has(msg.path)) {
+      clearTimeout(pendingReads.get(msg.path));
+      pendingReads.delete(msg.path);
+    }
     fileLoading.set(false);
     const fileData = msg.error
       ? { path: msg.path, error: msg.error }

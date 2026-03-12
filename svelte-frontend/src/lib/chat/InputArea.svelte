@@ -39,6 +39,8 @@
   }
 
   function handleSend() {
+    if (!$connected) return;
+
     if (showSlashMenu && filteredCommands.length > 0) {
       selectSlashCommand(filteredCommands[slashActiveIdx]);
       return;
@@ -138,7 +140,7 @@
         oninput={handleInput}
         onkeydown={handleKeydown}
         rows="1"
-        placeholder="Message..."
+        placeholder={$connected ? 'Message...' : 'Connecting...'}
         enterkeyhint="send"
         disabled={!$connected}
       ></textarea>

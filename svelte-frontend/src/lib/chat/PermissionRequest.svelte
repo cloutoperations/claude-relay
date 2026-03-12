@@ -12,7 +12,12 @@
     onPermissionRespond = null,
   } = $props();
 
+  let respondedWith = $state(null);
+
   function respond(d) {
+    if (!requestId) return; // guard against malformed requests
+    if (respondedWith) return; // prevent double-click
+    respondedWith = d;
     if (onPermissionRespond) {
       onPermissionRespond(requestId, d);
     } else {

@@ -111,6 +111,29 @@
     processing ? messages.filter(m => m.type === 'tool' && m.isAgent && m.status === 'running').length : 0
   );
 
+  // --- Windowed rendering ---
+  // Only render last WINDOW_SIZE items initially; user can load more.
+  const WINDOW_SIZE = 150;
+  let renderAll = $state(false);
+
+  let visibleItems = $derived.by(() => {
+    if (renderAll || displayItems.length <= WINDOW_SIZE) return displayItems;
+    return displayItems.slice(-WINDOW_SIZE);
+  });
+
+  let hiddenCount = $derived(displayItems.length - visibleItems.length);
+
+  function loadAllMessages() {
+    renderAll = true;
+  }
+
+  // Reset window when messages change drastically (session switch)
+  $effect(() => {
+    if (displayItems.length <= WINDOW_SIZE) {
+      renderAll = false;
+    }
+  });
+
   let messagesEl;
   let isUserScrolledUp = false;
 
@@ -150,7 +173,14 @@
     </div>
   {/if}
 
-  {#each displayItems as item, i (item._key || item.uuid || item.toolId || item.requestId || i)}
+  {#if hiddenCount > 0}
+    <button class="load-earlier" onclick={loadAllMessages}>
+      Load {hiddenCount} earlier messages
+    </button>
+  {/if}
+
+  {#each visibleItems as item, i (item._key || item.uuid || item.toolId || item.requestId || i)}
+    <div class="msg-item">
     {#if item.type === 'user'}
       <UserMessage text={item.text} images={item.images} pastes={item.pastes} {compact} />
     {:else if item.type === 'assistant'}
@@ -179,6 +209,7 @@
     {:else if item.type === 'ask_user'}
       <AskUser requestId={item.requestId} question={item.question} answered={item.answered} {compact} />
     {/if}
+    </div>
   {/each}
 
   {#if processing}
@@ -229,6 +260,28 @@
   .message-list.compact {
     padding: 14px 14px 10px;
     gap: 6px;
+  }
+
+  .msg-item {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 80px;
+  }
+
+  .load-earlier {
+    align-self: center;
+    padding: 6px 16px;
+    background: rgba(218, 119, 86, 0.08);
+    border: 1px solid rgba(218, 119, 86, 0.2);
+    border-radius: 8px;
+    color: #da7756;
+    font-size: 12px;
+    cursor: pointer;
+    margin-bottom: 8px;
+    transition: background 0.15s;
+  }
+
+  .load-earlier:hover {
+    background: rgba(218, 119, 86, 0.15);
   }
 
   .message-list::-webkit-scrollbar { width: 6px; }

@@ -74,14 +74,13 @@ function handleTaskInput(name, input) {
   if (name === 'TodoWrite' && Array.isArray(input.todos)) {
     // TodoWrite replaces the full task list
     updateTaskList(() => input.todos.map((t, i) => ({
-      id: String(i + 1),
+      id: t.id || crypto.randomUUID(),
       content: t.content || '',
       status: t.status || 'pending',
       activeForm: t.activeForm || '',
     })));
   } else if (name === 'TaskCreate') {
-    const currentTasks = replaying ? replayTaskList : get(tasks);
-    const id = String(currentTasks.length + 1);
+    const id = input.id || crypto.randomUUID();
     updateTaskList(t => [...t, {
       id,
       content: input.subject || input.description || '',

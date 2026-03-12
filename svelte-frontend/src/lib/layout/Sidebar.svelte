@@ -19,6 +19,7 @@
   let searchQuery = $state('');
   let searchResults = $state(null); // null = no search, array = server results
   let searchDebounce = null;
+  let searchSeq = 0; // sequence counter for correlating search requests/responses
   let renamingId = $state(null);
   let renameValue = $state('');
   let taggerSessionId = $state(null);
@@ -31,6 +32,8 @@
   // Listen for search results from server
   onMessage((msg) => {
     if (msg.type === 'search_results') {
+      // Only accept results matching our latest search sequence
+      if (msg._searchSeq != null && msg._searchSeq !== searchSeq) return;
       if (msg.query !== searchQuery) return; // stale
       searchResults = msg.results || [];
     }
@@ -45,8 +48,11 @@
       searchResults = null;
       return;
     }
+    // Clear stale results immediately so user sees "searching..." not old results
+    searchResults = null;
     searchDebounce = setTimeout(() => {
-      send({ type: 'search_sessions', query: q });
+      searchSeq++;
+      send({ type: 'search_sessions', query: q, _searchSeq: searchSeq });
     }, 200);
   });
 
@@ -60,9 +66,11 @@
     return map;
   });
 
+  let searchPending = $derived(!!searchQuery.trim() && !searchResults);
+
   let filteredSessions = $derived.by(() => {
     if (!searchQuery.trim()) return $sessions;
-    if (!searchMatchMap) return $sessions; // still waiting for server
+    if (!searchMatchMap) return []; // waiting for server — show empty, not all sessions
     return $sessions.filter(s => searchMatchMap.has(s.id));
   });
 

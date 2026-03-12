@@ -65,13 +65,13 @@ function handleTaskInput(popup, name, input) {
   const tasks = popup.tasks || [];
   if (name === 'TodoWrite' && Array.isArray(input.todos)) {
     return input.todos.map((t, i) => ({
-      id: String(i + 1),
+      id: t.id || crypto.randomUUID(),
       content: t.content || '',
       status: t.status || 'pending',
       activeForm: t.activeForm || '',
     }));
   } else if (name === 'TaskCreate') {
-    const id = String(tasks.length + 1);
+    const id = input.id || crypto.randomUUID();
     return [...tasks, {
       id,
       content: input.subject || input.description || '',
@@ -121,6 +121,12 @@ function loadLayout() {
 let hasRestored = false;
 onMessage((msg) => {
   if (msg.type !== '__ws_open') return;
+
+  // Clear all replay buffers on every reconnect to prevent stale data
+  for (const key of Object.keys(replayBuffers)) {
+    delete replayBuffers[key];
+  }
+
   if (hasRestored) return;
   hasRestored = true;
 
@@ -186,6 +192,8 @@ export function closePopup(sessionId) {
     delete next[sessionId];
     return next;
   });
+  // Clean up replay buffer for this popup
+  delete replayBuffers[sessionId];
   send({ type: 'popup_close', sessionId });
   saveLayout();
 }
