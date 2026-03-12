@@ -275,37 +275,183 @@
   }
 
   .fv-markdown {
-    padding: 16px 20px;
+    padding: 20px 24px;
     font-size: 14px;
-    line-height: 1.6;
+    line-height: 1.7;
     color: #d4d0c8;
+    font-family: 'Inter', -apple-system, sans-serif;
   }
 
-  .fv-markdown :global(h1),
-  .fv-markdown :global(h2),
-  .fv-markdown :global(h3) {
-    margin-top: 1.2em;
-    margin-bottom: 0.4em;
+  /* Headings */
+  .fv-markdown :global(h1) {
+    font-size: 1.6em;
+    font-weight: 700;
     color: #e8e5de;
+    margin: 1.6em 0 0.6em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    line-height: 1.3;
   }
 
+  .fv-markdown :global(h1:first-child) { margin-top: 0; }
+
+  .fv-markdown :global(h2) {
+    font-size: 1.3em;
+    font-weight: 650;
+    color: #e8e5de;
+    margin: 1.4em 0 0.5em;
+    padding-bottom: 0.2em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    line-height: 1.3;
+  }
+
+  .fv-markdown :global(h3) {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #da7756;
+    margin: 1.2em 0 0.4em;
+  }
+
+  .fv-markdown :global(h4) {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #908b81;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 1.2em 0 0.4em;
+  }
+
+  .fv-markdown :global(h5),
+  .fv-markdown :global(h6) {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #908b81;
+    margin: 1em 0 0.3em;
+  }
+
+  /* Paragraphs */
+  .fv-markdown :global(p) {
+    margin: 0.6em 0;
+  }
+
+  /* Links */
+  .fv-markdown :global(a) {
+    color: #da7756;
+    text-decoration: none;
+  }
+  .fv-markdown :global(a:hover) {
+    text-decoration: underline;
+  }
+
+  /* Bold and emphasis */
+  .fv-markdown :global(strong) { color: #e8e5de; }
+
+  /* Inline code */
   .fv-markdown :global(code) {
-    background: rgba(255, 255, 255, 0.06);
-    padding: 2px 5px;
+    background: rgba(218, 119, 86, 0.1);
+    color: #da7756;
+    padding: 2px 6px;
     border-radius: 4px;
-    font-size: 0.9em;
+    font-size: 0.85em;
+    font-family: 'SF Mono', 'Fira Code', Menlo, monospace;
   }
 
+  /* Code blocks */
   .fv-markdown :global(pre) {
-    background: #262523;
-    padding: 12px;
+    background: #1e1d1a;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 14px 16px;
     border-radius: 8px;
     overflow-x: auto;
+    margin: 0.8em 0;
   }
 
   .fv-markdown :global(pre code) {
     background: none;
+    color: #d4d0c8;
     padding: 0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  /* Lists */
+  .fv-markdown :global(ul),
+  .fv-markdown :global(ol) {
+    margin: 0.5em 0;
+    padding-left: 1.6em;
+  }
+
+  .fv-markdown :global(li) {
+    margin: 0.25em 0;
+  }
+
+  .fv-markdown :global(li > ul),
+  .fv-markdown :global(li > ol) {
+    margin: 0.15em 0;
+  }
+
+  /* Task lists */
+  .fv-markdown :global(li input[type="checkbox"]) {
+    margin-right: 6px;
+    accent-color: #da7756;
+  }
+
+  /* Blockquotes */
+  .fv-markdown :global(blockquote) {
+    border-left: 3px solid #da7756;
+    margin: 0.8em 0;
+    padding: 0.4em 0 0.4em 16px;
+    color: #908b81;
+    background: rgba(218, 119, 86, 0.04);
+    border-radius: 0 6px 6px 0;
+  }
+
+  .fv-markdown :global(blockquote p) {
+    margin: 0.3em 0;
+  }
+
+  /* Tables */
+  .fv-markdown :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.8em 0;
+    font-size: 13px;
+  }
+
+  .fv-markdown :global(th) {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    color: #e8e5de;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .fv-markdown :global(td) {
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    color: #b0ab9f;
+  }
+
+  .fv-markdown :global(tr:nth-child(even)) {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  /* Horizontal rules */
+  .fv-markdown :global(hr) {
+    border: none;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 1.5em 0;
+  }
+
+  /* Images */
+  .fv-markdown :global(img) {
+    max-width: 100%;
+    border-radius: 6px;
+    margin: 0.5em 0;
   }
 
   .fv-image {
