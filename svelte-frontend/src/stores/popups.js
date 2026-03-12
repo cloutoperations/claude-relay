@@ -1,6 +1,7 @@
 // Chat popup store — manages floating messenger-style session windows
 import { writable, get } from 'svelte/store';
 import { onMessage, send } from './ws.js';
+import { tabSessionIds } from './tabs.js';
 
 const MAX_POPUPS = 20;
 const STORAGE_KEY = 'claude-relay-popups';
@@ -301,6 +302,9 @@ onMessage((msg) => {
 
   const sessionId = msg._popupSessionId || msg.sessionId;
   if (!sessionId) return;
+
+  // If this session is managed by a tab, skip — tabs.js handles it
+  if (tabSessionIds.has(sessionId)) return;
 
   const t = msg.type;
 

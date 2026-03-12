@@ -1,11 +1,13 @@
 <script>
   import { onMount } from 'svelte';
   import { connect, connected, onMessage } from './stores/ws.js';
-  import { sessions, activeSessionId, activeSession } from './stores/sessions.js';
-  import { messages, processing, activity, thinking, historyDone, projectInfo, clientCount, sendMessage, stopProcessing } from './stores/chat.js';
+  import { sessions } from './stores/sessions.js';
+  import { projectInfo, clientCount } from './stores/chat.js';
   import { popups, updatePopupTitle } from './stores/popups.js';
+  import { tabs, activeTabId, tabOrder, switchTab, closeTab, sendTabMessage, stopTab, saveTabScroll, saveTabDraft, sendTabPermissionResponse } from './stores/tabs.js';
 
   import Header from './lib/layout/Header.svelte';
+  import TabBar from './lib/layout/TabBar.svelte';
   import Sidebar from './lib/layout/Sidebar.svelte';
   import MessageList from './lib/chat/MessageList.svelte';
   import InputArea from './lib/chat/InputArea.svelte';
@@ -16,7 +18,6 @@
   import CockpitStrip from './lib/board/CockpitStrip.svelte';
   import { hasOpenFiles } from './stores/files.js';
   import { filePanelVisible } from './stores/ui.js';
-  import { focusedArea } from './stores/board.js';
 
   let quickOpenVisible = $state(false);
 
@@ -31,9 +32,17 @@
     connect();
 
     function handleKeydown(e) {
+      // Cmd+O — quick open
       if (e.key === 'o' && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         quickOpenVisible = !quickOpenVisible;
+      }
+      // Cmd+W — close current tab
+      if (e.key === 'w' && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        if ($activeTabId !== '__home__' && $tabs[$activeTabId]) {
+          e.preventDefault();
+          closeTab($activeTabId);
+        }
       }
     }
     document.addEventListener('keydown', handleKeydown);
@@ -52,7 +61,20 @@
     }
   });
 
-  let sessionTitle = $derived($activeSession?.title || '');
+  // Active tab state
+  let activeTab = $derived($tabs[$activeTabId]);
+  let isHomeTab = $derived($activeTabId === '__home__');
+  let isSessionTab = $derived(!isHomeTab && !!activeTab);
+
+  // Header title from active tab
+  let sessionTitle = $derived(activeTab?.title || '');
+
+  // Get account info for active tab's session
+  let activeTabSession = $derived.by(() => {
+    if (!activeTab) return null;
+    return $sessions.find(s => s.id === activeTab.sessionId) || null;
+  });
+
   let showFilePanel = $derived($hasOpenFiles && $filePanelVisible && $connected);
   let showSplit = $derived(showFilePanel);
 
@@ -62,39 +84,57 @@
     const list = Object.values($popups);
     if (list.length === 0) return 0;
 
-    // Input is centered at max 900px within the chat panel
-    // Calculate where the input actually sits horizontally
     const panelRect = chatPanelEl?.getBoundingClientRect();
     if (!panelRect) return 0;
     const inputW = Math.min(900, panelRect.width);
     const inputLeft = panelRect.left + (panelRect.width - inputW) / 2;
     const inputRight = inputLeft + inputW;
 
-    // Popups stack from the right edge: right:16px, each 340px wide, 6px gap
-    // Check if any popup overlaps horizontally with the input
     const vpWidth = window.innerWidth;
-    let popupRight = vpWidth - 16; // first popup right edge
+    let popupRight = vpWidth - 16;
     let maxH = 0;
 
     for (const p of list) {
       const popupLeft = popupRight - 340;
-      // Check horizontal overlap
       if (popupLeft < inputRight && popupRight > inputLeft) {
         maxH = Math.max(maxH, p.minimized ? 40 : 480);
       }
-      popupRight = popupLeft - 6; // next popup stacks left
+      popupRight = popupLeft - 6;
     }
 
     return maxH > 0 ? maxH + 8 : 0;
   });
 
-  function handleSend(text) {
-    sendMessage(text);
+  // Tab send/stop handlers
+  function handleTabSend(text) {
+    if (isSessionTab) {
+      sendTabMessage($activeTabId, text);
+    }
   }
 
-  function handleStop() {
-    stopProcessing();
+  function handleTabStop() {
+    if (isSessionTab) {
+      stopTab($activeTabId);
+    }
   }
+
+  function handleTabPermissionRespond(requestId, decision) {
+    if (isSessionTab) {
+      sendTabPermissionResponse($activeTabId, requestId, decision);
+    }
+  }
+
+  // Save scroll position when switching tabs
+  let previousTabId = $state(null);
+  let messagesElRef = $state(null);
+
+  $effect(() => {
+    const current = $activeTabId;
+    if (previousTabId && previousTabId !== current && messagesElRef) {
+      saveTabScroll(previousTabId, messagesElRef.scrollTop || 0);
+    }
+    previousTabId = current;
+  });
 
   function startResize(e) {
     e.preventDefault();
@@ -104,7 +144,6 @@
     const startWidth = filePanelWidth;
 
     function onMove(e) {
-      // Dragging left = wider file panel (since it's on the right)
       const delta = startX - e.clientX;
       filePanelWidth = Math.max(280, Math.min(window.innerWidth * 0.6, startWidth + delta));
     }
@@ -128,9 +167,11 @@
     projectName={$projectInfo.name || 'Claude Relay'}
     sessionTitle={sessionTitle}
     clientCount={$clientCount > 1 ? $clientCount : 0}
-    accountId={$activeSession?.accountId}
+    accountId={activeTabSession?.accountId}
     accounts={$projectInfo.accounts || []}
   />
+
+  <TabBar />
 
   <div class="content-area" class:split={showSplit} class:resizing={isResizing}>
     {#if !$connected}
@@ -139,19 +180,24 @@
         <div class="connect-text">Connecting to relay...</div>
       </div>
     {:else}
-      <!-- Left panel: chat (if session) or workbench/drilldown -->
+      <!-- Left panel: chat (if session tab) or command post (home tab) -->
       <div class="chat-panel" bind:this={chatPanelEl} style:padding-bottom="{popupBarHeight}px">
-        {#if $activeSessionId}
-          <MessageList
-            messages={$messages}
-            processing={$processing}
-            activity={$activity}
-            thinking={$thinking}
-          />
+        {#if isSessionTab}
+          {#key $activeTabId}
+            <MessageList
+              messages={activeTab.messages}
+              processing={activeTab.processing}
+              activity={activeTab.activity}
+              thinking={{ active: activeTab.thinking, text: '' }}
+              loadingHistory={activeTab.loadingHistory}
+              onPermissionRespond={handleTabPermissionRespond}
+              taskItems={activeTab.tasks}
+            />
+          {/key}
           <InputArea
-            processing={$processing}
-            onSend={handleSend}
-            onStop={handleStop}
+            processing={activeTab.processing}
+            onSend={handleTabSend}
+            onStop={handleTabStop}
           />
         {:else}
           <CommandPost />
@@ -196,7 +242,6 @@
     flex-direction: row;
   }
 
-  /* Disable text selection while resizing */
   .content-area.resizing {
     user-select: none;
     cursor: col-resize;

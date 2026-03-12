@@ -2,6 +2,7 @@
   import { sessions, activeSessionId, leaveSession, createSession, renameSession, switchSession } from '../../stores/sessions.js';
   import { sidebarOpen, chatSearchQuery, activeSidebarTab } from '../../stores/ui.js';
   import { openPopup } from '../../stores/popups.js';
+  import { openTab } from '../../stores/tabs.js';
   import { projectInfo } from '../../stores/chat.js';
   import { send, onMessage } from '../../stores/ws.js';
   import FileTree from '../files/FileTree.svelte';
@@ -110,20 +111,8 @@
   let grouped = $derived(groupByDate(filteredSessions));
 
   function handleSessionClick(sessionId) {
-    // When searching, open fullscreen so the search timeline + highlights work
-    if (searchQuery.trim()) {
-      switchSession(sessionId);
-      if (window.innerWidth < 1024) {
-        sidebarOpen.set(false);
-      }
-      return;
-    }
-    // Default: open as popup
-    if ($activeSessionId) {
-      leaveSession();
-    }
     const session = $sessions.find(s => s.id === sessionId);
-    openPopup(sessionId, session?.title || 'Session');
+    openTab(sessionId, session?.title || 'Session');
     if (window.innerWidth < 1024) {
       sidebarOpen.set(false);
     }

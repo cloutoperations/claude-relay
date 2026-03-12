@@ -1,22 +1,66 @@
 # Claude Relay — Feature Roadmap
 
-Captured 2026-03-12.
+Captured 2026-03-12. Updated 2026-03-12.
 
 ---
 
-### Quick wins
+### Quick wins — DONE
 
-- [ ] **Scrolling too narrow width** — chat messages area feels cramped, widen max-width or remove constraint
-- [ ] **Remove Board tab** — not useful, clutters sidebar
-- [ ] **Chat input above popup windows** — when popups are open, input gets buried behind them (z-index)
-- [ ] **MD preview styling** — improve markdown rendering so it looks better (spacing, fonts, tables)
+- [x] **Scrolling too narrow width** — widened + centered at 900px
+- [x] **Remove Board tab** — removed from sidebar
+- [x] **Chat input above popup windows** — smart overlap detection pushes input up
+- [x] **MD preview styling** — improved in both chat messages and file viewer panel
+- [x] **More than 5 open windows** — raised to 20, horizontal scroll overflow
+- [x] **Persist sidebar/tab state** — sidebar open/closed + active tab survives refresh
+
+---
+
+### Session tabs — IDE-style workspace (next up)
+
+Turn Claude Relay into a tabbed IDE-like workspace. Three tiers of session views:
+
+**Tabs (top bar)**
+- Primary workspace — full chat, full input, search timeline, all features
+- Click session in sidebar → opens as new tab (replaces current single-session model)
+- Multiple tabs open simultaneously, click to switch
+- Tabs persist across refresh (localStorage)
+- Close tab = closes the view only, session keeps running server-side
+- Scroll position and draft text preserved per tab
+- 3-6 visible tabs, overflow via scroll or dropdown
+
+**Popups (bottom bar)**
+- Compact but fully functional — can send messages, approve permissions, everything
+- Used for sessions you want accessible without leaving your current tab
+- Minimize to title bar, expand to peek
+- Could auto-open when a background session starts processing
+
+**Tab ↔ Popup promotion**
+- Double-click popup header → promotes to tab
+- Tab context menu → "pop out" to bottom popup
+- Clicking a session that's already a popup → opens as tab, closes popup
+- Right-click sidebar session → "open as popup" vs "open as tab"
+
+**Command post**
+- First/default tab, always present, not closable
+- Shows when no session is selected (like today's home view)
+- Could be a pinned tab with a home icon
+
+**File viewer (right panel)**
+- Independent of tabs — files stay open across tab switches
+- Opening a file from any session adds it to the shared file viewer
+
+**Implementation notes:**
+- `activeSessionId` becomes `tabs[]` array + `activeTabIndex`
+- Each tab holds: sessionId, scrollPosition, draftText, title
+- MessageList/InputArea stay the same, instantiated per tab
+- Chat store needs to support multiple concurrent session subscriptions
+- Sidebar session list becomes a launcher (open into tab), not a view switcher
+
+---
 
 ### Medium effort
 
-- [ ] **Session tabs on top** — like file tabs, show open sessions as tabs across the top of the chat area
 - [ ] **Light mode linked to PC** — use `prefers-color-scheme` to auto-switch, sync with OS setting
-- [ ] **Multiple windows / shift-click with state** — open multiple paths with proper memory and state persistence
-- [ ] **More than 5 open windows** — lift the popup limit, allow more concurrent session views
 - [ ] **Width selectors for strategy agent** — configurable panel widths in the strategy/cockpit view
 - [ ] **Claude subscription overview / session selector** — show which account/subscription each session uses
 - [ ] **"What was I working on?"** — context restore, show recent activity summary on connect

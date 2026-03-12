@@ -1,10 +1,6 @@
 <script>
-  import { get } from 'svelte/store';
   import { sidebarOpen, filePanelVisible } from '../../stores/ui.js';
   import { connected } from '../../stores/ws.js';
-  import { activeSessionId, leaveSession } from '../../stores/sessions.js';
-  import { openPopup } from '../../stores/popups.js';
-  import { messages, processing, thinking, currentDelta } from '../../stores/chat.js';
   import { hasOpenFiles } from '../../stores/files.js';
 
   const ACCOUNT_COLORS = ['#da7756', '#5b9fd6', '#57ab5a', '#c084fc', '#f59e0b', '#ec4899'];
@@ -17,7 +13,7 @@
     accounts = [],
   } = $props();
 
-  let displayTitle = $derived(sessionTitle || 'Claude Relay');
+  let displayTitle = $derived(sessionTitle || projectName);
 
   let accountColor = $derived.by(() => {
     if (!accountId || accounts.length < 2) return null;
@@ -32,24 +28,6 @@
     const email = acct.email;
     return email.length > 20 ? email.substring(0, 20) + '...' : email;
   });
-
-  function popOutToPopup() {
-    const id = $activeSessionId;
-    const title = sessionTitle;
-    if (!id) return;
-
-    // Snapshot current chat state before leaving fullscreen
-    const chatState = {
-      messages: get(messages),
-      processing: get(processing),
-      thinking: get(thinking).active,
-      currentText: get(currentDelta),
-      isStreaming: !!get(currentDelta),
-    };
-
-    leaveSession();
-    openPopup(id, title || 'Session', chatState);
-  }
 </script>
 
 <header class="header">
@@ -73,15 +51,6 @@
     <span class="header-title">{displayTitle}</span>
     {#if accountLabel}
       <span class="header-account-badge" style="color: {accountColor}; background: {accountColor}12; border-color: {accountColor}30">{accountLabel}</span>
-    {/if}
-    {#if $activeSessionId}
-      <button class="popout-btn" onclick={popOutToPopup} title="Pop out to chat window">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-          <polyline points="15 3 21 3 21 9"/>
-          <line x1="10" y1="14" x2="21" y2="3"/>
-        </svg>
-      </button>
     {/if}
   </div>
 
@@ -154,7 +123,6 @@
     color: #d4d0c8;
   }
 
-
   .header-project {
     font-size: 13px;
     font-weight: 600;
@@ -203,28 +171,6 @@
     white-space: nowrap;
     flex-shrink: 0;
     margin-left: 4px;
-  }
-
-  .popout-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    border: none;
-    background: none;
-    color: #6b6760;
-    cursor: pointer;
-    padding: 0;
-    flex-shrink: 0;
-    margin-left: 6px;
-    transition: all 0.15s;
-  }
-
-  .popout-btn:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #da7756;
   }
 
   .header-right {
