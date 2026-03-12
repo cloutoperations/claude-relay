@@ -269,7 +269,7 @@
   .message-list {
     flex: 1;
     overflow-y: auto;
-    padding: 16px 20px;
+    padding: 16px 12px;
     display: flex;
     flex-direction: column;
     gap: 4px;

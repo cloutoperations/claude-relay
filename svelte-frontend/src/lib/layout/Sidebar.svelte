@@ -5,7 +5,6 @@
   import { projectInfo } from '../../stores/chat.js';
   import { send, onMessage } from '../../stores/ws.js';
   import FileTree from '../files/FileTree.svelte';
-  import ProjectsPanel from '../board/ProjectsPanel.svelte';
   import SessionTagger from '../board/SessionTagger.svelte';
   import { activeFilePath } from '../../stores/files.js';
 
@@ -238,18 +237,6 @@
       </svg>
       Files
     </button>
-    <button
-      class="sidebar-tab"
-      class:active={activeTab === 'projects'}
-      onclick={() => activeTab = 'projects'}
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-        <polyline points="2 17 12 22 22 17"></polyline>
-        <polyline points="2 12 12 17 22 12"></polyline>
-      </svg>
-      Board
-    </button>
   </div>
 
   <!-- Tab content -->
@@ -326,8 +313,6 @@
       </div>
     {:else if activeTab === 'files'}
       <FileTree />
-    {:else if activeTab === 'projects'}
-      <ProjectsPanel />
     {/if}
   </div>
 
