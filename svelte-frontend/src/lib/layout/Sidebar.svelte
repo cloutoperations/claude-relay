@@ -1,19 +1,19 @@
 <script>
-  import { sessions, activeSessionId, leaveSession, createSession, renameSession, switchSession } from '../../stores/sessions.js';
-  import { sidebarOpen, chatSearchQuery, activeSidebarTab } from '../../stores/ui.js';
-  import { openPopup } from '../../stores/popups.js';
-  import { openTab } from '../../stores/tabs.js';
-  import { projectInfo } from '../../stores/chat.js';
-  import { send, onMessage } from '../../stores/ws.js';
+  import { sessionList as sessions, activeSessionId, leaveSession, createSession, renameSession, switchSession } from '../../stores/sessions.svelte.js';
+  import { sidebarOpen, chatSearchQuery, activeSidebarTab } from '../../stores/ui.svelte.js';
+  import { openPopup } from '../../stores/popups.svelte.js';
+  import { openTab } from '../../stores/tabs.svelte.js';
+  import { projectInfo } from '../../stores/chat.svelte.js';
+  import { send } from '../../stores/ws.svelte.js';
   import FileTree from '../files/FileTree.svelte';
   import SessionTagger from '../board/SessionTagger.svelte';
-  import { activeFilePath } from '../../stores/files.js';
+  import { activeFilePath } from '../../stores/files.svelte.js';
 
   const ACCOUNT_COLORS = ['#da7756', '#5b9fd6', '#57ab5a', '#c084fc', '#f59e0b', '#ec4899'];
 
   let { projectName = 'Claude Relay' } = $props();
 
-  let activeTab = $derived($activeSidebarTab);
+  let activeTab = $derived(activeSidebarTab.value);
   let showAccountPicker = $state(false);
   let pickerAnchorEl = $state(null);
   let searchQuery = $state('');
@@ -26,24 +26,14 @@
   let taggerX = $state(0);
   let taggerY = $state(0);
 
-  let accounts = $derived($projectInfo.accounts || []);
+  let accounts = $derived(projectInfo.accounts || []);
   let hasMultipleAccounts = $derived(accounts.length > 1);
-
-  // Listen for search results from server
-  onMessage((msg) => {
-    if (msg.type === 'search_results') {
-      // Only accept results matching our latest search sequence
-      if (msg._searchSeq != null && msg._searchSeq !== searchSeq) return;
-      if (msg.query !== searchQuery) return; // stale
-      searchResults = msg.results || [];
-    }
-  });
 
   // Send search to server on query change
   $effect(() => {
     if (searchDebounce) clearTimeout(searchDebounce);
     const q = searchQuery.trim();
-    chatSearchQuery.set(q); // sync to shared store for SearchTimeline
+    chatSearchQuery.value = q; // sync to shared store for SearchTimeline
     if (!q) {
       searchResults = null;
       return;
@@ -69,9 +59,9 @@
   let searchPending = $derived(!!searchQuery.trim() && !searchResults);
 
   let filteredSessions = $derived.by(() => {
-    if (!searchQuery.trim()) return $sessions;
+    if (!searchQuery.trim()) return sessions;
     if (!searchMatchMap) return []; // waiting for server — show empty, not all sessions
-    return $sessions.filter(s => searchMatchMap.has(s.id));
+    return sessions.filter(s => searchMatchMap.has(s.id));
   });
 
   function accountColor(accountId) {
@@ -111,10 +101,10 @@
   let grouped = $derived(groupByDate(filteredSessions));
 
   function handleSessionClick(sessionId) {
-    const session = $sessions.find(s => s.id === sessionId);
+    const session = sessions.find(s => s.id === sessionId);
     openTab(sessionId, session?.title || 'Session');
     if (window.innerWidth < 1024) {
-      sidebarOpen.set(false);
+      sidebarOpen.value = false;
     }
   }
 
@@ -126,7 +116,7 @@
     }
     createSession();
     if (window.innerWidth < 1024) {
-      sidebarOpen.set(false);
+      sidebarOpen.value = false;
     }
   }
 
@@ -134,7 +124,7 @@
     showAccountPicker = false;
     createSession(accountId);
     if (window.innerWidth < 1024) {
-      sidebarOpen.set(false);
+      sidebarOpen.value = false;
     }
   }
 
@@ -175,8 +165,8 @@
 
   // Switch to files tab when a file is opened
   $effect(() => {
-    if ($activeFilePath) {
-      activeSidebarTab.set('files');
+    if (activeFilePath.value) {
+      activeSidebarTab.value = 'files';
     }
   });
 
@@ -190,13 +180,13 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<aside class="sidebar" class:open={$sidebarOpen} onclick={handleSidebarClick}>
+<aside class="sidebar" class:open={sidebarOpen.value} onclick={handleSidebarClick}>
   <!-- Header -->
   <div class="sidebar-header">
     <button class="sidebar-logo" onclick={() => {}}>
       <span class="logo-text">{projectName}</span>
     </button>
-    <button class="sidebar-toggle" onclick={() => sidebarOpen.set(false)} title="Close sidebar">
+    <button class="sidebar-toggle" onclick={() => sidebarOpen.value = false} title="Close sidebar">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
         <line x1="9" y1="3" x2="9" y2="21"></line>
@@ -209,7 +199,7 @@
     <button
       class="sidebar-tab"
       class:active={activeTab === 'sessions'}
-      onclick={() => activeSidebarTab.set('sessions')}
+      onclick={() => activeSidebarTab.value = 'sessions'}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -219,7 +209,7 @@
     <button
       class="sidebar-tab"
       class:active={activeTab === 'files'}
-      onclick={() => activeSidebarTab.set('files')}
+      onclick={() => activeSidebarTab.value = 'files'}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
@@ -254,7 +244,7 @@
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
               class="session-item"
-              class:active={$activeSessionId === session.id}
+              class:active={activeSessionId.value === session.id}
               onclick={() => { if (renamingId !== session.id) handleSessionClick(session.id); }}
               ondblclick={() => startRename(session.id, session.title)}
               oncontextmenu={(e) => handleSessionContext(e, session.id)}
@@ -294,9 +284,9 @@
           {/each}
         {/each}
 
-        {#if filteredSessions.length === 0 && $sessions.length > 0}
+        {#if filteredSessions.length === 0 && sessions.length > 0}
           <div class="session-empty">No matching sessions</div>
-        {:else if $sessions.length === 0}
+        {:else if sessions.length === 0}
           <div class="session-empty">No sessions yet</div>
         {/if}
       </div>
@@ -341,16 +331,16 @@
 </aside>
 
 <!-- Mobile overlay -->
-{#if $sidebarOpen}
-  <div class="sidebar-overlay" onclick={() => sidebarOpen.set(false)} role="presentation"></div>
+{#if sidebarOpen.value}
+  <div class="sidebar-overlay" onclick={() => sidebarOpen.value = false} role="presentation"></div>
 {/if}
 
 <style>
   .sidebar {
     width: 260px;
     flex-shrink: 0;
-    background: #1e1d1a;
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--code-bg);
+    border-right: 1px solid rgba(var(--overlay-rgb), 0.06);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -393,7 +383,7 @@
   .sidebar-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(var(--shadow-rgb), 0.6);
     z-index: 99;
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
@@ -414,7 +404,7 @@
     gap: 8px;
     font-size: 13px;
     font-weight: 600;
-    color: #908b81;
+    color: var(--text-muted);
     background: none;
     border: none;
     padding: 0;
@@ -424,7 +414,7 @@
   }
 
   .sidebar-logo:hover {
-    color: #d4d0c8;
+    color: var(--text);
   }
 
   .logo-text {
@@ -441,7 +431,7 @@
     justify-content: center;
     border: none;
     background: transparent;
-    color: #908b81;
+    color: var(--text-muted);
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
     flex-shrink: 0;
@@ -449,8 +439,8 @@
   }
 
   .sidebar-toggle:hover {
-    background: #353430;
-    color: #d4d0c8;
+    background: var(--border-subtle);
+    color: var(--text);
   }
 
   /* Tabs */
@@ -458,7 +448,7 @@
     display: flex;
     padding: 0 8px;
     gap: 2px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(var(--overlay-rgb), 0.06);
     flex-shrink: 0;
   }
 
@@ -471,7 +461,7 @@
     padding: 8px 0;
     border: none;
     background: transparent;
-    color: #908b81;
+    color: var(--text-muted);
     font-family: inherit;
     font-size: 13px;
     font-weight: 500;
@@ -481,12 +471,12 @@
   }
 
   .sidebar-tab:hover {
-    color: #b0ab9f;
+    color: var(--text-secondary);
   }
 
   .sidebar-tab.active {
-    color: #d4d0c8;
-    border-bottom-color: #da7756;
+    color: var(--text);
+    border-bottom-color: var(--accent);
   }
 
   /* Content area */
@@ -504,7 +494,7 @@
     background: transparent;
   }
   .sidebar-content::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--overlay-rgb), 0.1);
     border-radius: 3px;
   }
 
@@ -519,18 +509,18 @@
     gap: 6px;
     margin: 8px 8px 4px;
     padding: 6px 10px;
-    background: #262522;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--sidebar-bg);
+    border: 1px solid rgba(var(--overlay-rgb), 0.06);
     border-radius: 8px;
     flex-shrink: 0;
   }
 
   .session-search:focus-within {
-    border-color: rgba(218, 119, 86, 0.3);
+    border-color: var(--accent-30);
   }
 
   .session-search-icon {
-    color: #6b6760;
+    color: var(--text-dimmer);
     flex-shrink: 0;
   }
 
@@ -539,14 +529,14 @@
     background: none;
     border: none;
     outline: none;
-    color: #d4d0c8;
+    color: var(--text);
     font-family: inherit;
     font-size: 12px;
     min-width: 0;
   }
 
   .session-search-input::placeholder {
-    color: #5a5650;
+    color: var(--text-dimmer);
   }
 
   .session-search-clear {
@@ -557,7 +547,7 @@
     height: 18px;
     border: none;
     background: none;
-    color: #6b6760;
+    color: var(--text-dimmer);
     cursor: pointer;
     padding: 0;
     border-radius: 4px;
@@ -565,8 +555,8 @@
   }
 
   .session-search-clear:hover {
-    color: #d4d0c8;
-    background: rgba(255, 255, 255, 0.06);
+    color: var(--text);
+    background: rgba(var(--overlay-rgb), 0.06);
   }
 
   .session-list {
@@ -576,10 +566,10 @@
   /* Session rename */
   .session-rename-input {
     flex: 1;
-    background: #1e1d1a;
-    border: 1px solid rgba(218, 119, 86, 0.4);
+    background: var(--code-bg);
+    border: 1px solid var(--accent-40);
     border-radius: 4px;
-    color: #d4d0c8;
+    color: var(--text);
     font-family: inherit;
     font-size: 13px;
     padding: 2px 6px;
@@ -588,14 +578,14 @@
   }
 
   .session-rename-input:focus {
-    border-color: #da7756;
+    border-color: var(--accent);
   }
 
   .session-group-label {
     padding: 10px 12px 4px;
     font-size: 11px;
     font-weight: 600;
-    color: #6b6760;
+    color: var(--text-dimmer);
     letter-spacing: 0.3px;
   }
 
@@ -609,21 +599,21 @@
     border-radius: 10px;
     cursor: pointer;
     font-size: 13px;
-    color: #b0ab9f;
+    color: var(--text-secondary);
     background: none;
     transition: background 0.15s, color 0.15s, transform 0.15s;
     user-select: none;
   }
 
   .session-item:hover {
-    background: #353430;
-    color: #d4d0c8;
+    background: var(--border-subtle);
+    color: var(--text);
     transform: translateX(3px);
   }
 
   .session-item.active {
-    background: rgba(218, 119, 86, 0.12);
-    color: #d4d0c8;
+    background: var(--accent-12);
+    color: var(--text);
   }
 
   .session-item-text {
@@ -638,7 +628,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #da7756;
+    background: var(--accent);
     animation: pulse 1.5s ease-in-out infinite;
     flex-shrink: 0;
     margin-left: 4px;
@@ -651,15 +641,15 @@
 
   .session-id {
     font-size: 10px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     font-family: 'SF Mono', Menlo, Monaco, monospace;
     flex-shrink: 0;
   }
 
   .session-area-tag {
     font-size: 9px;
-    color: #908b81;
-    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+    background: rgba(var(--overlay-rgb), 0.06);
     padding: 1px 5px;
     border-radius: 3px;
     flex-shrink: 0;
@@ -684,14 +674,14 @@
   }
 
   .session-match-badge.both {
-    color: #57ab5a;
-    background: rgba(87, 171, 90, 0.12);
+    color: var(--success);
+    background: var(--success-12);
   }
 
   .session-empty {
     padding: 24px 16px;
     font-size: 13px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     text-align: center;
     font-style: italic;
   }
@@ -699,7 +689,7 @@
   /* Footer */
   .sidebar-footer {
     padding: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.06);
     flex-shrink: 0;
   }
 
@@ -711,9 +701,9 @@
     width: 100%;
     padding: 9px 12px;
     border-radius: 8px;
-    border: 1px solid rgba(218, 119, 86, 0.3);
-    background: rgba(218, 119, 86, 0.08);
-    color: #da7756;
+    border: 1px solid var(--accent-30);
+    background: var(--accent-8);
+    color: var(--accent);
     font-family: inherit;
     font-size: 13px;
     font-weight: 500;
@@ -722,8 +712,8 @@
   }
 
   .new-session-btn:hover {
-    background: rgba(218, 119, 86, 0.15);
-    border-color: rgba(218, 119, 86, 0.5);
+    background: var(--accent-15);
+    border-color: var(--accent-50);
   }
 
   .new-session-btn .chevron {
@@ -748,8 +738,8 @@
   .account-picker {
     padding: 4px 0;
     margin-top: 4px;
-    background: #262522;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--sidebar-bg);
+    border: 1px solid rgba(var(--overlay-rgb), 0.08);
     border-radius: 8px;
   }
 
@@ -757,7 +747,7 @@
     padding: 6px 12px 4px;
     font-size: 10px;
     font-weight: 600;
-    color: #6b6760;
+    color: var(--text-dimmer);
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
@@ -770,7 +760,7 @@
     padding: 8px 12px;
     border: none;
     background: none;
-    color: #b0ab9f;
+    color: var(--text-secondary);
     font-family: inherit;
     font-size: 13px;
     cursor: pointer;
@@ -779,8 +769,8 @@
   }
 
   .account-option:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #d4d0c8;
+    background: rgba(var(--overlay-rgb), 0.05);
+    color: var(--text);
   }
 
   .account-dot {

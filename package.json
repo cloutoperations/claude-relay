@@ -26,7 +26,7 @@
   ],
   "private": true,
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.38",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.75",
     "@lydell/node-pty": "^1.2.0-beta.3",
     "qrcode-terminal": "^0.12.0",
     "web-push": "^3.6.7",

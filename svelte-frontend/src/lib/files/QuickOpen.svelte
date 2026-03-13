@@ -1,5 +1,5 @@
 <script>
-  import { searchFiles, fileSearchResults, openFile, fileSearchQuery } from '../../stores/files.js';
+  import { searchFiles, fileSearchResults, openFile, fileSearchQuery } from '../../stores/files.svelte.js';
 
   let { visible = false, onClose = null } = $props();
 
@@ -11,7 +11,7 @@
     if (visible && inputEl) {
       query = '';
       activeIndex = -1;
-      fileSearchQuery.set('');
+      fileSearchQuery.value = '';
       setTimeout(() => inputEl?.focus(), 50);
     }
   });
@@ -22,7 +22,7 @@
   }
 
   function handleKeydown(e) {
-    const results = $fileSearchResults;
+    const results = fileSearchResults.value;
     if (e.key === 'Escape') {
       e.preventDefault();
       onClose?.();
@@ -96,9 +96,9 @@
           onkeydown={handleKeydown}
         />
       </div>
-      {#if $fileSearchResults.length > 0}
+      {#if fileSearchResults.value.length > 0}
         <div class="qo-results">
-          {#each $fileSearchResults as result, i}
+          {#each fileSearchResults.value as result, i}
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
               class="qo-result"
@@ -122,7 +122,7 @@
   .qo-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(var(--shadow-rgb), 0.5);
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
     z-index: 200;
@@ -135,10 +135,10 @@
   .qo-dialog {
     width: 480px;
     max-width: 90vw;
-    background: #222120;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-raised);
+    border: 1px solid rgba(var(--overlay-rgb), 0.1);
     border-radius: 12px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 16px 48px rgba(var(--shadow-rgb), 0.5);
     overflow: hidden;
   }
 
@@ -147,11 +147,11 @@
     align-items: center;
     gap: 10px;
     padding: 12px 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid rgba(var(--overlay-rgb), 0.06);
   }
 
   .qo-icon {
-    color: #6b6760;
+    color: var(--text-dimmer);
     flex-shrink: 0;
   }
 
@@ -160,14 +160,14 @@
     background: none;
     border: none;
     outline: none;
-    color: #d4d0c8;
+    color: var(--text);
     font-family: inherit;
     font-size: 15px;
     min-width: 0;
   }
 
   .qo-input::placeholder {
-    color: #5a5650;
+    color: var(--text-dimmer);
   }
 
   .qo-results {
@@ -177,7 +177,7 @@
   }
 
   .qo-results::-webkit-scrollbar { width: 5px; }
-  .qo-results::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+  .qo-results::-webkit-scrollbar-thumb { background: rgba(var(--overlay-rgb), 0.1); border-radius: 3px; }
 
   .qo-result {
     display: flex;
@@ -190,23 +190,23 @@
 
   .qo-result:hover,
   .qo-result.active {
-    background: rgba(218, 119, 86, 0.1);
+    background: var(--accent-12);
   }
 
   .qo-result-name {
     font-size: 13px;
-    color: #d4d0c8;
+    color: var(--text);
     font-weight: 500;
     flex-shrink: 0;
   }
 
   .qo-result.active .qo-result-name {
-    color: #da7756;
+    color: var(--accent);
   }
 
   .qo-result-path {
     font-size: 11px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     font-family: 'SF Mono', 'Fira Code', monospace;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -218,6 +218,6 @@
     padding: 20px 16px;
     text-align: center;
     font-size: 13px;
-    color: #6b6760;
+    color: var(--text-dimmer);
   }
 </style>

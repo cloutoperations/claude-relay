@@ -1,8 +1,8 @@
 <script>
-  import { boardData, drilldownView, navigateHome, navigateToArea, navigateToProject, fetchBoardFile, fetchBoard } from '../../stores/board.js';
-  import { openPopup } from '../../stores/popups.js';
-  import { activeSessionId, leaveSession, createSession } from '../../stores/sessions.js';
-  import { sidebarOpen } from '../../stores/ui.js';
+  import { boardData, drilldownView, navigateHome, navigateToArea, navigateToProject, fetchBoardFile, fetchBoard } from '../../stores/board.svelte.js';
+  import { openPopup } from '../../stores/popups.svelte.js';
+  import { activeSessionId, leaveSession, createSession } from '../../stores/sessions.svelte.js';
+  import { sidebarOpen } from '../../stores/ui.svelte.js';
   import { renderMarkdown } from '../../utils/markdown.js';
 
   import { onMount } from 'svelte';
@@ -11,19 +11,19 @@
   let docLoading = $state(false);
 
   onMount(() => {
-    if (!$boardData) fetchBoard();
+    if (!boardData.value) fetchBoard();
   });
 
-  let view = $derived($drilldownView);
+  let view = $derived(drilldownView.value);
   let area = $derived.by(() => {
-    if (!$boardData || !view) return null;
-    if (view.type === 'area') return $boardData.areas.find(a => a.name === view.name) || null;
-    if (view.type === 'project') return $boardData.areas.find(a => a.name === view.areaName) || null;
+    if (!boardData.value || !view) return null;
+    if (view.type === 'area') return boardData.value.areas.find(a => a.name === view.name) || null;
+    if (view.type === 'project') return boardData.value.areas.find(a => a.name === view.areaName) || null;
     return null;
   });
   let project = $derived.by(() => {
-    if (!$boardData || !view || view.type !== 'project') return null;
-    for (const a of $boardData.areas) {
+    if (!boardData.value || !view || view.type !== 'project') return null;
+    for (const a of boardData.value.areas) {
       const p = a.projects.find(p => p.path === view.path);
       if (p) return p;
       // Check sub-projects
@@ -64,9 +64,9 @@
   }
 
   function handleSessionClick(sessionId, title) {
-    if ($activeSessionId) leaveSession();
+    if (activeSessionId.value) leaveSession();
     openPopup(sessionId, title || 'Session');
-    if (window.innerWidth < 1024) sidebarOpen.set(false);
+    if (window.innerWidth < 1024) sidebarOpen.value = false;
   }
 
   function handleNewSession() {
@@ -267,13 +267,13 @@
     align-items: center;
     gap: 6px;
     padding: 12px 24px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(var(--overlay-rgb), 0.04);
     flex-shrink: 0;
   }
 
   .breadcrumb-item {
     font-size: 13px;
-    color: #6b6760;
+    color: var(--text-dimmer);
   }
 
   .breadcrumb-item.clickable {
@@ -282,17 +282,17 @@
   }
 
   .breadcrumb-item.clickable:hover {
-    color: #da7756;
+    color: var(--accent);
   }
 
   .breadcrumb-item.current {
-    color: #d4d0c8;
+    color: var(--text);
     font-weight: 500;
   }
 
   .breadcrumb-sep {
     font-size: 12px;
-    color: #5a5650;
+    color: var(--text-dimmer);
   }
 
   .drilldown-content {
@@ -313,7 +313,7 @@
   .drilldown-title {
     font-size: 22px;
     font-weight: 600;
-    color: #d4d0c8;
+    color: var(--text);
   }
 
   .drilldown-action {
@@ -322,9 +322,9 @@
     gap: 6px;
     padding: 7px 14px;
     border-radius: 8px;
-    border: 1px solid rgba(218, 119, 86, 0.3);
-    background: rgba(218, 119, 86, 0.08);
-    color: #da7756;
+    border: 1px solid var(--accent-30);
+    background: var(--accent-8);
+    color: var(--accent);
     font-family: inherit;
     font-size: 12px;
     font-weight: 500;
@@ -335,14 +335,14 @@
   }
 
   .drilldown-action:hover {
-    background: rgba(218, 119, 86, 0.15);
-    border-color: rgba(218, 119, 86, 0.5);
+    background: var(--accent-15);
+    border-color: var(--accent-50);
   }
 
   /* TOTE */
   .tote-section {
-    background: #242320;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--bg-raised);
+    border: 1px solid rgba(var(--overlay-rgb), 0.06);
     border-radius: 10px;
     padding: 16px;
     margin-bottom: 20px;
@@ -361,18 +361,18 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     margin-bottom: 4px;
     display: block;
   }
 
   .tote-label.desired {
-    color: #57ab5a;
+    color: var(--success);
   }
 
   .tote-text {
     font-size: 13px;
-    color: #b0ab9f;
+    color: var(--text-secondary);
     line-height: 1.5;
     margin: 0;
   }
@@ -385,7 +385,7 @@
   .section-title {
     font-size: 13px;
     font-weight: 600;
-    color: #908b81;
+    color: var(--text-muted);
     margin-bottom: 10px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -403,29 +403,29 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 14px;
-    background: #242320;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--bg-raised);
+    border: 1px solid rgba(var(--overlay-rgb), 0.06);
     border-radius: 8px;
     cursor: pointer;
     transition: border-color 0.12s, background 0.12s;
   }
 
   .project-card:hover {
-    border-color: rgba(218, 119, 86, 0.2);
-    background: #282724;
+    border-color: var(--accent-20);
+    background: var(--bg-alt);
   }
 
   .project-card-main {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     min-width: 0;
   }
 
   .project-card-name {
     font-size: 13px;
-    color: #b0ab9f;
+    color: var(--text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -439,8 +439,8 @@
 
   .meta-badge {
     font-size: 10px;
-    color: #6b6760;
-    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-dimmer);
+    background: rgba(var(--overlay-rgb), 0.04);
     padding: 2px 6px;
     border-radius: 6px;
   }
@@ -457,7 +457,7 @@
 
   .project-path {
     font-size: 11px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     font-family: 'SF Mono', Menlo, monospace;
   }
 
@@ -473,15 +473,15 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    background: #242320;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--bg-raised);
+    border: 1px solid rgba(var(--overlay-rgb), 0.06);
     border-radius: 6px;
     font-size: 12px;
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   .sub-item svg {
-    color: #6b6760;
+    color: var(--text-dimmer);
   }
 
   /* Session cards */
@@ -496,41 +496,41 @@
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    background: #242320;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--bg-raised);
+    border: 1px solid rgba(var(--overlay-rgb), 0.06);
     border-radius: 8px;
     cursor: pointer;
     transition: border-color 0.12s, transform 0.12s;
   }
 
   .session-card:hover {
-    border-color: rgba(218, 119, 86, 0.2);
+    border-color: var(--accent-20);
     transform: translateX(2px);
   }
 
   .session-card svg {
-    color: #6b6760;
+    color: var(--text-dimmer);
     flex-shrink: 0;
   }
 
   .session-card-title {
     flex: 1;
     font-size: 13px;
-    color: #b0ab9f;
+    color: var(--text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .session-card:hover .session-card-title {
-    color: #d4d0c8;
+    color: var(--text);
   }
 
   .active-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #da7756;
+    background: var(--accent);
     animation: pulse 1.5s ease-in-out infinite;
     flex-shrink: 0;
   }
@@ -544,23 +544,23 @@
   .doc-loading {
     padding: 16px;
     font-size: 13px;
-    color: #6b6760;
+    color: var(--text-dimmer);
   }
 
   .doc-content {
-    background: #242320;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--bg-raised);
+    border: 1px solid rgba(var(--overlay-rgb), 0.06);
     border-radius: 10px;
     padding: 20px 24px;
     font-size: 13px;
     line-height: 1.6;
-    color: #b0ab9f;
+    color: var(--text-secondary);
   }
 
   .doc-content :global(h1),
   .doc-content :global(h2),
   .doc-content :global(h3) {
-    color: #d4d0c8;
+    color: var(--text);
     margin-top: 1.2em;
     margin-bottom: 0.4em;
   }
@@ -570,14 +570,14 @@
   .doc-content :global(h3) { font-size: 14px; }
 
   .doc-content :global(code) {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(var(--overlay-rgb), 0.06);
     padding: 2px 5px;
     border-radius: 4px;
     font-size: 0.9em;
   }
 
   .doc-content :global(pre) {
-    background: #1e1d1a;
+    background: var(--code-bg);
     padding: 12px;
     border-radius: 8px;
     overflow-x: auto;
@@ -589,7 +589,7 @@
   }
 
   .doc-content :global(strong) {
-    color: #d4d0c8;
+    color: var(--text);
   }
 
   .doc-content :global(ul), .doc-content :global(ol) {

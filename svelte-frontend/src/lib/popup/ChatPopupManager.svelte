@@ -1,17 +1,17 @@
 <script>
-  import { popups, popupOrder, movePopup } from '../../stores/popups.js';
-  import { workspaceEnabled } from '../../stores/ui.js';
+  import { popups, popupOrder, movePopup } from '../../stores/popups.svelte.js';
+  import { workspaceEnabled } from '../../stores/ui.svelte.js';
   import ChatPopup from './ChatPopup.svelte';
 
   // Ordered list of popups based on popupOrder
   let popupList = $derived.by(() => {
-    const order = $popupOrder;
-    const all = $popups;
+    const order = popupOrder;
+    const all = popups;
     // Use order for known popups, append any unordered ones at the end
-    const ordered = order.filter(id => all[id]).map(id => all[id]);
+    const ordered = order.filter(id => all[id]).map(id => ({ ...all[id], sessionId: id }));
     const orderedIds = new Set(order);
-    for (const p of Object.values(all)) {
-      if (!orderedIds.has(p.sessionId)) ordered.push(p);
+    for (const [id, p] of Object.entries(all)) {
+      if (!orderedIds.has(id)) ordered.push({ ...p, sessionId: id });
     }
     return ordered;
   });
@@ -45,7 +45,7 @@
   function handleDrop(e, sessionId) {
     e.preventDefault();
     if (!dragId || dragId === sessionId) return;
-    const order = $popupOrder;
+    const order = popupOrder;
     const targetIndex = order.indexOf(sessionId);
     if (targetIndex >= 0) {
       movePopup(dragId, targetIndex);
@@ -55,7 +55,7 @@
   }
 </script>
 
-<div class="chat-popups" class:rail-offset={$workspaceEnabled}>
+<div class="chat-popups" class:rail-offset={workspaceEnabled.value}>
   {#each popupList as popup (popup.sessionId)}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div

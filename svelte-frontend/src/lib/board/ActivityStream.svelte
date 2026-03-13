@@ -1,26 +1,25 @@
 <script>
-  import { onMessage } from '../../stores/ws.js';
-  import { sessions } from '../../stores/sessions.js';
-  import { openPopup } from '../../stores/popups.js';
-  import { activeSessionId, leaveSession } from '../../stores/sessions.js';
-  import { boardData } from '../../stores/board.js';
+  import { sessionList as sessions } from '../../stores/sessions.svelte.js';
+  import { openPopup } from '../../stores/popups.svelte.js';
+  import { activeSessionId, leaveSession } from '../../stores/sessions.svelte.js';
+  import { boardData } from '../../stores/board.svelte.js';
   import { onMount } from 'svelte';
 
   let events = $state([]);
-  let prevProcessing = $state(new Set());
+  // Use plain variable — NOT $state — to avoid $effect read/write loop
+  let prevProcessing = new Set();
 
-  // Track processing state changes from session_list updates
-  onMessage((msg) => {
-    if (msg.type !== 'session_list') return;
+  // Track processing state changes reactively from sessions store
+  $effect(() => {
     const currentProcessing = new Set();
     const sessionMap = {};
 
-    for (const s of msg.sessions || []) {
+    for (const s of sessions || []) {
       sessionMap[s.id] = s;
       if (s.isProcessing) currentProcessing.add(s.id);
     }
 
-    // Detect transitions
+    // Detect transitions (prevProcessing is NOT reactive — no loop)
     for (const id of currentProcessing) {
       if (!prevProcessing.has(id)) {
         addEvent(id, sessionMap[id]?.title, findArea(id), 'started');
@@ -36,7 +35,7 @@
   });
 
   function findArea(sessionId) {
-    const data = $boardData;
+    const data = boardData.value;
     if (!data) return '';
     for (const area of data.areas) {
       for (const proj of area.projects) {
@@ -71,7 +70,7 @@
 
   function handleClick(e, ev) {
     e.stopPropagation();
-    if ($activeSessionId) leaveSession();
+    if (activeSessionId.value) leaveSession();
     openPopup(ev.sessionId, ev.title);
   }
 
@@ -121,7 +120,7 @@
     align-items: center;
     overflow-x: auto;
     overflow-y: hidden;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.04);
     flex-shrink: 0;
     scrollbar-width: none;
   }
@@ -143,31 +142,31 @@
   }
 
   .stream-event:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(var(--overlay-rgb), 0.06);
   }
 
   .event-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #6b6760;
+    background: var(--text-dimmer);
     flex-shrink: 0;
   }
 
   .event-dot.processing {
-    background: #da7756;
+    background: var(--accent);
     animation: pulse 1.5s ease-in-out infinite;
   }
 
   .event-area {
     font-size: 10px;
     font-weight: 600;
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   .event-title {
     font-size: 11px;
-    color: #b0ab9f;
+    color: var(--text-secondary);
     max-width: 160px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -175,12 +174,12 @@
 
   .event-verb {
     font-size: 10px;
-    color: #6b6760;
+    color: var(--text-dimmer);
   }
 
   .event-time {
     font-size: 10px;
-    color: #5a5650;
+    color: var(--text-dimmer);
   }
 
   @keyframes pulse {

@@ -2,10 +2,10 @@
   import { onMount } from 'svelte';
   import SessionBubble from './SessionBubble.svelte';
   import SessionTagger from './SessionTagger.svelte';
-  import { openPopup } from '../../stores/popups.js';
-  import { activeSessionId, leaveSession, createSession } from '../../stores/sessions.js';
-  import { fetchBoardFile, fetchBoard } from '../../stores/board.js';
-  import { sidebarOpen } from '../../stores/ui.js';
+  import { openPopup } from '../../stores/popups.svelte.js';
+  import { activeSessionId, leaveSession, createSession } from '../../stores/sessions.svelte.js';
+  import { fetchBoardFile, fetchBoard } from '../../stores/board.svelte.js';
+  import { sidebarOpen } from '../../stores/ui.svelte.js';
   import { renderMarkdown } from '../../utils/markdown.js';
 
   let {
@@ -134,9 +134,9 @@
 
   function handleSessionClick(e, session) {
     e.stopPropagation();
-    if ($activeSessionId) leaveSession();
+    if (activeSessionId.value) leaveSession();
     openPopup(session.id, session.title || 'Session');
-    if (window.innerWidth < 1024) sidebarOpen.set(false);
+    if (window.innerWidth < 1024) sidebarOpen.value = false;
   }
 
   function handleContextMenu(e, sessionId) {

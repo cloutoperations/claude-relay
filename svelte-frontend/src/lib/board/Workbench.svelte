@@ -1,11 +1,11 @@
 <script>
   import { onMount } from 'svelte';
-  import { boardData, boardLoading, fetchBoard, navigateToArea, navigateToProject } from '../../stores/board.js';
-  import { sessions } from '../../stores/sessions.js';
-  import { projectInfo } from '../../stores/chat.js';
+  import { boardData, boardLoading, fetchBoard, navigateToArea, navigateToProject } from '../../stores/board.svelte.js';
+  import { sessionList as sessions } from '../../stores/sessions.svelte.js';
+  import { projectInfo } from '../../stores/chat.svelte.js';
 
   onMount(() => {
-    if (!$boardData) fetchBoard();
+    if (!boardData.value) fetchBoard();
   });
 
   function areaSessionCount(area) {
@@ -30,23 +30,23 @@
 
 <div class="workbench">
   <div class="workbench-header">
-    <h1 class="workbench-title">{$projectInfo.name || 'Claude Relay'}</h1>
+    <h1 class="workbench-title">{projectInfo.name || 'Claude Relay'}</h1>
     <div class="workbench-stats">
-      <span class="wb-stat">{$sessions.length} sessions</span>
-      {#if $boardData}
-        <span class="wb-stat">{$boardData.areas.length} areas</span>
+      <span class="wb-stat">{sessions.length} sessions</span>
+      {#if boardData.value}
+        <span class="wb-stat">{boardData.value.areas.length} areas</span>
       {/if}
-      {#if $projectInfo.version}
-        <span class="wb-stat">v{$projectInfo.version}</span>
+      {#if projectInfo.version}
+        <span class="wb-stat">v{projectInfo.version}</span>
       {/if}
     </div>
   </div>
 
-  {#if $boardLoading && !$boardData}
+  {#if boardLoading.value && !boardData.value}
     <div class="workbench-loading">Loading workspace...</div>
-  {:else if $boardData}
+  {:else if boardData.value}
     <div class="area-grid">
-      {#each $boardData.areas as area (area.name)}
+      {#each boardData.value.areas as area (area.name)}
         {@const sessionCount = areaSessionCount(area)}
         {@const activeProjects = activeProjectCount(area)}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -114,9 +114,9 @@
       {/each}
     </div>
 
-    {#if $boardData.looseSessions?.length > 0}
+    {#if boardData.value.looseSessions?.length > 0}
       <div class="loose-section">
-        <span class="loose-label">{$boardData.looseSessions.length} untagged sessions</span>
+        <span class="loose-label">{boardData.value.looseSessions.length} untagged sessions</span>
       </div>
     {/if}
   {/if}
@@ -137,7 +137,7 @@
   .workbench-title {
     font-size: 24px;
     font-weight: 600;
-    color: #d4d0c8;
+    color: var(--text);
     margin-bottom: 8px;
   }
 
@@ -149,8 +149,8 @@
 
   .wb-stat {
     font-size: 12px;
-    color: #6d6860;
-    background: #2a2924;
+    color: var(--text-dimmer);
+    background: var(--bg-alt);
     padding: 4px 12px;
     border-radius: 16px;
   }
@@ -159,7 +159,7 @@
     text-align: center;
     padding: 40px;
     font-size: 14px;
-    color: #6b6760;
+    color: var(--text-dimmer);
   }
 
   .area-grid {
@@ -171,8 +171,8 @@
   }
 
   .area-card {
-    background: #242320;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--bg-raised);
+    border: 1px solid rgba(var(--overlay-rgb), 0.06);
     border-radius: 12px;
     padding: 16px;
     cursor: pointer;
@@ -180,8 +180,8 @@
   }
 
   .area-card:hover {
-    border-color: rgba(218, 119, 86, 0.25);
-    background: #282724;
+    border-color: var(--accent-25);
+    background: var(--bg-alt);
     transform: translateY(-1px);
   }
 
@@ -195,7 +195,7 @@
   .area-card-name {
     font-size: 15px;
     font-weight: 600;
-    color: #d4d0c8;
+    color: var(--text);
   }
 
   .area-card-badges {
@@ -211,13 +211,13 @@
   }
 
   .card-badge.projects {
-    color: #908b81;
-    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+    background: rgba(var(--overlay-rgb), 0.06);
   }
 
   .card-badge.sessions {
-    color: #da7756;
-    background: rgba(218, 119, 86, 0.12);
+    color: var(--accent);
+    background: var(--accent-12);
   }
 
   .area-card-state {
@@ -236,16 +236,16 @@
   }
 
   .state-dot.now {
-    background: #6b6760;
+    background: var(--text-dimmer);
   }
 
   .state-dot.goal {
-    background: #57ab5a;
+    background: var(--success);
   }
 
   .state-text {
     font-size: 11px;
-    color: #908b81;
+    color: var(--text-muted);
     line-height: 1.4;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -259,13 +259,13 @@
     gap: 4px;
     margin-top: 10px;
     padding-top: 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.04);
   }
 
   .mini-project {
     font-size: 11px;
-    color: #908b81;
-    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+    background: rgba(var(--overlay-rgb), 0.04);
     padding: 2px 8px;
     border-radius: 6px;
     cursor: pointer;
@@ -274,12 +274,12 @@
   }
 
   .mini-project:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #d4d0c8;
+    background: rgba(var(--overlay-rgb), 0.08);
+    color: var(--text);
   }
 
   .mini-project.has-sessions {
-    color: #b0ab9f;
+    color: var(--text-secondary);
   }
 
   .mini-count {
@@ -290,7 +290,7 @@
 
   .mini-more {
     font-size: 11px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     padding: 2px 6px;
   }
 
@@ -302,7 +302,7 @@
 
   .card-flag {
     font-size: 9px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     text-transform: uppercase;
     letter-spacing: 0.3px;
     font-weight: 600;
@@ -316,12 +316,12 @@
     text-align: center;
     margin-top: 20px;
     padding-top: 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.04);
   }
 
   .loose-label {
     font-size: 12px;
-    color: #6b6760;
+    color: var(--text-dimmer);
   }
 
   @media (max-width: 640px) {

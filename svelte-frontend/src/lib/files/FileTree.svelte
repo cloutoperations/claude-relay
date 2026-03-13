@@ -1,10 +1,10 @@
 <script>
-  import { treeData, expandedDirs, toggleDir, openFile, loadRootDir, activeFilePath } from '../../stores/files.js';
+  import { treeData, expandedDirs, toggleDir, openFile, loadRootDir, activeFilePath } from '../../stores/files.svelte.js';
   import { onMount } from 'svelte';
 
   onMount(() => {
     // Load root directory on mount
-    if (!$treeData['.']?.loaded) loadRootDir();
+    if (!treeData['.']?.loaded) loadRootDir();
   });
 
   function getIcon(entry) {
@@ -42,7 +42,7 @@
   }
 
   function renderDir(dirPath) {
-    const data = $treeData[dirPath];
+    const data = treeData[dirPath];
     if (!data?.loaded) return [];
     return sortEntries(data.children);
   }
@@ -60,8 +60,8 @@
   {#each entries as entry (entry.path || entry.name)}
     {@const icon = getIcon(entry)}
     {@const isDir = entry.type === 'dir'}
-    {@const isExpanded = $expandedDirs.has(entry.path)}
-    {@const isActive = !isDir && $activeFilePath === entry.path}
+    {@const isExpanded = expandedDirs.value.has(entry.path)}
+    {@const isActive = !isDir && activeFilePath.value === entry.path}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
@@ -86,22 +86,29 @@
     </div>
     {#if isDir && isExpanded}
       {@render treeNode(renderDir(entry.path), depth + 1)}
-      {#if !$treeData[entry.path]?.loaded}
+      {#if !treeData[entry.path]?.loaded}
         <div class="tree-loading" style="padding-left: {12 + (depth + 1) * 16}px">Loading...</div>
       {/if}
     {/if}
   {/each}
 {/snippet}
 
+<div class="file-tree-scroll">
 <div class="file-tree">
-  {#if $treeData['.']?.loaded}
+  {#if treeData['.']?.loaded}
     {@render treeNode(renderDir('.'), 0)}
   {:else}
     <div class="tree-loading">Loading files...</div>
   {/if}
 </div>
+</div>
 
 <style>
+  .file-tree-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
   .file-tree {
     padding: 4px 0;
     width: fit-content;
@@ -115,20 +122,20 @@
     padding: 4px 8px;
     cursor: pointer;
     font-size: 13px;
-    color: #b0ab9f;
+    color: var(--text-secondary);
     transition: background 0.1s, color 0.1s;
     user-select: none;
     white-space: nowrap;
   }
 
   .tree-item:hover {
-    background: rgba(255, 255, 255, 0.04);
-    color: #d4d0c8;
+    background: rgba(var(--overlay-rgb), 0.04);
+    color: var(--text);
   }
 
   .tree-item.active {
-    background: rgba(218, 119, 86, 0.1);
-    color: #da7756;
+    background: var(--accent-12);
+    color: var(--accent);
   }
 
   .tree-chevron {
@@ -157,7 +164,7 @@
 
   .tree-loading {
     font-size: 11px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     padding: 4px 8px;
     font-style: italic;
   }

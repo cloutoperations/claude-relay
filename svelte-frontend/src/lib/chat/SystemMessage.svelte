@@ -10,23 +10,23 @@
   .sys-msg {
     padding: 6px 12px;
     font-size: 12px;
-    color: #908b81;
+    color: var(--text-muted);
     text-align: center;
   }
 
   .sys-msg.compact {
     font-size: 11px;
-    color: #5a5650;
+    color: var(--text-dimmer);
     font-style: italic;
     padding: 6px 10px;
   }
 
   .sys-msg.error {
-    color: #e5534b;
+    color: var(--error);
   }
 
   .sys-text {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--overlay-rgb), 0.03);
     padding: 4px 12px;
     border-radius: 12px;
   }

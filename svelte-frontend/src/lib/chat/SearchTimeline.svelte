@@ -1,5 +1,5 @@
 <script>
-  import { chatSearchQuery } from '../../stores/ui.js';
+  import { chatSearchQuery } from '../../stores/ui.svelte.js';
 
   let { messagesEl = null, messageCount = 0, messages = [] } = $props();
 
@@ -9,7 +9,7 @@
   let viewportHeight = $state(100);
   let totalHeight = $state(1);
 
-  let query = $derived($chatSearchQuery);
+  let query = $derived(chatSearchQuery.value);
 
   // Scan messages for query matches whenever query or messages change.
   $effect(() => {
@@ -167,7 +167,7 @@
 
   .st-count {
     font-size: 9px;
-    color: #da7756;
+    color: var(--accent);
     text-align: center;
     padding: 4px 0 2px;
     font-weight: 600;
@@ -186,8 +186,8 @@
     position: absolute;
     left: 2px;
     right: 2px;
-    background: rgba(218, 119, 86, 0.08);
-    border: 1px solid rgba(218, 119, 86, 0.15);
+    background: var(--accent-8);
+    border: 1px solid var(--accent-15);
     border-radius: 3px;
     pointer-events: none;
     transition: top 0.1s, height 0.1s;
@@ -215,13 +215,13 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #da7756;
-    box-shadow: 0 0 6px rgba(218, 119, 86, 0.6);
+    background: var(--accent);
+    box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.6);
   }
 
   .st-marker:hover .st-marker-dot {
-    background: #e8956e;
-    box-shadow: 0 0 10px rgba(218, 119, 86, 0.8);
+    background: var(--accent-hover);
+    box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.8);
   }
 
   /* Global blink animation for search hits */
@@ -231,6 +231,6 @@
 
   @keyframes searchBlink {
     0%, 100% { box-shadow: none; }
-    50% { box-shadow: 0 0 0 2px #da7756; border-radius: 12px; }
+    50% { box-shadow: 0 0 0 2px var(--accent); border-radius: 12px; }
   }
 </style>

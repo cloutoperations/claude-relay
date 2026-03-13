@@ -1,12 +1,12 @@
 <script>
   import { onMount } from 'svelte';
-  import { boardData, boardLoading, boardError, expandedAreas, expandedProjects, fetchBoard, toggleArea, toggleProject, navigateToArea, navigateToProject } from '../../stores/board.js';
-  import { openPopup } from '../../stores/popups.js';
-  import { sidebarOpen } from '../../stores/ui.js';
-  import { activeSessionId, leaveSession } from '../../stores/sessions.js';
+  import { boardData, boardLoading, boardError, expandedAreas, expandedProjects, fetchBoard, toggleArea, toggleProject, navigateToArea, navigateToProject } from '../../stores/board.svelte.js';
+  import { openPopup } from '../../stores/popups.svelte.js';
+  import { sidebarOpen } from '../../stores/ui.svelte.js';
+  import { activeSessionId, leaveSession } from '../../stores/sessions.svelte.js';
 
   onMount(() => {
-    if (!$boardData) fetchBoard();
+    if (!boardData.value) fetchBoard();
   });
 
   function areaSessionCount(area) {
@@ -21,9 +21,9 @@
   }
 
   function handleSessionClick(sessionId, title) {
-    if ($activeSessionId) leaveSession();
+    if (activeSessionId.value) leaveSession();
     openPopup(sessionId, title || 'Session');
-    if (window.innerWidth < 1024) sidebarOpen.set(false);
+    if (window.innerWidth < 1024) sidebarOpen.value = false;
   }
 
   function formatAreaName(name) {
@@ -32,12 +32,12 @@
 </script>
 
 <div class="projects-panel">
-  {#if $boardLoading && !$boardData}
+  {#if boardLoading.value && !boardData.value}
     <div class="board-status">Loading areas...</div>
-  {:else if $boardError}
-    <div class="board-status error">{$boardError}</div>
+  {:else if boardError.value}
+    <div class="board-status error">{boardError.value}</div>
     <button class="board-retry" onclick={fetchBoard}>Retry</button>
-  {:else if $boardData}
+  {:else if boardData.value}
     <div class="board-toolbar">
       <button class="board-refresh" onclick={fetchBoard} title="Refresh">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -48,8 +48,8 @@
     </div>
 
     <div class="area-list">
-      {#each $boardData.areas as area (area.name)}
-        {@const expanded = $expandedAreas.has(area.name)}
+      {#each boardData.value.areas as area (area.name)}
+        {@const expanded = expandedAreas.value.has(area.name)}
         {@const sessionCount = areaSessionCount(area)}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -82,7 +82,7 @@
           {/if}
 
           {#each area.projects as project (project.path)}
-            {@const projExpanded = $expandedProjects.has(project.path)}
+            {@const projExpanded = expandedProjects.value.has(project.path)}
             {@const hasSessions = project.sessions.length > 0}
             <!-- svelte-ignore a11y_click_events_have_key_events -->
             <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -142,17 +142,17 @@
         {/if}
       {/each}
 
-      {#if $boardData.looseSessions?.length > 0}
-        {@const looseExpanded = $expandedAreas.has('__loose')}
+      {#if boardData.value.looseSessions?.length > 0}
+        {@const looseExpanded = expandedAreas.value.has('__loose')}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="area-header loose" onclick={() => toggleArea('__loose')}>
           <svg class="area-chevron" class:expanded={looseExpanded} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
           <span class="area-name">Untagged Sessions</span>
-          <span class="area-session-count">{$boardData.looseSessions.length}</span>
+          <span class="area-session-count">{boardData.value.looseSessions.length}</span>
         </div>
         {#if looseExpanded}
-          {#each $boardData.looseSessions as session (session.id)}
+          {#each boardData.value.looseSessions as session (session.id)}
             <!-- svelte-ignore a11y_click_events_have_key_events -->
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div class="project-session loose" onclick={() => handleSessionClick(session.id, session.title)}>
@@ -169,7 +169,7 @@
       {/if}
     </div>
 
-    {#if $boardData.areas.length === 0}
+    {#if boardData.value.areas.length === 0}
       <div class="board-status">No gtd/ areas found</div>
     {/if}
   {/if}
@@ -184,12 +184,12 @@
     padding: 24px 16px;
     text-align: center;
     font-size: 13px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     font-style: italic;
   }
 
   .board-status.error {
-    color: #e5534b;
+    color: var(--error);
   }
 
   .board-retry {
@@ -197,9 +197,9 @@
     margin: 0 auto;
     padding: 6px 16px;
     border-radius: 6px;
-    border: 1px solid rgba(218, 119, 86, 0.3);
-    background: rgba(218, 119, 86, 0.08);
-    color: #da7756;
+    border: 1px solid var(--accent-30);
+    background: var(--accent-8);
+    color: var(--accent);
     font-family: inherit;
     font-size: 12px;
     cursor: pointer;
@@ -219,7 +219,7 @@
     justify-content: center;
     background: none;
     border: none;
-    color: #6b6760;
+    color: var(--text-dimmer);
     cursor: pointer;
     border-radius: 6px;
     padding: 0;
@@ -227,8 +227,8 @@
   }
 
   .board-refresh:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #b0ab9f;
+    background: rgba(var(--overlay-rgb), 0.06);
+    color: var(--text-secondary);
   }
 
   .area-list {
@@ -249,18 +249,18 @@
   }
 
   .area-header:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(var(--overlay-rgb), 0.04);
   }
 
   .area-header.loose {
     margin-top: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.04);
     padding-top: 10px;
     border-radius: 0 0 8px 8px;
   }
 
   .area-chevron {
-    color: #6b6760;
+    color: var(--text-dimmer);
     flex-shrink: 0;
     transition: transform 0.15s;
   }
@@ -273,7 +273,7 @@
     flex: 1;
     font-size: 13px;
     font-weight: 600;
-    color: #d4d0c8;
+    color: var(--text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -281,8 +281,8 @@
 
   .area-badge {
     font-size: 10px;
-    color: #908b81;
-    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+    background: rgba(var(--overlay-rgb), 0.06);
     padding: 1px 6px;
     border-radius: 8px;
     flex-shrink: 0;
@@ -290,8 +290,8 @@
 
   .area-session-count {
     font-size: 10px;
-    color: #da7756;
-    background: rgba(218, 119, 86, 0.1);
+    color: var(--accent);
+    background: var(--accent-12);
     padding: 1px 6px;
     border-radius: 8px;
     flex-shrink: 0;
@@ -301,7 +301,7 @@
   .area-state {
     padding: 3px 12px 3px 30px;
     font-size: 11px;
-    color: #908b81;
+    color: var(--text-muted);
     line-height: 1.4;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -310,11 +310,11 @@
 
   .area-state .state-label {
     font-weight: 600;
-    color: #6b6760;
+    color: var(--text-dimmer);
   }
 
   .area-state.desired .state-label {
-    color: #57ab5a;
+    color: var(--success);
   }
 
   /* Project item */
@@ -330,11 +330,11 @@
   }
 
   .project-item:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(var(--overlay-rgb), 0.04);
   }
 
   .project-chevron {
-    color: #5a5650;
+    color: var(--text-dimmer);
     flex-shrink: 0;
     transition: transform 0.15s;
   }
@@ -348,14 +348,14 @@
   }
 
   .project-icon {
-    color: #6b6760;
+    color: var(--text-dimmer);
     flex-shrink: 0;
   }
 
   .project-name {
     flex: 1;
     font-size: 12px;
-    color: #b0ab9f;
+    color: var(--text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -377,7 +377,7 @@
     gap: 5px;
     padding: 4px 8px 4px 46px;
     font-size: 11px;
-    color: #908b81;
+    color: var(--text-muted);
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.12s, color 0.12s;
@@ -385,8 +385,8 @@
   }
 
   .sub-project-item:hover {
-    background: rgba(255, 255, 255, 0.04);
-    color: #b0ab9f;
+    background: rgba(var(--overlay-rgb), 0.04);
+    color: var(--text-secondary);
   }
 
   .sub-name {
@@ -412,33 +412,33 @@
   }
 
   .project-session:hover {
-    background: #353430;
+    background: var(--border-subtle);
     transform: translateX(2px);
   }
 
   .project-session svg {
-    color: #6b6760;
+    color: var(--text-dimmer);
     flex-shrink: 0;
   }
 
   .project-session-title {
     flex: 1;
     font-size: 12px;
-    color: #b0ab9f;
+    color: var(--text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .project-session:hover .project-session-title {
-    color: #d4d0c8;
+    color: var(--text);
   }
 
   .session-active-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #da7756;
+    background: var(--accent);
     animation: pulse 1.5s ease-in-out infinite;
     flex-shrink: 0;
   }
@@ -455,7 +455,7 @@
     width: 20px;
     height: 20px;
     border-radius: 4px;
-    color: #5a5650;
+    color: var(--text-dimmer);
     cursor: pointer;
     flex-shrink: 0;
     opacity: 0;
@@ -468,14 +468,14 @@
   }
 
   .drilldown-btn:hover {
-    background: rgba(218, 119, 86, 0.15);
-    color: #da7756;
+    background: var(--accent-15);
+    color: var(--accent);
   }
 
   .area-empty {
     padding: 8px 30px;
     font-size: 12px;
-    color: #5a5650;
+    color: var(--text-dimmer);
     font-style: italic;
   }
 </style>

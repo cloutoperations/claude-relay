@@ -44,18 +44,18 @@
   .bubble {
     max-width: 95%;
     padding: 10px 14px;
-    background: #35332f;
+    background: var(--bg-alt);
     border-radius: 18px 18px 4px 18px;
     font-size: 14px;
     line-height: 1.5;
-    color: #e8e5de;
+    color: var(--text);
     word-wrap: break-word;
   }
 
   .compact .bubble {
     max-width: 82%;
     padding: 8px 12px;
-    background: #da7756;
+    background: var(--accent);
     color: white;
     border-radius: 14px 14px 4px 14px;
     font-size: 13px;
@@ -94,7 +94,7 @@
     align-items: center;
     gap: 8px;
     padding: 4px 8px;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(var(--overlay-rgb), 0.05);
     border-radius: 6px;
     font-size: 12px;
     cursor: pointer;
@@ -102,7 +102,7 @@
 
   .compact .bubble-paste {
     font-size: 11px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--overlay-rgb), 0.1);
   }
 
   .bubble-paste-preview {
@@ -110,22 +110,22 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   .compact .bubble-paste-preview {
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(var(--overlay-rgb), 0.7);
   }
 
   .bubble-paste-label {
     font-size: 10px;
     font-weight: 600;
-    color: #6d6860;
+    color: var(--text-dimmer);
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
 
   .compact .bubble-paste-label {
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(var(--overlay-rgb), 0.5);
   }
 </style>

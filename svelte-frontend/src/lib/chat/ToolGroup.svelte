@@ -124,8 +124,8 @@
   /* ─── Full mode ─── */
   .tool-group {
     margin: 4px 0;
-    background: #2a2924;
-    border: 1px solid #3e3c37;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
     border-radius: 8px;
   }
 
@@ -136,16 +136,16 @@
     padding: 8px 12px;
     cursor: pointer;
     font-size: 13px;
-    color: #d4d0c8;
+    color: var(--text);
   }
 
   .tool-group-header:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(var(--overlay-rgb), 0.02);
     border-radius: 8px;
   }
 
   .tool-group-chevron {
-    color: #6d6860;
+    color: var(--text-dimmer);
     font-size: 11px;
     width: 12px;
     flex-shrink: 0;
@@ -155,23 +155,23 @@
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: #c5a13e;
+    background: var(--warning);
     flex-shrink: 0;
     animation: pulse 1.5s ease-in-out infinite;
   }
 
   .tool-group-bullet.running {
-    background: #c5a13e;
+    background: var(--warning);
     animation: pulse 1.5s ease-in-out infinite;
   }
 
   .tool-group-bullet.error {
-    background: #e5534b;
+    background: var(--error);
     animation: none;
   }
 
   .tool-group.done .tool-group-bullet {
-    background: #5cb85c;
+    background: var(--success);
     animation: none;
   }
 
@@ -182,7 +182,7 @@
   }
 
   .tool-group.done .tool-group-label {
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   .tool-group-status {
@@ -194,14 +194,14 @@
   .tool-group-spinner {
     width: 12px;
     height: 12px;
-    border: 1.5px solid rgba(197, 161, 62, 0.25);
-    border-top-color: #c5a13e;
+    border: 1.5px solid rgba(var(--warning-rgb), 0.25);
+    border-top-color: var(--warning);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
 
   .tool-group-items {
-    border-top: 1px solid #3e3c37;
+    border-top: 1px solid var(--border);
     padding: 4px 8px;
   }
 
@@ -216,13 +216,13 @@
     gap: 7px;
     padding: 3px 10px;
     font-size: 11px;
-    color: #5a5650;
+    color: var(--text-dimmer);
     cursor: pointer;
     border-radius: 6px;
   }
 
   .cp-group-header:hover {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--overlay-rgb), 0.03);
   }
 
   .cp-group-indicator {
@@ -234,14 +234,14 @@
     flex-shrink: 0;
   }
 
-  .cp-tool-group.done .cp-group-indicator { color: #57AB5A; }
-  .cp-tool-group:not(.done) .cp-group-indicator { color: #c5a13e; }
+  .cp-tool-group.done .cp-group-indicator { color: var(--success); }
+  .cp-tool-group:not(.done) .cp-group-indicator { color: var(--warning); }
 
   .cp-group-spinner {
     width: 10px;
     height: 10px;
-    border: 1.5px solid rgba(218, 119, 86, 0.25);
-    border-top-color: #da7756;
+    border: 1.5px solid var(--accent-25);
+    border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
@@ -251,10 +251,10 @@
     flex: 1;
   }
 
-  .cp-tool-group.done .cp-group-label { color: #4a4843; }
+  .cp-tool-group.done .cp-group-label { color: var(--border); }
 
   .cp-group-chevron {
-    color: #6d6860;
+    color: var(--text-dimmer);
     font-size: 10px;
   }
 

@@ -1,15 +1,24 @@
 <script>
-  import { connected } from '../../stores/ws.js';
-  import { slashCommands } from '../../stores/chat.js';
+  import { wsState } from '../../stores/ws.svelte.js';
+  import { slashCommands } from '../../stores/chat.svelte.js';
+  import { tabs, saveTabDraft } from '../../stores/tabs.svelte.js';
 
   let {
     processing = false,
     compact = false,
+    sessionId = null,
     onSend = null,
     onStop = null,
   } = $props();
 
   let inputText = $state('');
+
+  // Restore draft text when sessionId changes (tab switch)
+  $effect(() => {
+    if (sessionId && tabs[sessionId]) {
+      inputText = tabs[sessionId].draftText || '';
+    }
+  });
   let textareaEl = $state(null);
   let showSlashMenu = $state(false);
   let slashActiveIdx = $state(0);
@@ -23,7 +32,7 @@
     { name: 'status', desc: 'Process status' },
   ];
 
-  let allCommands = $derived([...builtinCommands, ...$slashCommands]);
+  let allCommands = $derived([...builtinCommands, ...slashCommands]);
 
   let filteredCommands = $derived.by(() => {
     if (!showSlashMenu) return [];
@@ -39,7 +48,7 @@
   }
 
   function handleSend() {
-    if (!$connected) return;
+    if (!wsState.connected) return;
 
     if (showSlashMenu && filteredCommands.length > 0) {
       selectSlashCommand(filteredCommands[slashActiveIdx]);
@@ -72,6 +81,8 @@
 
   function handleInput() {
     autoResize();
+    // Save draft to tab store
+    if (sessionId) saveTabDraft(sessionId, inputText);
     // Show slash menu when typing / at start
     if (inputText.startsWith('/') && !inputText.includes(' ')) {
       showSlashMenu = true;
@@ -112,7 +123,7 @@
   }
 </script>
 
-<div class="input-area" class:compact class:disconnected={!$connected}>
+<div class="input-area" class:compact class:disconnected={!wsState.connected}>
   <!-- Slash command menu -->
   {#if showSlashMenu && filteredCommands.length > 0 && !compact}
     <div class="slash-menu">
@@ -140,12 +151,12 @@
         oninput={handleInput}
         onkeydown={handleKeydown}
         rows="1"
-        placeholder={$connected ? 'Message...' : 'Connecting...'}
+        placeholder={wsState.connected ? 'Message...' : 'Connecting...'}
         enterkeyhint="send"
-        disabled={!$connected}
+        disabled={!wsState.connected}
       ></textarea>
     </div>
-    <button class="send-round" class:stop={processing && !inputText.trim()} onclick={handleSend} disabled={!$connected}>
+    <button class="send-round" class:stop={processing && !inputText.trim()} onclick={handleSend} disabled={!wsState.connected}>
       {#if processing && !inputText.trim()}
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
       {:else}
@@ -160,8 +171,8 @@
         bind:value={inputText}
         oninput={handleInput}
         onkeydown={handleKeydown}
-        placeholder={$connected ? 'Message Claude... (type / for commands)' : 'Connecting...'}
-        disabled={!$connected}
+        placeholder={wsState.connected ? 'Message Claude... (type / for commands)' : 'Connecting...'}
+        disabled={!wsState.connected}
         rows="1"
       ></textarea>
       <div class="input-bottom">
@@ -170,7 +181,7 @@
           class="send-btn"
           class:stop={processing && !inputText.trim()}
           onclick={handleSend}
-          disabled={!$connected}
+          disabled={!wsState.connected}
         >
           {processing ? (inputText.trim() ? 'Send' : 'Stop') : 'Send'}
         </button>
@@ -197,12 +208,12 @@
     bottom: 100%;
     left: 20px;
     right: 20px;
-    background: #2a2924;
-    border: 1px solid #3e3c37;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
     border-radius: 10px;
     padding: 4px;
     margin-bottom: 4px;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 -4px 16px rgba(var(--shadow-rgb), 0.3);
     z-index: 10;
   }
 
@@ -218,26 +229,26 @@
 
   .slash-item:hover,
   .slash-item.active {
-    background: rgba(218, 119, 86, 0.12);
+    background: var(--accent-12);
   }
 
   .slash-name {
     font-size: 13px;
     font-weight: 600;
-    color: #da7756;
+    color: var(--accent);
     font-family: 'SF Mono', Menlo, monospace;
     min-width: 80px;
   }
 
   .slash-desc {
     font-size: 12px;
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   /* ─── Full mode ─── */
   .input-area:not(.compact) {
     padding: 12px 20px 16px;
-    border-top: 1px solid #2a2924;
+    border-top: 1px solid var(--bg-alt);
     max-width: 900px;
     margin-left: auto;
     margin-right: auto;
@@ -246,15 +257,15 @@
   }
 
   .input-wrapper {
-    background: #2a2924;
+    background: var(--bg-alt);
     border-radius: 12px;
-    border: 1px solid #3e3c37;
+    border: 1px solid var(--border);
     overflow: hidden;
     transition: border-color 0.2s;
   }
 
   .input-wrapper:focus-within {
-    border-color: #6d6860;
+    border-color: var(--text-dimmer);
   }
 
   .input-wrapper textarea {
@@ -262,7 +273,7 @@
     padding: 12px 14px 4px;
     background: transparent;
     border: none;
-    color: #e8e5de;
+    color: var(--text);
     font-family: 'Inter', sans-serif;
     font-size: 14px;
     line-height: 1.5;
@@ -273,7 +284,7 @@
   }
 
   .input-wrapper textarea::placeholder {
-    color: #6d6860;
+    color: var(--text-dimmer);
   }
 
   .input-bottom {
@@ -291,7 +302,7 @@
 
   .send-btn {
     padding: 6px 16px;
-    background: #da7756;
+    background: var(--accent);
     border: none;
     border-radius: 8px;
     color: #fff;
@@ -303,7 +314,7 @@
 
   .send-btn:hover { background: #c5673e; }
   .send-btn:disabled { opacity: 0.5; cursor: default; }
-  .send-btn.stop { background: #e5534b; }
+  .send-btn.stop { background: var(--error); }
   .send-btn.stop:hover { background: #d04440; }
 
   /* ─── Compact mode ─── */
@@ -312,8 +323,7 @@
     align-items: flex-end;
     gap: 8px;
     padding: 10px 12px 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    background: #1a1918;
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.05);
   }
 
   .input-wrap-compact {
@@ -326,10 +336,10 @@
     min-height: 34px;
     max-height: 100px;
     padding: 7px 12px;
-    background: #262523;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--input-bg);
+    border: 1px solid rgba(var(--overlay-rgb), 0.06);
     border-radius: 18px;
-    color: #e0dbd2;
+    color: var(--text);
     font-family: inherit;
     font-size: 13px;
     line-height: 1.4;
@@ -340,11 +350,11 @@
   }
 
   .input-wrap-compact textarea:focus {
-    border-color: rgba(218, 119, 86, 0.4);
+    border-color: var(--accent-40);
   }
 
   .input-wrap-compact textarea::placeholder {
-    color: #4a4843;
+    color: var(--border);
   }
 
   .send-round {
@@ -353,7 +363,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #da7756;
+    background: var(--accent);
     border: none;
     border-radius: 50%;
     color: white;
@@ -363,9 +373,9 @@
     padding: 0;
   }
 
-  .send-round:hover { background: #e08565; transform: scale(1.05); }
+  .send-round:hover { background: var(--accent-hover); transform: scale(1.05); }
   .send-round:active { transform: scale(0.95); }
   .send-round:disabled { opacity: 0.5; cursor: default; }
-  .send-round.stop { background: #E5534B; }
+  .send-round.stop { background: var(--error); }
   .send-round.stop:hover { background: #f06058; }
 </style>

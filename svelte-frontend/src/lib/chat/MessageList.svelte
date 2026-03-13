@@ -134,7 +134,7 @@
     }
   });
 
-  let messagesEl;
+  let messagesEl = $state(null);
   let isUserScrolledUp = false;
 
   function scrollToBottom() {
@@ -231,6 +231,7 @@
   {/each}
 
   {#if processing}
+    <div class="msg-item">
     <div class="live-status" class:compact>
       {#if thinking.active}
         <div class="live-status-dots">
@@ -249,6 +250,7 @@
         </div>
         <span class="live-status-text">{thinkingVerb}...</span>
       {/if}
+    </div>
     </div>
   {/if}
 </div>
@@ -290,10 +292,10 @@
   .load-earlier {
     align-self: center;
     padding: 6px 16px;
-    background: rgba(218, 119, 86, 0.08);
-    border: 1px solid rgba(218, 119, 86, 0.2);
+    background: var(--accent-8);
+    border: 1px solid var(--accent-20);
     border-radius: 8px;
-    color: #da7756;
+    color: var(--accent);
     font-size: 12px;
     cursor: pointer;
     margin-bottom: 8px;
@@ -301,16 +303,16 @@
   }
 
   .load-earlier:hover {
-    background: rgba(218, 119, 86, 0.15);
+    background: var(--accent-15);
   }
 
   .message-list::-webkit-scrollbar { width: 6px; }
   .message-list::-webkit-scrollbar-track { background: transparent; }
-  .message-list::-webkit-scrollbar-thumb { background: #3e3c37; border-radius: 3px; }
+  .message-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
   .message-list.compact::-webkit-scrollbar { width: 5px; }
-  .message-list.compact::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
-  .message-list.compact::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+  .message-list.compact::-webkit-scrollbar-thumb { background: rgba(var(--overlay-rgb),0.08); }
+  .message-list.compact::-webkit-scrollbar-thumb:hover { background: rgba(var(--overlay-rgb),0.14); }
 
   .live-status {
     display: flex;
@@ -327,21 +329,21 @@
 
   .live-status-text {
     font-size: 12px;
-    color: #da7756;
+    color: var(--accent);
     font-family: 'SF Mono', 'Fira Code', monospace;
     animation: fadeIn 0.2s ease;
   }
 
   .live-status.compact .live-status-text {
     font-size: 11px;
-    color: #da7756;
+    color: var(--accent);
   }
 
   .live-status-spinner {
     width: 12px;
     height: 12px;
-    border: 1.5px solid rgba(218, 119, 86, 0.25);
-    border-top-color: #da7756;
+    border: 1.5px solid var(--accent-25);
+    border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
     flex-shrink: 0;
@@ -361,14 +363,14 @@
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: #da7756;
+    background: var(--accent);
     animation: statusBounce 1.4s ease-in-out infinite;
   }
 
   .live-status.compact .live-status-dots span {
     width: 4px;
     height: 4px;
-    background: #da7756;
+    background: var(--accent);
   }
 
   .live-status-dots span:nth-child(2) { animation-delay: 0.2s; }
@@ -376,9 +378,9 @@
 
   .live-status-badge {
     font-size: 10px;
-    color: #da7756;
+    color: var(--accent);
     padding: 1px 5px;
-    background: rgba(218, 119, 86, 0.12);
+    background: var(--accent-12);
     border-radius: 3px;
     flex-shrink: 0;
     font-weight: 600;
@@ -397,7 +399,7 @@
     align-items: center;
     gap: 8px;
     padding: 20px;
-    color: #5a5650;
+    color: var(--text-dimmer);
     font-size: 11px;
   }
 
@@ -411,7 +413,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #5a5650;
+    background: var(--text-dimmer);
     animation: bounce 1.4s ease-in-out infinite;
   }
 

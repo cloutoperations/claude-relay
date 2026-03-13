@@ -2,7 +2,7 @@ import './app.css'
 import 'highlight.js/styles/github-dark-dimmed.min.css'
 import App from './App.svelte'
 import { mount } from 'svelte'
-import { initTheme } from './stores/theme.js'
+import { initTheme } from './stores/theme.svelte.js'
 
 initTheme()
 

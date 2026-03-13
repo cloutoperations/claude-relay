@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { boardData, fetchBoard, tagSession } from '../../stores/board.js';
+  import { boardData, fetchBoard, tagSession } from '../../stores/board.svelte.js';
 
   let {
     sessionId = '',
@@ -12,7 +12,7 @@
   let menuEl = $state(null);
 
   onMount(() => {
-    if (!$boardData) fetchBoard();
+    if (!boardData.value) fetchBoard();
 
     function handleClickOutside(e) {
       if (menuEl && !menuEl.contains(e.target)) {
@@ -59,9 +59,9 @@
 <div class="tagger-menu" bind:this={menuEl} style={style}>
   <div class="tagger-header">Tag to project</div>
 
-  {#if $boardData}
+  {#if boardData.value}
     <div class="tagger-list">
-      {#each $boardData.areas as area (area.name)}
+      {#each boardData.value.areas as area (area.name)}
         <button class="tagger-option area-btn" onclick={() => handleTag(area.name)}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>
@@ -116,10 +116,10 @@
     z-index: 200;
     width: 210px;
     max-height: 320px;
-    background: #2a2924;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--bg-alt);
+    border: 1px solid rgba(var(--overlay-rgb), 0.1);
     border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 8px 24px rgba(var(--shadow-rgb), 0.5);
     overflow-y: auto;
     padding: 4px 0;
   }
@@ -128,7 +128,7 @@
     padding: 8px 12px 4px;
     font-size: 10px;
     font-weight: 600;
-    color: #6b6760;
+    color: var(--text-dimmer);
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
@@ -142,7 +142,7 @@
     padding: 6px 12px 2px;
     font-size: 10px;
     font-weight: 600;
-    color: #908b81;
+    color: var(--text-muted);
     margin-top: 4px;
   }
 
@@ -154,7 +154,7 @@
     padding: 6px 12px 6px 20px;
     border: none;
     background: none;
-    color: #b0ab9f;
+    color: var(--text-secondary);
     font-family: inherit;
     font-size: 12px;
     cursor: pointer;
@@ -163,12 +163,12 @@
   }
 
   .tagger-option:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #d4d0c8;
+    background: rgba(var(--overlay-rgb), 0.06);
+    color: var(--text);
   }
 
   .tagger-option svg {
-    color: #6b6760;
+    color: var(--text-dimmer);
     flex-shrink: 0;
   }
 
@@ -179,40 +179,40 @@
   .tagger-option.area-btn {
     padding-left: 12px;
     font-weight: 600;
-    color: #d4d0c8;
+    color: var(--text);
     font-size: 12px;
     margin-top: 4px;
   }
 
   .tagger-option.area-btn svg {
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   .tagger-option.sub {
     padding-left: 32px;
     font-size: 11px;
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   .tagger-option.untag {
     padding-left: 12px;
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   .tagger-option.untag:hover {
-    color: #e5534b;
+    color: var(--error);
   }
 
   .tagger-divider {
     height: 1px;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(var(--overlay-rgb), 0.06);
     margin: 4px 0;
   }
 
   .tagger-loading {
     padding: 12px;
     font-size: 12px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     text-align: center;
   }
 </style>

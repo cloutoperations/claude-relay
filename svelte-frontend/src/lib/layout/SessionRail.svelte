@@ -1,14 +1,14 @@
 <script>
-  import { sessions, activeSessionId } from '../../stores/sessions.js';
-  import { ambientState } from '../../stores/ambient.js';
-  import { workspaceEnabled } from '../../stores/ui.js';
-  import { send } from '../../stores/ws.js';
-  import { openPopup } from '../../stores/popups.js';
+  import { sessionList as sessions, activeSessionId } from '../../stores/sessions.svelte.js';
+  import { ambientState } from '../../stores/ambient.svelte.js';
+  import { workspaceEnabled } from '../../stores/ui.svelte.js';
+  import { send } from '../../stores/ws.svelte.js';
+  import { openPopup } from '../../stores/popups.svelte.js';
 
   // Sort sessions: needs attention first, then processing, then recent
   let sortedSessions = $derived.by(() => {
-    const amb = $ambientState;
-    return [...$sessions].sort((a, b) => {
+    const amb = ambientState;
+    return [...sessions].sort((a, b) => {
       const aAmb = amb[a.id] || {};
       const bAmb = amb[b.id] || {};
 
@@ -28,7 +28,7 @@
   });
 
   function getStatusClass(session) {
-    const amb = $ambientState[session.id] || {};
+    const amb = ambientState[session.id] || {};
     if (amb.permissionRequest) return 'permission';
     if (amb.askUser) return 'question';
     if (session.isProcessing || amb.status === 'processing') return 'processing';
@@ -36,7 +36,7 @@
   }
 
   function getStatusText(session) {
-    const amb = $ambientState[session.id] || {};
+    const amb = ambientState[session.id] || {};
     if (amb.permissionRequest) return '';
     if (amb.askUser) return 'needs input';
     if (session.isProcessing || amb.status === 'processing') return 'processing...';
@@ -52,7 +52,7 @@
   }
 </script>
 
-{#if $workspaceEnabled}
+{#if workspaceEnabled.value}
   <aside class="session-rail">
     <div class="rail-header">Sessions</div>
 
@@ -63,11 +63,11 @@
         {#each sortedSessions as session (session.id)}
           {@const statusClass = getStatusClass(session)}
           {@const statusText = getStatusText(session)}
-          {@const amb = $ambientState[session.id] || {}}
+          {@const amb = ambientState[session.id] || {}}
 
           <button
             class="rail-item rail-{statusClass}"
-            class:active={$activeSessionId === session.id}
+            class:active={activeSessionId.value === session.id}
             onclick={() => openPopup(session.id, session.title)}
             title={session.title || 'Untitled'}
           >
@@ -104,8 +104,8 @@
   .session-rail {
     width: 240px;
     flex-shrink: 0;
-    border-left: 1px solid rgba(255, 255, 255, 0.08);
-    background: #1e1d1a;
+    border-left: 1px solid rgba(var(--overlay-rgb), 0.08);
+    background: var(--code-bg);
     overflow-y: auto;
     scrollbar-width: thin;
     height: 100%;
@@ -113,14 +113,14 @@
 
   .session-rail::-webkit-scrollbar { width: 6px; }
   .session-rail::-webkit-scrollbar-track { background: transparent; }
-  .session-rail::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+  .session-rail::-webkit-scrollbar-thumb { background: rgba(var(--overlay-rgb), 0.1); border-radius: 3px; }
 
   .rail-header {
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #6b6760;
+    color: var(--text-dimmer);
     padding: 12px 12px 8px;
   }
 
@@ -145,11 +145,11 @@
   }
 
   .rail-item:hover {
-    background: #353430;
+    background: var(--border-subtle);
   }
 
   .rail-item.active {
-    background: rgba(218, 119, 86, 0.1);
+    background: var(--accent-12);
   }
 
   .rail-item-header {
@@ -167,17 +167,17 @@
 
   /* Status dot colors */
   .rail-idle .rail-dot {
-    background: #6b6760;
+    background: var(--text-dimmer);
   }
 
   .rail-processing .rail-dot {
-    background: #da7756;
+    background: var(--accent);
     animation: rail-pulse 1.5s ease-in-out infinite;
   }
 
   .rail-permission .rail-dot {
-    background: #E5534B;
-    box-shadow: 0 0 4px #E5534B;
+    background: var(--error);
+    box-shadow: 0 0 4px var(--error);
   }
 
   .rail-question .rail-dot {
@@ -192,7 +192,7 @@
 
   .rail-title {
     font-size: 12px;
-    color: #d4d0c8;
+    color: var(--text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -201,13 +201,13 @@
 
   .rail-status {
     font-size: 10px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     margin-top: 2px;
     padding-left: 13px;
   }
 
   .rail-processing .rail-status {
-    color: #da7756;
+    color: var(--accent);
   }
 
   .rail-question .rail-status {
@@ -221,7 +221,7 @@
 
   .rail-perm-text {
     font-size: 11px;
-    color: #908b81;
+    color: var(--text-muted);
     margin-top: 6px;
     padding-left: 13px;
     overflow: hidden;
@@ -248,7 +248,7 @@
   }
 
   .rail-allow {
-    background: #57ab5a;
+    background: var(--success);
     color: white;
   }
 
@@ -257,18 +257,18 @@
   }
 
   .rail-deny {
-    background: rgba(255, 255, 255, 0.1);
-    color: #b0ab9f;
+    background: rgba(var(--overlay-rgb), 0.1);
+    color: var(--text-secondary);
   }
 
   .rail-deny:hover {
-    background: #6b6760;
+    background: var(--text-dimmer);
     color: white;
   }
 
   .rail-empty {
     font-size: 12px;
-    color: #6b6760;
+    color: var(--text-dimmer);
     padding: 20px 12px;
     text-align: center;
     font-style: italic;

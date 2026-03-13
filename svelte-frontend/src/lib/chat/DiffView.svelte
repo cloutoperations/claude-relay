@@ -105,7 +105,7 @@
   .diff-view {
     border-radius: 6px;
     overflow: hidden;
-    border: 1px solid #3e3c37;
+    border: 1px solid var(--border);
     font-size: 12px;
     font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   }
@@ -115,13 +115,13 @@
     align-items: center;
     justify-content: space-between;
     padding: 6px 10px;
-    background: #2a2924;
-    border-bottom: 1px solid #3e3c37;
+    background: var(--bg-alt);
+    border-bottom: 1px solid var(--border);
     font-size: 11px;
   }
 
   .diff-path {
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   .diff-stats {
@@ -131,14 +131,14 @@
     font-weight: 600;
   }
 
-  .diff-add { color: #5cb85c; }
-  .diff-rm { color: #e5534b; }
+  .diff-add { color: var(--success); }
+  .diff-rm { color: var(--error); }
 
   .diff-body {
     overflow-x: auto;
     max-height: 400px;
     overflow-y: auto;
-    background: #1a1918;
+    background: var(--bg-deeper);
   }
 
   .diff-table {
@@ -148,11 +148,11 @@
   }
 
   .diff-row.diff-add {
-    background: rgba(92, 184, 92, 0.08);
+    background: var(--success-8);
   }
 
   .diff-row.diff-remove {
-    background: rgba(229, 83, 75, 0.08);
+    background: var(--error-8);
   }
 
   .diff-ln {
@@ -160,7 +160,7 @@
     min-width: 32px;
     padding: 0 6px;
     text-align: right;
-    color: #4a4843;
+    color: var(--border);
     user-select: none;
     vertical-align: top;
     white-space: nowrap;
@@ -174,20 +174,20 @@
     font-weight: 700;
   }
 
-  .diff-row.diff-add .diff-marker { color: #5cb85c; }
-  .diff-row.diff-remove .diff-marker { color: #e5534b; }
-  .diff-row.diff-equal .diff-marker { color: #3e3c37; }
+  .diff-row.diff-add .diff-marker { color: var(--success); }
+  .diff-row.diff-remove .diff-marker { color: var(--error); }
+  .diff-row.diff-equal .diff-marker { color: var(--border); }
 
   .diff-code {
     padding: 0 8px;
     white-space: pre-wrap;
     word-break: break-all;
-    color: #d4d0c8;
+    color: var(--text);
   }
 
   /* hljs token colors (minimal dark theme) */
   .diff-code :global(.hljs-keyword),
-  .diff-code :global(.hljs-selector-tag) { color: #c586c0; }
+  .diff-code :global(.hljs-selector-tag) { color: var(--hl-keyword); }
   .diff-code :global(.hljs-string),
   .diff-code :global(.hljs-template-variable) { color: #ce9178; }
   .diff-code :global(.hljs-number),
@@ -195,19 +195,19 @@
   .diff-code :global(.hljs-comment) { color: #6a9955; font-style: italic; }
   .diff-code :global(.hljs-function),
   .diff-code :global(.hljs-title) { color: #dcdcaa; }
-  .diff-code :global(.hljs-built_in) { color: #4ec9b0; }
+  .diff-code :global(.hljs-built_in) { color: var(--hl-regexp); }
   .diff-code :global(.hljs-type),
-  .diff-code :global(.hljs-class) { color: #4ec9b0; }
+  .diff-code :global(.hljs-class) { color: var(--hl-regexp); }
   .diff-code :global(.hljs-attr),
   .diff-code :global(.hljs-attribute) { color: #9cdcfe; }
   .diff-code :global(.hljs-variable) { color: #9cdcfe; }
   .diff-code :global(.hljs-params) { color: #9cdcfe; }
-  .diff-code :global(.hljs-meta) { color: #569cd6; }
-  .diff-code :global(.hljs-regexp) { color: #d16969; }
-  .diff-code :global(.hljs-tag) { color: #569cd6; }
-  .diff-code :global(.hljs-name) { color: #569cd6; }
-  .diff-code :global(.hljs-selector-class) { color: #d7ba7d; }
-  .diff-code :global(.hljs-selector-id) { color: #d7ba7d; }
+  .diff-code :global(.hljs-meta) { color: var(--hl-function); }
+  .diff-code :global(.hljs-regexp) { color: var(--hl-regexp); }
+  .diff-code :global(.hljs-tag) { color: var(--hl-function); }
+  .diff-code :global(.hljs-name) { color: var(--hl-function); }
+  .diff-code :global(.hljs-selector-class) { color: var(--hl-meta); }
+  .diff-code :global(.hljs-selector-id) { color: var(--hl-meta); }
   .diff-code :global(.hljs-property) { color: #9cdcfe; }
   .diff-code :global(.hljs-punctuation) { color: #d4d4d4; }
 </style>

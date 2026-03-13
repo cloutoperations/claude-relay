@@ -39,8 +39,6 @@
     if (e.target.closest('a, pre, code, button')) return;
     const sel = window.getSelection();
     if (sel && sel.toString().length > 0) return;
-    if (!finalized) return;
-
     if (copyState === 'idle') {
       copyState = 'primed';
       clearTimeout(resetTimer);
@@ -64,7 +62,7 @@
 {:else}
   <div class="msg-assistant" class:copy-primed={copyState === 'primed'} class:copy-done={copyState === 'done'} onclick={handleClick}>
     <div class="md-content" dir="auto" bind:this={contentEl}>{@html renderedHtml}</div>
-    {#if finalized}
+    {#if finalized || copyState !== 'idle'}
       <div class="msg-copy-hint">
         {#if copyState === 'idle'}
           Click to grab this
@@ -96,10 +94,10 @@
   .msg-assistant-compact .md-content {
     max-width: 92%;
     padding: 8px 12px;
-    background: #262523;
+    background: var(--sidebar-bg);
     border-radius: 14px 14px 14px 4px;
     font-size: 13px;
-    color: #c8c3b8;
+    color: var(--text-secondary);
     line-height: 1.5;
     word-wrap: break-word;
   }
@@ -108,7 +106,7 @@
   .md-content {
     font-size: 14px;
     line-height: 1.65;
-    color: #e8e5de;
+    color: var(--text);
     word-wrap: break-word;
     overflow-wrap: break-word;
   }
@@ -118,8 +116,8 @@
   .md-content :global(p:last-child) { margin-bottom: 0; }
 
   .md-content :global(pre) {
-    background: #1a1918;
-    border: 1px solid #3e3c37;
+    background: var(--bg-deeper);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 14px 16px;
     overflow-x: auto;
@@ -134,26 +132,26 @@
   }
 
   .md-content :global(:not(pre) > code) {
-    background: rgba(218, 119, 86, 0.1);
+    background: var(--accent-12);
     color: #e0a889;
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 0.88em;
   }
 
-  .md-content :global(a) { color: #da7756; text-decoration: none; }
+  .md-content :global(a) { color: var(--accent); text-decoration: none; }
   .md-content :global(a:hover) { text-decoration: underline; }
 
   .md-content :global(ul), .md-content :global(ol) { padding-left: 1.6em; margin: 0.6em 0; }
   .md-content :global(li) { margin: 0.3em 0; }
-  .md-content :global(li::marker) { color: #6d6860; }
+  .md-content :global(li::marker) { color: var(--text-dimmer); }
 
   .md-content :global(blockquote) {
-    border-left: 3px solid #da7756;
+    border-left: 3px solid var(--accent);
     padding: 4px 14px;
     margin: 10px 0;
-    color: #b0aa9e;
-    background: rgba(218, 119, 86, 0.04);
+    color: var(--text-secondary);
+    background: rgba(var(--accent-rgb), 0.04);
     border-radius: 0 6px 6px 0;
   }
 
@@ -161,25 +159,25 @@
   .md-content :global(h4) {
     margin: 1.1em 0 0.5em;
     font-weight: 600;
-    color: #f0ede6;
+    color: var(--text);
     letter-spacing: -0.01em;
   }
 
-  .md-content :global(h1) { font-size: 1.4em; border-bottom: 1px solid #3e3c37; padding-bottom: 6px; }
+  .md-content :global(h1) { font-size: 1.4em; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
   .md-content :global(h2) { font-size: 1.2em; }
-  .md-content :global(h3) { font-size: 1.05em; color: #da7756; }
-  .md-content :global(h4) { font-size: 0.95em; color: #b0aa9e; text-transform: uppercase; letter-spacing: 0.03em; }
+  .md-content :global(h3) { font-size: 1.05em; color: var(--accent); }
+  .md-content :global(h4) { font-size: 0.95em; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
 
-  .md-content :global(.table-wrap) { overflow-x: auto; margin: 10px 0; border-radius: 8px; border: 1px solid #3e3c37; }
+  .md-content :global(.table-wrap) { overflow-x: auto; margin: 10px 0; border-radius: 8px; border: 1px solid var(--border); }
   .md-content :global(table) { border-collapse: collapse; width: 100%; }
-  .md-content :global(th), .md-content :global(td) { border: 1px solid #3e3c37; padding: 8px 12px; font-size: 13px; }
-  .md-content :global(th) { background: #2a2924; font-weight: 600; color: #c8c3b8; white-space: nowrap; text-align: left; }
-  .md-content :global(tr:nth-child(even) td) { background: rgba(255, 255, 255, 0.015); }
+  .md-content :global(th), .md-content :global(td) { border: 1px solid var(--border); padding: 8px 12px; font-size: 13px; }
+  .md-content :global(th) { background: var(--bg-alt); font-weight: 600; color: var(--text-secondary); white-space: nowrap; text-align: left; }
+  .md-content :global(tr:nth-child(even) td) { background: rgba(var(--overlay-rgb), 0.015); }
 
-  .md-content :global(hr) { border: none; border-top: 1px solid #3e3c37; margin: 20px 0; }
+  .md-content :global(hr) { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 
-  .md-content :global(strong) { color: #f0ede6; font-weight: 600; }
-  .md-content :global(em) { color: #c8c3b8; }
+  .md-content :global(strong) { color: var(--text); font-weight: 600; }
+  .md-content :global(em) { color: var(--text-secondary); }
 
   /* ─── Compact overrides ─── */
   .md-content.compact { font-size: 13px; }
@@ -192,16 +190,16 @@
     padding: 8px 10px;
     border-radius: 8px;
     margin: 6px 0;
-    background: #141312;
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: var(--bg-deeper);
+    border: 1px solid rgba(var(--overlay-rgb), 0.04);
   }
   .md-content.compact :global(code) { font-size: 11.5px; }
-  .md-content.compact :global(:not(pre) > code) { font-size: 12px; background: rgba(255, 255, 255, 0.06); padding: 1px 5px; }
+  .md-content.compact :global(:not(pre) > code) { font-size: 12px; background: rgba(var(--overlay-rgb), 0.06); padding: 1px 5px; }
 
   /* ─── Copy hint (full mode only) ─── */
   .msg-copy-hint {
     font-size: 11px;
-    color: #6d6860;
+    color: var(--text-dimmer);
     padding: 4px 0;
     opacity: 0;
     transition: opacity 0.2s;
@@ -210,29 +208,29 @@
   .msg-assistant:hover .msg-copy-hint { opacity: 1; }
 
   .msg-assistant.copy-primed {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(var(--overlay-rgb), 0.02);
     border-radius: 8px;
   }
 
   .msg-assistant.copy-done .msg-copy-hint {
     opacity: 1;
-    color: #5cb85c;
+    color: var(--success);
   }
 
   :global(.code-copy-btn) {
     position: absolute;
     top: 8px;
     right: 8px;
-    background: #2a2924;
-    border: 1px solid #3e3c37;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
     border-radius: 4px;
     padding: 4px 6px;
     cursor: pointer;
-    color: #908b81;
+    color: var(--text-muted);
     opacity: 0;
     transition: opacity 0.2s;
   }
 
   :global(pre:hover .code-copy-btn) { opacity: 1; }
-  :global(.code-copy-btn:hover) { color: #e8e5de; }
+  :global(.code-copy-btn:hover) { color: var(--text); }
 </style>

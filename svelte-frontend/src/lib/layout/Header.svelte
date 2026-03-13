@@ -1,7 +1,25 @@
 <script>
-  import { sidebarOpen, filePanelVisible } from '../../stores/ui.js';
-  import { connected } from '../../stores/ws.js';
-  import { hasOpenFiles } from '../../stores/files.js';
+  import { sidebarOpen, filePanelVisible } from '../../stores/ui.svelte.js';
+  import { wsState } from '../../stores/ws.svelte.js';
+  import { getHasOpenFiles } from '../../stores/files.svelte.js';
+  import { themeMode, getCurrentVariant, setThemeMode } from '../../stores/theme.svelte.js';
+
+  function cycleThemeMode() {
+    const mode = themeMode.value;
+    if (mode === 'auto') setThemeMode('claude-light');
+    else if (mode === 'claude-light') setThemeMode('claude');
+    else setThemeMode('auto');
+  }
+
+  let hasOpenFiles = $derived(getHasOpenFiles());
+
+  let themeIcon = $derived(getCurrentVariant() === 'light' ? 'sun' : 'moon');
+  let themeTitle = $derived.by(() => {
+    const m = themeMode.value;
+    if (m === 'auto') return 'Theme: Auto (OS)';
+    if (m === 'claude-light') return 'Theme: Light';
+    return 'Theme: Dark';
+  });
 
   const ACCOUNT_COLORS = ['#da7756', '#5b9fd6', '#57ab5a', '#c084fc', '#f59e0b', '#ec4899'];
 
@@ -33,7 +51,7 @@
 <header class="header">
   <!-- Left: sidebar toggle + project name -->
   <div class="header-left">
-    <button class="hamburger-btn" onclick={() => sidebarOpen.update(v => !v)} title="Toggle sidebar">
+    <button class="hamburger-btn" onclick={() => sidebarOpen.value = !sidebarOpen.value} title="Toggle sidebar">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="3" y1="12" x2="21" y2="12"></line>
         <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -56,12 +74,12 @@
 
   <!-- Right: status indicators -->
   <div class="header-right">
-    {#if $hasOpenFiles}
+    {#if hasOpenFiles}
       <button
         class="header-icon-btn"
-        class:active={$filePanelVisible}
-        onclick={() => filePanelVisible.update(v => !v)}
-        title={$filePanelVisible ? 'Hide file panel' : 'Show file panel'}
+        class:active={filePanelVisible.value}
+        onclick={() => filePanelVisible.value = !filePanelVisible.value}
+        title={filePanelVisible.value ? 'Hide file panel' : 'Show file panel'}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -69,6 +87,20 @@
         </svg>
       </button>
     {/if}
+    <button class="header-icon-btn theme-toggle" onclick={cycleThemeMode} title={themeTitle}>
+      {#if themeIcon === 'sun'}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      {:else}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      {/if}
+      {#if themeMode.value === 'auto'}
+        <span class="theme-auto-badge">A</span>
+      {/if}
+    </button>
     {#if clientCount > 0}
       <span class="client-count" title="{clientCount} client{clientCount !== 1 ? 's' : ''} connected">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -78,9 +110,9 @@
         {clientCount}
       </span>
     {/if}
-    <span class="connection-status" class:connected={$connected} title={$connected ? 'Connected' : 'Disconnected'}>
+    <span class="connection-status" class:connected={wsState.connected} title={wsState.connected ? 'Connected' : 'Disconnected'}>
       <span class="status-dot"></span>
-      <span class="status-label">{$connected ? 'Connected' : 'Offline'}</span>
+      <span class="status-label">{wsState.connected ? 'Connected' : 'Offline'}</span>
     </span>
   </div>
 </header>
@@ -92,8 +124,8 @@
     justify-content: space-between;
     height: 48px;
     padding: 0 16px;
-    background: #1e1d1a;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--code-bg);
+    border-bottom: 1px solid rgba(var(--overlay-rgb), 0.06);
     flex-shrink: 0;
     min-width: 0;
   }
@@ -112,7 +144,7 @@
     justify-content: center;
     background: none;
     border: none;
-    color: #908b81;
+    color: var(--text-muted);
     cursor: pointer;
     padding: 4px;
     flex-shrink: 0;
@@ -120,13 +152,13 @@
   }
 
   .hamburger-btn:hover {
-    color: #d4d0c8;
+    color: var(--text);
   }
 
   .header-project {
     font-size: 13px;
     font-weight: 600;
-    color: #908b81;
+    color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -150,7 +182,7 @@
   .header-title {
     font-size: 14px;
     font-weight: 500;
-    color: #d4d0c8;
+    color: var(--text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -185,7 +217,7 @@
     align-items: center;
     gap: 4px;
     font-size: 12px;
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   .connection-status {
@@ -193,24 +225,24 @@
     align-items: center;
     gap: 6px;
     font-size: 12px;
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   .connection-status.connected {
-    color: #908b81;
+    color: var(--text-muted);
   }
 
   .status-dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: #6b6760;
+    background: var(--text-dimmer);
     transition: background 0.3s, box-shadow 0.3s;
   }
 
   .connection-status.connected .status-dot {
-    background: #57ab5a;
-    box-shadow: 0 0 6px rgba(87, 171, 90, 0.4);
+    background: var(--success);
+    box-shadow: 0 0 6px var(--success-40);
   }
 
   .status-label {
@@ -232,18 +264,32 @@
     border-radius: 6px;
     border: none;
     background: none;
-    color: #6b6760;
+    color: var(--text-dimmer);
     cursor: pointer;
     padding: 0;
     transition: all 0.15s;
   }
 
   .header-icon-btn:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #d4d0c8;
+    background: rgba(var(--overlay-rgb), 0.06);
+    color: var(--text);
   }
 
   .header-icon-btn.active {
-    color: #da7756;
+    color: var(--accent);
+  }
+
+  .theme-toggle {
+    position: relative;
+  }
+
+  .theme-auto-badge {
+    position: absolute;
+    bottom: 1px;
+    right: 1px;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--accent);
   }
 </style>

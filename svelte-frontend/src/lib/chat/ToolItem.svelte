@@ -164,8 +164,8 @@
   /* ─── Full mode ─── */
   .tool-item {
     margin: 4px 0;
-    background: #2a2924;
-    border: 1px solid #3e3c37;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
     border-radius: 8px;
     cursor: pointer;
   }
@@ -187,28 +187,28 @@
     flex-shrink: 0;
   }
 
-  .tool-status.running { color: #c5a13e; }
-  .tool-status.error { color: #e5534b; }
-  .tool-status.done { color: #5cb85c; }
+  .tool-status.running { color: var(--warning); }
+  .tool-status.error { color: var(--error); }
+  .tool-status.done { color: var(--success); }
 
   .tool-spinner {
     width: 12px;
     height: 12px;
-    border: 1.5px solid rgba(197, 161, 62, 0.25);
-    border-top-color: #c5a13e;
+    border: 1.5px solid rgba(var(--warning-rgb), 0.25);
+    border-top-color: var(--warning);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
 
   .tool-name {
-    color: #d4d0c8;
+    color: var(--text);
     font-family: 'SF Mono', 'Fira Code', monospace;
     font-size: 12px;
     flex-shrink: 0;
   }
 
   .tool-subtitle {
-    color: #908b81;
+    color: var(--text-muted);
     font-size: 12px;
     font-style: italic;
     overflow: hidden;
@@ -220,20 +220,20 @@
 
   .tool-running {
     font-size: 11px;
-    color: #c5a13e;
+    color: var(--warning);
     animation: pulse 1.5s ease-in-out infinite;
     flex-shrink: 0;
   }
 
   .tool-expand {
     margin-left: auto;
-    color: #6d6860;
+    color: var(--text-dimmer);
     font-size: 11px;
     flex-shrink: 0;
   }
 
   .tool-details {
-    border-top: 1px solid #3e3c37;
+    border-top: 1px solid var(--border);
     padding: 8px 12px;
   }
 
@@ -241,7 +241,7 @@
 
   .tool-section-label {
     font-size: 10px;
-    color: #6d6860;
+    color: var(--text-dimmer);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 4px;
@@ -249,8 +249,8 @@
 
   .tool-pre {
     font-size: 11px;
-    color: #908b81;
-    background: #1a1918;
+    color: var(--text-muted);
+    background: var(--bg-deeper);
     padding: 8px;
     border-radius: 4px;
     overflow-x: auto;
@@ -263,7 +263,7 @@
   /* ─── Subagent log ─── */
   .subagent-log {
     margin: 0 12px 6px 34px;
-    border-left: 2px solid #3e3c37;
+    border-left: 2px solid var(--border);
     padding-left: 10px;
     max-height: 80px;
     overflow-y: auto;
@@ -281,19 +281,19 @@
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: #6d6860;
+    background: var(--text-dimmer);
     flex-shrink: 0;
   }
 
   .subagent-tool-name {
-    color: #908b81;
+    color: var(--text-muted);
     font-weight: 600;
     font-size: 11px;
     flex-shrink: 0;
   }
 
   .subagent-subtitle {
-    color: #6d6860;
+    color: var(--text-dimmer);
     font-family: 'SF Mono', 'Fira Code', monospace;
     font-size: 10px;
     overflow: hidden;
@@ -310,7 +310,7 @@
     padding: 3px 10px;
     margin: 1px 0;
     font-size: 11px;
-    color: #5a5650;
+    color: var(--text-dimmer);
     border-radius: 6px;
   }
 
@@ -326,17 +326,17 @@
   .cp-tool-spinner {
     width: 10px;
     height: 10px;
-    border: 1.5px solid rgba(218, 119, 86, 0.25);
-    border-top-color: #da7756;
+    border: 1.5px solid var(--accent-25);
+    border-top-color: var(--accent);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
 
   .cp-tool { cursor: pointer; }
-  .cp-tool:hover { background: rgba(255, 255, 255, 0.03); }
+  .cp-tool:hover { background: rgba(var(--overlay-rgb), 0.03); }
   .cp-tool-name { font-weight: 500; flex-shrink: 0; }
   .cp-tool-subtitle {
-    color: #4a4843;
+    color: var(--border);
     font-style: italic;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -345,15 +345,15 @@
     flex: 1;
   }
   .cp-tool-chevron {
-    color: #4a4843;
+    color: var(--border);
     font-size: 9px;
     flex-shrink: 0;
     margin-left: auto;
   }
-  .cp-tool-running { color: #da7756; }
-  .cp-tool-done { color: #4a4843; }
-  .cp-tool-done .cp-tool-indicator { color: #57AB5A; }
-  .cp-tool-error { color: #E5534B; }
+  .cp-tool-running { color: var(--accent); }
+  .cp-tool-done { color: var(--border); }
+  .cp-tool-done .cp-tool-indicator { color: var(--success); }
+  .cp-tool-error { color: var(--error); }
 
   .cp-tool-details {
     margin: 2px 10px 4px 10px;
@@ -361,8 +361,8 @@
 
   .cp-tool-output {
     font-size: 10px;
-    color: #908b81;
-    background: #1a1918;
+    color: var(--text-muted);
+    background: var(--bg-deeper);
     padding: 6px 8px;
     border-radius: 4px;
     overflow-x: auto;
@@ -371,13 +371,13 @@
     white-space: pre-wrap;
     word-break: break-all;
     margin: 0;
-    border: 1px solid #3e3c37;
+    border: 1px solid var(--border);
   }
 
   /* ─── Compact subtools ─── */
   .cp-subtools {
     margin: 1px 0 2px 24px;
-    border-left: 1.5px solid #3e3c37;
+    border-left: 1.5px solid var(--border);
     padding-left: 8px;
     max-height: 70px;
     overflow-y: auto;
@@ -395,18 +395,18 @@
     width: 3px;
     height: 3px;
     border-radius: 50%;
-    background: #5a5650;
+    background: var(--text-dimmer);
     flex-shrink: 0;
   }
 
   .cp-subtool-name {
-    color: #6d6860;
+    color: var(--text-dimmer);
     font-weight: 600;
     flex-shrink: 0;
   }
 
   .cp-subtool-text {
-    color: #4a4843;
+    color: var(--border);
     font-family: 'SF Mono', 'Fira Code', monospace;
     font-size: 9px;
     overflow: hidden;
@@ -417,7 +417,7 @@
 
   .cp-subtool-more {
     font-size: 9px;
-    color: #4a4843;
+    color: var(--border);
     padding: 1px 0;
   }
 

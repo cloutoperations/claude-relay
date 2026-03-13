@@ -50,14 +50,14 @@
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: #908b81;
+    background: var(--text-muted);
     animation: bounce 1.4s ease-in-out infinite;
   }
 
   .compact .dot {
     width: 6px;
     height: 6px;
-    background: #5a5650;
+    background: var(--text-dimmer);
     animation: cp-bounce 1.4s ease-in-out infinite;
   }
 
@@ -79,14 +79,14 @@
 
   .thinking-label {
     font-size: 12px;
-    color: #6d6860;
+    color: var(--text-dimmer);
   }
 
   .thinking-text {
     margin-top: 8px;
     font-size: 12px;
-    color: #908b81;
-    background: #1a1918;
+    color: var(--text-muted);
+    background: var(--bg-deeper);
     padding: 8px 12px;
     border-radius: 6px;
     max-height: 200px;

@@ -1,8 +1,8 @@
 <script>
-  import { toggleMinimize, closePopup, sendPopupMessage, sendPopupPermissionResponse, stopPopupProcessing } from '../../stores/popups.js';
-  import { promotePopupToTab } from '../../stores/tabs.js';
-  import { sessions } from '../../stores/sessions.js';
-  import { projectInfo } from '../../stores/chat.js';
+  import { toggleMinimize, closePopup, sendPopupMessage, sendPopupPermissionResponse, stopPopupProcessing } from '../../stores/popups.svelte.js';
+  import { promotePopupToTab } from '../../stores/tabs.svelte.js';
+  import { sessionList as sessions } from '../../stores/sessions.svelte.js';
+  import { projectInfo } from '../../stores/chat.svelte.js';
   import MessageList from '../chat/MessageList.svelte';
   import InputArea from '../chat/InputArea.svelte';
 
@@ -10,8 +10,8 @@
 
   let { popup } = $props();
 
-  let accounts = $derived($projectInfo.accounts || []);
-  let sessionData = $derived($sessions.find(s => s.id === popup.sessionId));
+  let accounts = $derived(projectInfo.accounts || []);
+  let sessionData = $derived(sessions.find(s => s.id === popup.sessionId));
   let accountColor = $derived.by(() => {
     if (accounts.length < 2 || !sessionData?.accountId) return null;
     const idx = accounts.findIndex(a => a.id === sessionData.accountId);

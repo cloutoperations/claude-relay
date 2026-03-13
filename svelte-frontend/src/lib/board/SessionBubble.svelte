@@ -1,7 +1,7 @@
 <script>
-  import { openPopup } from '../../stores/popups.js';
-  import { activeSessionId, leaveSession } from '../../stores/sessions.js';
-  import { sidebarOpen } from '../../stores/ui.js';
+  import { openPopup } from '../../stores/popups.svelte.js';
+  import { activeSessionId, leaveSession } from '../../stores/sessions.svelte.js';
+  import { sidebarOpen } from '../../stores/ui.svelte.js';
 
   let {
     session,
@@ -18,9 +18,9 @@
 
   function handleClick(e) {
     e.stopPropagation();
-    if ($activeSessionId) leaveSession();
+    if (activeSessionId.value) leaveSession();
     openPopup(session.id, session.title || 'Session');
-    if (window.innerWidth < 1024) sidebarOpen.set(false);
+    if (window.innerWidth < 1024) sidebarOpen.value = false;
   }
 
   function handleContextMenu(e) {
@@ -68,7 +68,7 @@
   }
 
   .session-bubble.processing {
-    background: #da7756;
+    background: var(--accent);
     animation: pulse 1.5s ease-in-out infinite;
   }
 
@@ -77,7 +77,7 @@
   }
 
   .session-bubble.stale {
-    background: #6b6760;
+    background: var(--text-dimmer);
   }
 
   @keyframes pulse {

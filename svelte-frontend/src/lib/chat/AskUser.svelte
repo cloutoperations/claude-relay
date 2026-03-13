@@ -1,5 +1,5 @@
 <script>
-  import { send } from '../../stores/ws.js';
+  import { send } from '../../stores/ws.svelte.js';
 
   let { requestId, question = '', answered = false } = $props();
   let response = $state('');
@@ -43,14 +43,14 @@
 <style>
   .ask-user {
     margin: 8px 0;
-    background: #2a2924;
+    background: var(--bg-alt);
     border: 1px solid #4a90d9;
     border-radius: 8px;
     padding: 12px;
   }
 
   .ask-user.answered {
-    border-color: #3e3c37;
+    border-color: var(--border);
     opacity: 0.7;
   }
 
@@ -77,12 +77,12 @@
   .ask-title {
     font-size: 13px;
     font-weight: 600;
-    color: #e8e5de;
+    color: var(--text);
   }
 
   .ask-question {
     font-size: 14px;
-    color: #d4d0c8;
+    color: var(--text);
     margin-bottom: 10px;
     line-height: 1.5;
   }
@@ -95,10 +95,10 @@
   .ask-input {
     flex: 1;
     padding: 8px 12px;
-    background: #1a1918;
-    border: 1px solid #3e3c37;
+    background: var(--bg-deeper);
+    border: 1px solid var(--border);
     border-radius: 6px;
-    color: #e8e5de;
+    color: var(--text);
     font-size: 13px;
     outline: none;
   }
@@ -123,7 +123,7 @@
 
   .ask-answered {
     font-size: 12px;
-    color: #6d6860;
+    color: var(--text-dimmer);
     font-style: italic;
   }
 </style>

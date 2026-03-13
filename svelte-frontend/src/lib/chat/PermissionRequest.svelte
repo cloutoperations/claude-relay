@@ -1,5 +1,5 @@
 <script>
-  import { send } from '../../stores/ws.js';
+  import { send } from '../../stores/ws.svelte.js';
 
   let {
     requestId,
@@ -91,14 +91,14 @@
   /* ─── Full mode ─── */
   .permission-request {
     margin: 8px 0;
-    background: #2a2924;
-    border: 1px solid #c5a13e;
+    background: var(--bg-alt);
+    border: 1px solid var(--warning);
     border-radius: 8px;
     padding: 12px;
   }
 
   .permission-request.resolved {
-    border-color: #3e3c37;
+    border-color: var(--border);
     opacity: 0.7;
   }
 
@@ -109,25 +109,25 @@
     margin-bottom: 8px;
   }
 
-  .perm-icon { color: #c5a13e; display: flex; }
+  .perm-icon { color: var(--warning); display: flex; }
 
   .perm-title {
     font-size: 13px;
     font-weight: 600;
-    color: #e8e5de;
+    color: var(--text);
   }
 
   .perm-tool {
     font-family: 'SF Mono', 'Fira Code', monospace;
     font-size: 12px;
-    color: #da7756;
+    color: var(--accent);
     margin-bottom: 8px;
   }
 
   .perm-input {
     font-size: 11px;
-    color: #908b81;
-    background: #1a1918;
+    color: var(--text-muted);
+    background: var(--bg-deeper);
     padding: 8px;
     border-radius: 4px;
     overflow-x: auto;
@@ -143,34 +143,34 @@
   .perm-btn {
     padding: 6px 16px;
     border-radius: 6px;
-    border: 1px solid #3e3c37;
-    background: #35332f;
-    color: #d4d0c8;
+    border: 1px solid var(--border);
+    background: var(--bg-alt);
+    color: var(--text);
     font-size: 13px;
     cursor: pointer;
   }
 
-  .perm-btn.allow { background: #2d4a2d; border-color: #5cb85c; color: #5cb85c; }
-  .perm-btn.deny { background: #4a2d2d; border-color: #e5534b; color: #e5534b; }
+  .perm-btn.allow { background: #2d4a2d; border-color: var(--success); color: var(--success); }
+  .perm-btn.deny { background: #4a2d2d; border-color: var(--error); color: var(--error); }
   .perm-btn:hover { filter: brightness(1.2); }
 
   .perm-resolved {
     font-size: 12px;
-    color: #6d6860;
+    color: var(--text-dimmer);
     font-style: italic;
   }
 
   /* ─── Compact mode ─── */
   .cp-permission-block {
     padding: 10px 12px;
-    border: 1px solid rgba(218, 119, 86, 0.25);
+    border: 1px solid var(--accent-25);
     border-radius: 10px;
-    background: rgba(218, 119, 86, 0.04);
+    background: rgba(var(--accent-rgb), 0.04);
     margin: 4px 0;
   }
 
   .cp-permission-block.resolved {
-    border-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(var(--overlay-rgb), 0.06);
     background: none;
     opacity: 0.6;
   }
@@ -181,7 +181,7 @@
     gap: 6px;
     font-size: 11px;
     font-weight: 600;
-    color: #da7756;
+    color: var(--accent);
     margin-bottom: 6px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -190,13 +190,13 @@
   .cp-perm-tool {
     font-size: 12px;
     font-weight: 500;
-    color: #c8c3b8;
+    color: var(--text-secondary);
     margin-bottom: 8px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-family: 'SF Mono', Menlo, monospace;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--overlay-rgb), 0.03);
     padding: 4px 8px;
     border-radius: 4px;
   }
@@ -215,17 +215,17 @@
     transition: all 0.15s;
   }
 
-  .cp-perm-btn.allow { background: #57AB5A; color: white; }
+  .cp-perm-btn.allow { background: var(--success); color: white; }
   .cp-perm-btn.allow:hover { background: #63bc66; }
-  .cp-perm-btn.deny { background: rgba(255, 255, 255, 0.06); color: #908B81; }
-  .cp-perm-btn.deny:hover { background: rgba(255, 255, 255, 0.1); color: #c8c3b8; }
+  .cp-perm-btn.deny { background: rgba(var(--overlay-rgb), 0.06); color: var(--text-muted); }
+  .cp-perm-btn.deny:hover { background: rgba(var(--overlay-rgb), 0.1); color: var(--text-secondary); }
 
   .cp-perm-resolved {
     display: flex;
     align-items: center;
     gap: 5px;
     font-size: 11px;
-    color: #5a5650;
+    color: var(--text-dimmer);
     font-weight: 500;
   }
 </style>

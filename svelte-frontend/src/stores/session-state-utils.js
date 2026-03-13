@@ -230,6 +230,8 @@ export function processBufferedEvent(buf, msg, t) {
         break;
       }
     }
+  } else if (t === 'rate_limit') {
+    buf.msgs.push({ type: 'system', text: 'Rate limited: ' + (msg.text || 'API rate limit reached'), isError: true, isRateLimit: true });
   } else if (t === 'error') {
     buf.msgs.push({ type: 'system', text: msg.text || msg.error || msg.message || 'Unknown error', isError: true });
   } else if (t === 'compact_boundary') {
@@ -382,6 +384,14 @@ export function processLiveEvent(state, msg, t) {
         ? { ...m, answered: true }
         : m
     );
+  } else if (t === 'rate_limit') {
+    state.rateLimited = true;
+    state.rateLimitText = msg.text || 'API rate limit reached';
+    state.messages = [...state.messages, {
+      type: 'system', text: 'Rate limited: ' + (msg.text || 'API rate limit reached'), isError: true, isRateLimit: true,
+    }];
+    // Auto-clear rate limit indicator after 60s
+    setTimeout(() => { state.rateLimited = false; state.rateLimitText = ''; }, 60000);
   } else if (t === 'error') {
     if (state.isStreaming && state.currentText) {
       state.messages = finishAssistantInArray(state.messages, state.currentText);

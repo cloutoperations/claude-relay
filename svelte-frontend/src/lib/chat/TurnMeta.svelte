@@ -16,7 +16,7 @@
 <style>
   .turn-meta {
     font-size: 12px;
-    color: #6d6860;
+    color: var(--text-dimmer);
     padding: 2px 0;
     margin: 4px 0 16px;
   }

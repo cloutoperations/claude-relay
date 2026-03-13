@@ -1,17 +1,10 @@
 <script>
-  import { tasks as globalTasks } from '../../stores/chat.js';
+  import { tasks as globalTasks } from '../../stores/chat.svelte.js';
 
   let { compact = false, items = null } = $props();
 
   // Use provided items (popup) or fall back to global store (main chat)
-  let taskList = $state([]);
-  if (items == null) {
-    globalTasks.subscribe(v => { taskList = v; });
-  }
-  // Reactive update when items prop changes
-  $effect(() => {
-    if (items != null) taskList = items;
-  });
+  let taskList = $derived(items != null ? items : globalTasks);
 
   let stats = $derived.by(() => {
     let completed = 0;
@@ -82,8 +75,8 @@
 <style>
   .task-widget {
     margin: 6px 0;
-    background: #2a2924;
-    border: 1px solid #3e3c37;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
     border-radius: 10px;
     cursor: pointer;
     overflow: hidden;
@@ -95,12 +88,12 @@
     gap: 8px;
     padding: 10px 14px;
     font-size: 13px;
-    color: #d4d0c8;
+    color: var(--text);
   }
 
   .task-icon {
     display: flex;
-    color: #5cb85c;
+    color: var(--success);
     flex-shrink: 0;
   }
 
@@ -112,23 +105,23 @@
   .task-count {
     margin-left: auto;
     font-size: 12px;
-    color: #908b81;
+    color: var(--text-muted);
     font-family: 'SF Mono', 'Fira Code', monospace;
   }
 
   .task-chevron {
-    color: #6d6860;
+    color: var(--text-dimmer);
     font-size: 11px;
   }
 
   .task-progress {
     height: 2px;
-    background: #1a1918;
+    background: var(--bg-deeper);
   }
 
   .task-progress-bar {
     height: 100%;
-    background: #5cb85c;
+    background: var(--success);
     transition: width 0.3s ease;
     border-radius: 1px;
   }
@@ -147,8 +140,8 @@
     gap: 10px;
     padding: 7px 14px;
     font-size: 13px;
-    color: #c8c3b8;
-    border-top: 1px solid #2e2c27;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--bg-alt);
   }
 
   .task-item:first-child {
@@ -164,17 +157,17 @@
     flex-shrink: 0;
   }
 
-  .task-item.pending .task-item-icon { color: #6d6860; }
-  .task-item.in-progress .task-item-icon { color: #c5a13e; }
-  .task-item.completed .task-item-icon { color: #5cb85c; }
+  .task-item.pending .task-item-icon { color: var(--text-dimmer); }
+  .task-item.in-progress .task-item-icon { color: var(--warning); }
+  .task-item.completed .task-item-icon { color: var(--success); }
 
   .task-item.completed .task-item-text {
     text-decoration: line-through;
-    color: #6d6860;
+    color: var(--text-dimmer);
   }
 
   .task-item.in-progress .task-item-text {
-    color: #e8e5de;
+    color: var(--text);
   }
 
   .task-item-text {
@@ -185,8 +178,8 @@
   .task-spinner {
     width: 14px;
     height: 14px;
-    border: 1.5px solid rgba(197, 161, 62, 0.25);
-    border-top-color: #c5a13e;
+    border: 1.5px solid rgba(var(--warning-rgb), 0.25);
+    border-top-color: var(--warning);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
   }
