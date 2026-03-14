@@ -246,7 +246,7 @@
               class="session-item"
               class:active={activeSessionId.value === session.id}
               onclick={() => { if (renamingId !== session.id) handleSessionClick(session.id); }}
-              ondblclick={() => startRename(session.id, session.title)}
+              ondblclick={(e) => { e.preventDefault(); startRename(session.id, session.title); }}
               oncontextmenu={(e) => handleSessionContext(e, session.id)}
               title={renamingId === session.id ? '' : (session.title || 'Untitled')}
             >

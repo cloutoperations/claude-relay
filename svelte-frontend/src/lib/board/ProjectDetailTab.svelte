@@ -55,11 +55,7 @@
   }
 
   function handleSessionClick(e, session) {
-    if (e.shiftKey) {
-      openTab(session.id, session.title || 'Session');
-    } else {
-      openTab(session.id, session.title || 'Session');
-    }
+    openTab(session.id, session.title || 'Session');
   }
 
   function openAreaTab(areaName) {

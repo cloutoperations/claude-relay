@@ -22,13 +22,18 @@
     function handleEsc(e) {
       if (e.key === 'Escape') onClose();
     }
-    setTimeout(() => {
+    let attached = false;
+    const timer = setTimeout(() => {
       document.addEventListener('click', handleClickOutside);
       document.addEventListener('keydown', handleEsc);
+      attached = true;
     }, 10);
     return () => {
-      document.removeEventListener('click', handleClickOutside);
-      document.removeEventListener('keydown', handleEsc);
+      clearTimeout(timer);
+      if (attached) {
+        document.removeEventListener('click', handleClickOutside);
+        document.removeEventListener('keydown', handleEsc);
+      }
     };
   });
 

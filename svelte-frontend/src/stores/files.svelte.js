@@ -92,7 +92,7 @@ export function routeFileMessage(msg) {
       clearTimeout(pendingReads.get(msg.path));
       pendingReads.delete(msg.path);
     }
-    fileLoading.value = false;
+    if (pendingReads.size === 0) fileLoading.value = false;
     const fileData = msg.error
       ? { path: msg.path, error: msg.error }
       : { path: msg.path, content: msg.content || null, binary: msg.binary || false, imageUrl: msg.imageUrl || null, size: msg.size || 0 };
@@ -157,7 +157,8 @@ export function openFile(filePath) {
     pendingReads.delete(filePath);
     const idx = openFiles.findIndex(f => f.path === filePath && f.loading);
     if (idx >= 0) openFiles[idx] = { path: filePath, error: 'Request timed out — server did not respond' };
-    fileLoading.value = false;
+    // Only clear global loading if no other files are pending
+    if (pendingReads.size === 0) fileLoading.value = false;
   }, 10000));
 }
 
