@@ -2,6 +2,7 @@
 // Tabs and popups derive from this. Rekey happens in one place.
 
 import { processBufferedEvent, processLiveEvent, finishAssistantInArray } from './session-state-utils.js';
+import { cacheSession, getCachedSession, removeCachedSession } from './message-cache.js';
 
 // Stale tabs — need lazy-replay when user clicks them
 export let staleTabs = $state(new Set());
@@ -77,12 +78,30 @@ export function ensureSession(sessionId, seedState) {
   return sessions[sessionId];
 }
 
+// --- Try restoring from IndexedDB cache ---
+
+export async function restoreFromCache(sessionId) {
+  const cached = await getCachedSession(sessionId);
+  if (!cached || !cached.messages || cached.messages.length === 0) return false;
+
+  const state = sessions[sessionId];
+  if (!state) return false;
+
+  state.messages = cached.messages;
+  state.tasks = cached.tasks || [];
+  state.historyFrom = cached.historyFrom || 0;
+  state.historyTotal = cached.historyTotal || 0;
+  state.loadingHistory = false;
+  return true;
+}
+
 // --- Remove session state ---
 
 export function removeSessionState(sessionId) {
   delete sessions[sessionId];
   delete replayBuffers[sessionId];
   delete rekeyMap[sessionId];
+  removeCachedSession(sessionId);
   staleTabs.delete(sessionId);
 }
 
@@ -121,6 +140,16 @@ export function finishHistoryReplay(sessionId) {
   }
 
   delete replayBuffers[sessionId];
+
+  // Cache to IndexedDB for instant restore
+  if (state) {
+    cacheSession(sessionId, {
+      messages: state.messages,
+      tasks: state.tasks,
+      historyFrom: state.historyFrom,
+      historyTotal: state.historyTotal,
+    });
+  }
 }
 
 // --- Prepend earlier history (from load_more_history response) ---
@@ -143,6 +172,14 @@ export function prependHistory(sessionId, items, meta) {
   state.messages = [...buf.msgs, ...state.messages];
   state.historyFrom = meta.from;
   state.loadingEarlier = false;
+
+  // Update cache
+  cacheSession(sessionId, {
+    messages: state.messages,
+    tasks: state.tasks,
+    historyFrom: state.historyFrom,
+    historyTotal: state.historyTotal,
+  });
 }
 
 // --- Route a single message to the correct session ---

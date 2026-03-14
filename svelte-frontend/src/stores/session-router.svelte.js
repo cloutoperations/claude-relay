@@ -5,7 +5,7 @@ import { wsState, send, setOnMessage } from './ws.svelte.js';
 import {
   sessions as sessionStates, resolveSessionId, rekeySession,
   ensureSession, removeSessionState, replayBuffers, staleTabs,
-  startHistoryReplay, finishHistoryReplay, routeToSession, prependHistory,
+  startHistoryReplay, finishHistoryReplay, routeToSession, prependHistory, restoreFromCache,
 } from './session-state.svelte.js';
 import {
   tabs, activeTabId, tabOrder, getTabSessionIds, onTabRekey,
@@ -375,21 +375,28 @@ function restoreTabsOnFirstConnect() {
       }
     }
 
-    // Send tab_subscribe one at a time with delays to avoid server blocking
+    // Try IndexedDB cache first, fall back to server replay
     let delay = 0;
     for (const sessionId of replayQueue) {
-      setTimeout(() => {
-        send({ type: 'tab_subscribe', sessionId });
-        // Safety net: if history replay never completes, clear loadingHistory
-        setTimeout(() => {
-          const ss = sessionStates[sessionId];
-          if (ss?.loadingHistory) {
-            console.warn('[restore] Safety net: clearing stuck loadingHistory for', sessionId.substring(0, 12));
-            ss.loadingHistory = false;
-          }
-        }, 15000);
+      setTimeout(async () => {
+        const restored = await restoreFromCache(sessionId);
+        if (restored) {
+          console.log('[restore] Loaded from cache:', sessionId.substring(0, 12));
+          // Still register with server for live updates (skip history)
+          send({ type: 'tab_subscribe', sessionId, skip_history: true });
+        } else {
+          send({ type: 'tab_subscribe', sessionId });
+          // Safety net: if history replay never completes, clear loadingHistory
+          setTimeout(() => {
+            const ss = sessionStates[sessionId];
+            if (ss?.loadingHistory) {
+              console.warn('[restore] Safety net: clearing stuck loadingHistory for', sessionId.substring(0, 12));
+              ss.loadingHistory = false;
+            }
+          }, 15000);
+        }
       }, delay);
-      delay += 2000; // 2s between each replay
+      delay += 500; // Faster with cache — only 500ms stagger
     }
   }, 300);
 }

@@ -139,6 +139,9 @@
 
   let messagesEl = $state(null);
   let isUserScrolledUp = false;
+  let prevMessageCount = 0;
+  let sentinelEl = $state(null);
+  let loadEarlierDebounce = null;
 
   function scrollToBottom() {
     if (!messagesEl || isUserScrolledUp) return;
@@ -154,25 +157,41 @@
     isUserScrolledUp = !atBottom;
   }
 
+  // Preserve scroll position when messages are prepended (earlier history loaded)
+  $effect(() => {
+    const count = messages.length;
+    if (count > prevMessageCount && prevMessageCount > 0 && isUserScrolledUp && messagesEl) {
+      // Messages were added — if user was scrolled up, they were prepended
+      // Save scroll height before DOM updates, restore after
+      const oldHeight = messagesEl.scrollHeight;
+      requestAnimationFrame(() => {
+        if (messagesEl) {
+          const newHeight = messagesEl.scrollHeight;
+          messagesEl.scrollTop += (newHeight - oldHeight);
+        }
+      });
+    }
+    prevMessageCount = count;
+  });
+
   // Reset scroll state when loading new session history
   $effect(() => {
     if (loadingHistory) {
       isUserScrolledUp = false;
+      prevMessageCount = 0;
     }
   });
 
   // Scroll to bottom when history finishes loading
   $effect(() => {
-    if (!loadingHistory && messages.length > 0) {
-      isUserScrolledUp = false;
-      // Use setTimeout to ensure DOM has rendered all items
+    if (!loadingHistory && messages.length > 0 && !isUserScrolledUp) {
       setTimeout(() => {
         if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
       }, 50);
     }
   });
 
-  // Auto-scroll on new messages (during live streaming)
+  // Auto-scroll on new messages (during live streaming) — only if at bottom
   $effect(() => {
     messages; // subscribe
     scrollToBottom();
@@ -180,6 +199,20 @@
 
   $effect(() => {
     if (thinking.active) scrollToBottom();
+  });
+
+  // Intersection observer — auto-load earlier when scrolled to top
+  $effect(() => {
+    if (!sentinelEl || !hasEarlier || !onLoadEarlier || compact) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting && !loadingEarlier) {
+        // Debounce to avoid rapid-fire requests
+        if (loadEarlierDebounce) clearTimeout(loadEarlierDebounce);
+        loadEarlierDebounce = setTimeout(() => onLoadEarlier(), 300);
+      }
+    }, { root: messagesEl, threshold: 0 });
+    observer.observe(sentinelEl);
+    return () => observer.disconnect();
   });
 </script>
 
@@ -195,9 +228,14 @@
   {/if}
 
   {#if hasEarlier && onLoadEarlier}
-    <button class="load-earlier" onclick={onLoadEarlier} disabled={loadingEarlier}>
-      {loadingEarlier ? 'Loading...' : 'Load earlier messages from server'}
-    </button>
+    <!-- Sentinel for intersection observer — triggers auto-load on scroll -->
+    <div class="load-earlier-sentinel" bind:this={sentinelEl}></div>
+    {#if loadingEarlier}
+      <div class="loading-earlier">
+        <div class="loading-dots"><span></span><span></span><span></span></div>
+        <span>Loading earlier messages...</span>
+      </div>
+    {/if}
   {/if}
 
   {#if hiddenCount > 0}
@@ -296,6 +334,21 @@
     width: 100%;
     align-self: center;
     box-sizing: border-box;
+  }
+
+  .load-earlier-sentinel {
+    height: 1px;
+    width: 100%;
+  }
+
+  .loading-earlier {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    color: var(--text-dimmer);
+    font-size: 11px;
   }
 
   .load-earlier {
