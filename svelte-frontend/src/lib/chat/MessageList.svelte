@@ -17,8 +17,11 @@
     activity = null,
     thinking = { active: false, text: '' },
     loadingHistory = false,
+    loadingEarlier = false,
+    hasEarlier = false,
     compact = false,
     onPermissionRespond = null,
+    onLoadEarlier = null,
     shouldCollapseTool = null,
     taskItems = null,
   } = $props();
@@ -191,9 +194,15 @@
     </div>
   {/if}
 
+  {#if hasEarlier && onLoadEarlier}
+    <button class="load-earlier" onclick={onLoadEarlier} disabled={loadingEarlier}>
+      {loadingEarlier ? 'Loading...' : 'Load earlier messages from server'}
+    </button>
+  {/if}
+
   {#if hiddenCount > 0}
     <button class="load-earlier" onclick={loadAllMessages}>
-      Load {hiddenCount} earlier messages
+      Show {hiddenCount} more (already loaded)
     </button>
   {/if}
 

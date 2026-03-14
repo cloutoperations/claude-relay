@@ -33,6 +33,9 @@ export function createSessionState(sessionId, seedState) {
     status: seedState?.processing ? 'processing' : 'idle',
     rateLimited: false,
     rateLimitText: '',
+    historyFrom: 0,      // first history index loaded (0 = from beginning)
+    historyTotal: 0,     // total history entries on server
+    loadingEarlier: false,
   };
 }
 
@@ -85,11 +88,13 @@ export function removeSessionState(sessionId) {
 
 // --- History replay ---
 
-export function startHistoryReplay(sessionId) {
+export function startHistoryReplay(sessionId, from, total) {
   replayBuffers[sessionId] = { msgs: [], tasks: [], isStreaming: false, currentText: '' };
   const state = sessions[sessionId];
   if (state) {
     state.messages = [];
+    if (typeof from === 'number') state.historyFrom = from;
+    if (typeof total === 'number') state.historyTotal = total;
     state.loadingHistory = true;
   }
 }
@@ -116,6 +121,28 @@ export function finishHistoryReplay(sessionId) {
   }
 
   delete replayBuffers[sessionId];
+}
+
+// --- Prepend earlier history (from load_more_history response) ---
+
+export function prependHistory(sessionId, items, meta) {
+  const state = sessions[sessionId];
+  if (!state) return;
+
+  // Process items through the buffered event handler to build message objects
+  const buf = { msgs: [], tasks: [], isStreaming: false, currentText: '' };
+  for (const item of items) {
+    processBufferedEvent(buf, item, item.type);
+  }
+  // Finalize any trailing stream
+  if (buf.isStreaming && buf.currentText) {
+    buf.msgs = finishAssistantInArray(buf.msgs, buf.currentText);
+  }
+
+  // Prepend to existing messages
+  state.messages = [...buf.msgs, ...state.messages];
+  state.historyFrom = meta.from;
+  state.loadingEarlier = false;
 }
 
 // --- Route a single message to the correct session ---

@@ -5,7 +5,7 @@ import { wsState, send, setOnMessage } from './ws.svelte.js';
 import {
   sessions as sessionStates, resolveSessionId, rekeySession,
   ensureSession, removeSessionState, replayBuffers, staleTabs,
-  startHistoryReplay, finishHistoryReplay, routeToSession,
+  startHistoryReplay, finishHistoryReplay, routeToSession, prependHistory,
 } from './session-state.svelte.js';
 import {
   tabs, activeTabId, tabOrder, getTabSessionIds, onTabRekey,
@@ -61,7 +61,7 @@ function handleIncoming(msg) {
         console.warn('[router] history_start dropped — no session state for', msg.sessionId?.substring(0, 12), 'resolved:', sessionId?.substring(0, 12));
         return;
       }
-      startHistoryReplay(sessionId);
+      startHistoryReplay(sessionId, msg.from, msg.total);
       return;
     }
 
@@ -73,6 +73,15 @@ function handleIncoming(msg) {
       }
       console.log('[router] history_done OK for', sessionId.substring(0, 12));
       finishHistoryReplay(sessionId);
+      return;
+    }
+
+    // --- History prepend (load more earlier messages) ---
+    if (t === 'history_prepend') {
+      const sessionId = msg.sessionId ? resolveSessionId(msg.sessionId) : null;
+      if (sessionId && sessionStates[sessionId] && msg.items) {
+        prependHistory(sessionId, msg.items, msg.meta || {});
+      }
       return;
     }
 

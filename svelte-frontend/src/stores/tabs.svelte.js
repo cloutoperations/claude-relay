@@ -185,6 +185,13 @@ export function stopTab(sessionId) {
   send({ type: 'popup_stop', sessionId });
 }
 
+export function loadEarlierHistory(sessionId) {
+  const state = sessionStates[sessionId];
+  if (!state || state.loadingEarlier || state.historyFrom <= 0) return;
+  state.loadingEarlier = true;
+  send({ type: 'load_more_history', sessionId, before: state.historyFrom });
+}
+
 // Pending fork requests — session-router checks this for session_switched
 export let pendingForkRequests = $state(new Set());
 

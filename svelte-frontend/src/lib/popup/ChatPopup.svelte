@@ -95,6 +95,9 @@
       activity={sessionState?.activity || null}
       thinking={{ active: sessionState?.thinking || false, text: '' }}
       loadingHistory={sessionState?.loadingHistory || false}
+      loadingEarlier={sessionState?.loadingEarlier || false}
+      hasEarlier={sessionState?.historyFrom > 0}
+      onLoadEarlier={() => { import('../../stores/tabs.svelte.js').then(m => m.loadEarlierHistory(popup.sessionId)); }}
       compact={true}
       onPermissionRespond={handlePermissionRespond}
       taskItems={sessionState?.tasks || []}

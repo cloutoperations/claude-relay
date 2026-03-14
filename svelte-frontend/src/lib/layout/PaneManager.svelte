@@ -1,7 +1,7 @@
 <script>
   import { panes, paneLayout, activePaneId, updateRatios, splitPane, addTabToPane, moveTabToPane } from '../../stores/panes.svelte.js';
   import { tabs } from '../../stores/tabs.svelte.js';
-  import { sendTabMessage, stopTab, sendTabPermissionResponse } from '../../stores/tabs.svelte.js';
+  import { sendTabMessage, stopTab, sendTabPermissionResponse, loadEarlierHistory } from '../../stores/tabs.svelte.js';
   import { popups } from '../../stores/popups.svelte.js';
   import { sessions as sessionStates } from '../../stores/session-state.svelte.js';
   import MessageList from '../chat/MessageList.svelte';
@@ -201,6 +201,9 @@
               activity={sessionStates[pane.activeTabId]?.activity}
               thinking={{ active: sessionStates[pane.activeTabId]?.thinking, text: '' }}
               loadingHistory={sessionStates[pane.activeTabId]?.loadingHistory}
+              loadingEarlier={sessionStates[pane.activeTabId]?.loadingEarlier || false}
+              hasEarlier={sessionStates[pane.activeTabId]?.historyFrom > 0}
+              onLoadEarlier={() => loadEarlierHistory(pane.activeTabId)}
               onPermissionRespond={(reqId, decision) => handlePermissionRespond(pane.activeTabId, reqId, decision)}
               taskItems={sessionStates[pane.activeTabId]?.tasks}
             />
