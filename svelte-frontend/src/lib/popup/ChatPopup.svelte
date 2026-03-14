@@ -114,8 +114,9 @@
 
 <style>
   .chat-popup {
-    width: clamp(340px, 18vw, 440px);
-    height: 480px;
+    width: clamp(380px, 25vw, 500px);
+    height: 380px;
+    max-height: 50vh;
     display: flex;
     flex-direction: column;
     background: var(--bg-alt);

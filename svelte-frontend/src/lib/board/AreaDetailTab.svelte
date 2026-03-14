@@ -233,7 +233,7 @@
 
   .ad-content {
     padding: 20px 32px 40px;
-    max-width: 900px;
+    max-width: min(1100px, 90%);
     margin: 0 auto;
     width: 100%;
   }

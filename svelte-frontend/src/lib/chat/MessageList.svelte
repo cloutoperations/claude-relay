@@ -9,7 +9,7 @@
   import PermissionRequest from './PermissionRequest.svelte';
   import AskUser from './AskUser.svelte';
   import SearchTimeline from './SearchTimeline.svelte';
-  // ThinkingIndicator replaced by inline live-status
+  import ThinkingBlock from './ThinkingBlock.svelte';
 
   let {
     messages = [],
@@ -193,7 +193,7 @@
   {#each visibleItems as item, i (item._key || item.uuid || item.toolId || item.requestId || 'i' + i)}
     <div class="msg-item" data-key={item._key || item.toolId || item.requestId || ''}>
     {#if item.type === 'user'}
-      <UserMessage text={item.text} images={item.images} pastes={item.pastes} imageCount={item.imageCount || 0} {compact} />
+      <UserMessage text={item.text} images={item.images} pastes={item.pastes} documents={item.documents} documentCount={item.documentCount || 0} documentNames={item.documentNames} imageCount={item.imageCount || 0} {compact} />
     {:else if item.type === 'assistant'}
       <AssistantMessage text={item.text} finalized={item.finalized} {compact} />
     {:else if item.type === 'system' || item.type === 'info'}
@@ -204,8 +204,10 @@
       <ToolItem name={item.name} status={item.status} input={item.input} output={item.output} subtitle={item.subtitle} subTools={item.subTools} {compact} />
     {:else if item.type === 'task_widget'}
       <TaskWidget {compact} items={taskItems} />
+    {:else if item.type === 'thinking'}
+      <ThinkingBlock text={item.text} {compact} />
     {:else if item.type === 'turn_meta'}
-      <TurnMeta cost={item.cost} duration={item.duration} {compact} />
+      <TurnMeta cost={item.cost} duration={item.duration} usage={item.usage} {compact} />
     {:else if item.type === 'permission'}
       <PermissionRequest
         requestId={item.requestId}
@@ -342,7 +344,7 @@
   }
 
   .msg-item {
-    max-width: 900px;
+    max-width: min(1100px, 90%);
     width: 100%;
     align-self: center;
     box-sizing: border-box;

@@ -710,7 +710,7 @@
     flex: 1;
     overflow-y: auto;
     padding: 24px 32px 40px;
-    max-width: 900px;
+    max-width: min(1100px, 90%);
     margin: 0 auto;
     width: 100%;
   }

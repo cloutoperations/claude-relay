@@ -176,8 +176,9 @@ function routeGlobalMessage(msg, t) {
       slashCommands.length = 0;
       slashCommands.push(
         ...(msg.commands || [])
-          .filter(name => !builtins.has(name))
-          .map(name => ({ name, desc: 'Skill' }))
+          .map(c => typeof c === 'string' ? { name: c, desc: '' } : c)
+          .filter(c => !builtins.has(c.name))
+          .map(c => ({ name: c.name, desc: c.desc || 'Command' }))
       );
       break;
     }

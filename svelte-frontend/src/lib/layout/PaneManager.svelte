@@ -60,9 +60,12 @@
   onDestroy(() => { if (_resizeCleanup) _resizeCleanup(); });
 
   // Send/stop for session tabs in a specific pane
-  function handleSend(paneId, tabId, text) {
+  function handleSend(paneId, tabId, text, attachmentData) {
     if (tabId && !tabId.startsWith('__')) {
-      sendTabMessage(tabId, text);
+      const images = attachmentData?.images?.length > 0 ? attachmentData.images : undefined;
+      const documents = attachmentData?.documents?.length > 0 ? attachmentData.documents : undefined;
+      const pastes = attachmentData?.pastes?.length > 0 ? attachmentData.pastes : undefined;
+      sendTabMessage(tabId, text, images, pastes, documents);
     }
   }
 
@@ -218,7 +221,7 @@
           <InputArea
             sessionId={pane.activeTabId}
             processing={sessionStates[pane.activeTabId]?.processing}
-            onSend={(text) => handleSend(pane.id, pane.activeTabId, text)}
+            onSend={(text, att) => handleSend(pane.id, pane.activeTabId, text, att)}
             onStop={() => handleStop(pane.activeTabId)}
           />
         {:else if pane.activeTabId && pane.activeTabId !== '__home__'}

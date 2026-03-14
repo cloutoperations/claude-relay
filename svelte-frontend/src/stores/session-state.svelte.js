@@ -27,6 +27,7 @@ export function createSessionState(sessionId, seedState) {
     thinking: seedState?.thinking || false,
     activity: seedState?.activity || null,
     currentText: seedState?.currentText || '',
+    thinkingText: '',
     isStreaming: seedState?.isStreaming || false,
     tasks: seedState?.tasks || [],
     loadingHistory: !seedState,

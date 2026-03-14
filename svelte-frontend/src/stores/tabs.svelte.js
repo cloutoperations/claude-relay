@@ -155,8 +155,8 @@ export function updateTabTitle(sessionId, title) {
 }
 
 // Send message from a tab
-export function sendTabMessage(sessionId, text, images, pastes) {
-  if (!text && (!images || images.length === 0)) return;
+export function sendTabMessage(sessionId, text, images, pastes, documents) {
+  if (!text && (!images || images.length === 0) && (!documents || documents.length === 0)) return;
 
   const state = sessionStates[sessionId];
   if (!state) return;
@@ -168,7 +168,7 @@ export function sendTabMessage(sessionId, text, images, pastes) {
     state.currentText = '';
   }
 
-  state.messages.push({ type: 'user', text: text || '', images: images || null, pastes: pastes || null });
+  state.messages.push({ type: 'user', text: text || '', images: images || null, pastes: pastes || null, documents: documents || null });
   state.processing = true;
   state.thinking = true;
 
@@ -178,6 +178,7 @@ export function sendTabMessage(sessionId, text, images, pastes) {
   const msg = { type: 'popup_message', sessionId, text };
   if (images && images.length > 0) msg.images = images;
   if (pastes && pastes.length > 0) msg.pastes = pastes;
+  if (documents && documents.length > 0) msg.documents = documents;
   send(msg);
 }
 

@@ -904,10 +904,10 @@
 
 <style>
   .sidebar {
-    width: 320px;
+    width: 280px;
     flex-shrink: 0;
     background: var(--code-bg);
-    border-right: 1px solid rgba(var(--overlay-rgb), 0.06);
+    border-right: 1px solid rgba(var(--overlay-rgb), 0.10);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1114,7 +1114,7 @@
   /* Collapsible sections (Sessions, Files) */
   .collapse-section {
     flex-shrink: 0;
-    border-top: 1px solid rgba(var(--overlay-rgb), 0.06);
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.10);
   }
 
   .collapse-section.expanded {
@@ -1329,7 +1329,7 @@
   /* Footer */
   .sidebar-footer {
     padding: 8px;
-    border-top: 1px solid rgba(var(--overlay-rgb), 0.06);
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.10);
     flex-shrink: 0;
   }
 
@@ -1571,7 +1571,7 @@
     letter-spacing: 0.5px;
     margin: 12px 0 6px;
     padding-top: 8px;
-    border-top: 1px solid rgba(var(--overlay-rgb), 0.06);
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.10);
   }
 
   .hp-project {
@@ -1763,7 +1763,7 @@
     width: 48px;
     flex-shrink: 0;
     background: var(--code-bg);
-    border-right: 1px solid rgba(var(--overlay-rgb), 0.06);
+    border-right: 1px solid rgba(var(--overlay-rgb), 0.10);
     display: flex;
     flex-direction: column;
     align-items: center;

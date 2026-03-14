@@ -90,7 +90,7 @@
     height: 26px;
     padding: 0 12px;
     background: var(--bg-deeper);
-    border-top: 1px solid rgba(var(--overlay-rgb), 0.04);
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.10);
     font-size: 11px;
     color: var(--text-dimmer);
     flex-shrink: 0;

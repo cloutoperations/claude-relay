@@ -134,3 +134,29 @@ components        ← import from  → tabs / popups / session-state / chat / ws
 ### Settings control
 - [ ] **7.11** Server: expose `settingSources` SDK field — deferred
 - [ ] **7.12** Frontend: settings toggle in session creation — deferred
+
+## Phase 8 — Bug fixes (audit round 2)
+
+### High priority
+
+- [ ] **8.1** `panes.svelte.js` `onTabClosed()` — missing `saveState()` call. Pane layout after closing a tab is lost on refresh.
+- [ ] **8.2** `popups.svelte.js` `sendPopupMessage()` — doesn't finalize in-flight streaming assistant message before pushing user message. Corrupt partial state if user sends while Claude is mid-stream in a popup.
+- [ ] **8.3** `session-router.svelte.js` `handleSessionSwitched()` — creates tab but never calls `addTabToPane()`. New session tab appears in tab bar but pane doesn't switch to it.
+- [ ] **8.4** `session-state.svelte.js` `finishHistoryReplay()` — unconditionally sets `processing=false`, `thinking=false`. If Claude is actively working when replay finishes, processing indicator disappears. Should check server status after replay.
+
+### Medium priority
+
+- [ ] **8.5** `AreaZone.svelte` — `showTimer`/`hideTimer` setTimeout IDs never cleared on unmount. Timer leak fires on dead component state.
+- [ ] **8.6** `AreaZone.svelte` — `fetchBoardFile()` missing `.catch()`. If fetch fails, `docLoading` stays true forever.
+- [ ] **8.7** `project.js` dir watcher — `debounce` variable captured as initial `null` in closure. `stopDirWatch()` clears `null` instead of actual pending timeout ID.
+- [ ] **8.8** `sessions.js` — `fs.openSync` without `try/finally`. File descriptor leaks if `readSync`/`parse` throws.
+
+### Low priority
+
+- [ ] **8.9** `session-state.svelte.js` `rekeyMap` — entries never cleaned up in `removeSessionState()`. Accumulates forever (negligible memory).
+- [ ] **8.10** `ws.svelte.js` `send()` — silently drops messages when WS not ready. By design (reconnect re-registers), but could log a warning.
+- [ ] **8.11** `tabs.svelte.js` `sendTabMessage()` — sends `popup_message` type. Intentional (server aliases), but should use `tab_message` when server supports it.
+- [ ] **8.12** `popups.svelte.js` ↔ `tabs.svelte.js` — circular import. Works via ES hoisting but fragile.
+- [ ] **8.13** `MessageList.svelte` `{#each}` key — falls back to index `i` for system messages. DOM churn on window shift.
+- [ ] **8.14** `SearchTimeline.svelte` — stale DOM reference in setTimeout after session switch. Silent failure.
+- [ ] **8.15** `AreaZone.svelte` — unguarded `setTimeout(() => fetchBoard(), 1500)` fires after unmount.

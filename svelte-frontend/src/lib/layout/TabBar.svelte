@@ -344,7 +344,7 @@
     border-bottom: 1px solid rgba(var(--overlay-rgb), 0.06);
     flex-shrink: 0;
     min-width: 0;
-    height: 36px;
+    height: 42px;
   }
 
   /* Pane sections */
@@ -410,7 +410,7 @@
     align-items: center;
     gap: 6px;
     padding: 0 12px;
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-dimmer);
     cursor: pointer;
     white-space: nowrap;
@@ -484,8 +484,8 @@
 
   .tab-popout,
   .tab-close {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -547,7 +547,7 @@
     display: block;
     width: 100%;
     padding: 6px 12px;
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-secondary);
     background: none;
     border: none;

@@ -125,7 +125,7 @@
     height: 48px;
     padding: 0 16px;
     background: var(--code-bg);
-    border-bottom: 1px solid rgba(var(--overlay-rgb), 0.06);
+    border-bottom: 1px solid rgba(var(--overlay-rgb), 0.10);
     flex-shrink: 0;
     min-width: 0;
   }

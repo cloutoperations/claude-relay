@@ -116,7 +116,7 @@ export function processBufferedEvent(buf, msg, t) {
     if (!images && msg.imagePaths && msg.imagePaths.length > 0) {
       images = msg.imagePaths.map(p => ({ url: 'api/session-image/' + p, mediaType: 'image/png' }));
     }
-    buf.msgs.push({ type: 'user', text: msg.text || '', images, pastes: msg.pastes || null, imageCount: msg.imageCount || 0, _key: nextMsgKey() });
+    buf.msgs.push({ type: 'user', text: msg.text || '', images, pastes: msg.pastes || null, imageCount: msg.imageCount || 0, documentCount: msg.documentCount || 0, documentNames: msg.documentNames || null, _key: nextMsgKey() });
   } else if (t === 'delta' || t === 'assistant_delta') {
     const delta = msg.text || msg.delta || '';
     if (!buf.isStreaming) {
@@ -175,7 +175,7 @@ export function processBufferedEvent(buf, msg, t) {
       buf.currentText = '';
     }
     if (t === 'result' && (msg.cost != null || msg.duration != null)) {
-      buf.msgs.push({ type: 'turn_meta', _key: nextMsgKey(), cost: msg.cost, duration: msg.duration });
+      buf.msgs.push({ type: 'turn_meta', _key: nextMsgKey(), cost: msg.cost, duration: msg.duration, usage: msg.usage || null });
     }
   } else if (t === 'subagent_activity') {
     const pid = msg.parentToolId || msg.agentId;
@@ -238,6 +238,15 @@ export function processBufferedEvent(buf, msg, t) {
         break;
       }
     }
+  } else if (t === 'thinking_start') {
+    buf._thinkingText = '';
+  } else if (t === 'thinking_delta') {
+    buf._thinkingText = (buf._thinkingText || '') + (msg.text || '');
+  } else if (t === 'thinking_stop') {
+    if (buf._thinkingText) {
+      buf.msgs.push({ type: 'thinking', text: buf._thinkingText, _key: nextMsgKey() });
+    }
+    buf._thinkingText = '';
   } else if (t === 'rate_limit') {
     buf.msgs.push({ type: 'system', _key: nextMsgKey(), text: 'Rate limited: ' + (msg.text || 'API rate limit reached'), isError: true, isRateLimit: true });
   } else if (t === 'error') {
@@ -272,7 +281,7 @@ export function processLiveEvent(state, msg, t) {
     if (!liveImages && msg.imagePaths && msg.imagePaths.length > 0) {
       liveImages = msg.imagePaths.map(p => ({ url: 'api/session-image/' + p, mediaType: 'image/png' }));
     }
-    state.messages = [...state.messages, { type: 'user', text: msg.text || '', images: liveImages, pastes: msg.pastes || null, imageCount: msg.imageCount || 0, _key: nextMsgKey() }];
+    state.messages = [...state.messages, { type: 'user', text: msg.text || '', images: liveImages, pastes: msg.pastes || null, documents: msg.documents || null, imageCount: msg.imageCount || 0, documentCount: msg.documentCount || 0, documentNames: msg.documentNames || null, _key: nextMsgKey() }];
   } else if (t === 'delta' || t === 'assistant_delta') {
     state.thinking = false;
     state.activity = null;
@@ -294,10 +303,18 @@ export function processLiveEvent(state, msg, t) {
     }
   } else if (t === 'thinking_start') {
     state.thinking = true;
+    state.thinkingText = '';
   } else if (t === 'thinking_delta') {
-    // keep alive
+    state.thinkingText = (state.thinkingText || '') + (msg.text || '');
   } else if (t === 'thinking_stop') {
+    // Persist the thinking block into messages if there's content
+    if (state.thinkingText) {
+      state.messages = [...state.messages, {
+        type: 'thinking', text: state.thinkingText, _key: nextMsgKey(),
+      }];
+    }
     state.thinking = false;
+    state.thinkingText = '';
   } else if (t === 'tool_start') {
     if (state.isStreaming && state.currentText) {
       state.messages = finishAssistantInArray(state.messages, state.currentText);
@@ -344,7 +361,7 @@ export function processLiveEvent(state, msg, t) {
     }
     state.processing = false;
     if (msg.cost != null || msg.duration != null) {
-      state.messages = [...state.messages, { type: 'turn_meta', _key: nextMsgKey(), cost: msg.cost, duration: msg.duration }];
+      state.messages = [...state.messages, { type: 'turn_meta', _key: nextMsgKey(), cost: msg.cost, duration: msg.duration, usage: msg.usage || null }];
     }
     if (msg.cost != null) {
       state.sessionCost = (state.sessionCost || 0) + (msg.cost || 0);
