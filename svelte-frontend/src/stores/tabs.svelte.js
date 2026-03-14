@@ -4,7 +4,7 @@
 import { send } from './ws.svelte.js';
 import { ensureSession, removeSessionState, sessions as sessionStates, staleTabs } from './session-state.svelte.js';
 import { finishAssistantInArray } from './session-state-utils.js';
-import { closePopup, isPopupOpen, popups, popupOrder } from './popups.svelte.js';
+import { closePopup, isPopupOpen, popups, popupOrder, saveLayout as savePopupLayout } from './popups.svelte.js';
 import { addTabToPane, setPaneTab, onTabClosed, renameTabInPanes, findPaneForTab, pruneStaleTabsFromPanes } from './panes.svelte.js';
 import { showToast } from './toasts.svelte.js';
 
@@ -271,4 +271,5 @@ export function demoteTabToPopup(sessionId) {
   };
   if (!popupOrder.includes(sessionId)) popupOrder.push(sessionId);
   send({ type: 'popup_open', sessionId, skip_history: true });
+  savePopupLayout();
 }

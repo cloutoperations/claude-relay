@@ -310,6 +310,7 @@ function restoreTabsOnFirstConnect() {
     const { loadTabLayout } = getTabPersistence();
     const layout = loadTabLayout();
     if (!layout || !layout.tabs || layout.tabs.length === 0) return;
+    const replayQueue = [];
 
     for (const item of layout.tabs) {
       const sessionId = item.sessionId;
@@ -322,16 +323,35 @@ function restoreTabsOnFirstConnect() {
       };
       if (!tabOrder.includes(sessionId)) tabOrder.push(sessionId);
 
-      // Only replay active tab, mark others stale
-      if (layout.activeTabId === sessionId) {
-        send({ type: 'tab_subscribe', sessionId });
+      // Replay tabs that are visible in panes, mark others stale
+      // Read panes from localStorage directly (panes module may not be ready yet during restore)
+      let visibleInPane = false;
+      try {
+        const savedPanes = JSON.parse(localStorage.getItem('claude-relay-panes') || '{}');
+        if (savedPanes.panes) {
+          visibleInPane = savedPanes.panes.some(p => p.activeTabId === sessionId);
+        }
+      } catch {}
+      if (layout.activeTabId === sessionId || visibleInPane) {
+        // Stagger replays — don't flood the server with simultaneous history loads
+        replayQueue.push(sessionId);
       } else {
         staleTabs.add(sessionId);
+        // Override loadingHistory — stale tabs load on click, not now
+        const ss = sessionStates[sessionId];
+        if (ss) ss.loadingHistory = false;
       }
     }
 
     if (layout.activeTabId && layout.activeTabId !== HOME_TAB && tabs[layout.activeTabId]) {
       activeTabId.value = layout.activeTabId;
+    }
+
+    // Send tab_subscribe one at a time with delays to avoid server blocking
+    let delay = 0;
+    for (const sessionId of replayQueue) {
+      setTimeout(() => send({ type: 'tab_subscribe', sessionId }), delay);
+      delay += 2000; // 2s between each replay
     }
   }, 300);
 }

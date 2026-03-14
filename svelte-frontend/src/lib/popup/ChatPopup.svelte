@@ -2,6 +2,7 @@
   import { toggleMinimize, closePopup, sendPopupMessage, sendPopupPermissionResponse, stopPopupProcessing } from '../../stores/popups.svelte.js';
   import { promotePopupToTab } from '../../stores/tabs.svelte.js';
   import { sessionList as sessions } from '../../stores/sessions.svelte.js';
+  import { sessions as sessionStates } from '../../stores/session-state.svelte.js';
   import { projectInfo } from '../../stores/chat.svelte.js';
   import MessageList from '../chat/MessageList.svelte';
   import InputArea from '../chat/InputArea.svelte';
@@ -9,6 +10,9 @@
   const ACCOUNT_COLORS = ['#da7756', '#5b9fd6', '#57ab5a', '#c084fc', '#f59e0b', '#ec4899'];
 
   let { popup } = $props();
+
+  // Session content from unified state (messages, processing, etc.)
+  let sessionState = $derived(sessionStates[popup.sessionId]);
 
   let accounts = $derived(projectInfo.accounts || []);
   let sessionData = $derived(sessions.find(s => s.id === popup.sessionId));
@@ -58,9 +62,9 @@
 <div
   class="chat-popup"
   class:minimized={popup.minimized}
-  class:cp-processing={popup.processing || popup.status === 'processing'}
-  class:cp-done={popup.status === 'done' || popup.status === 'idle'}
-  class:cp-permission={popup.status === 'permission'}
+  class:cp-processing={sessionState?.processing || sessionState?.status === 'processing'}
+  class:cp-done={sessionState?.status === 'done' || sessionState?.status === 'idle'}
+  class:cp-permission={sessionState?.status === 'permission'}
   class:has-unread={popup.hasUnread}
 >
   <!-- Header -->
@@ -86,17 +90,17 @@
 
   {#if !popup.minimized}
     <MessageList
-      messages={popup.messages}
-      processing={popup.processing}
-      activity={popup.activity}
-      thinking={{ active: popup.thinking, text: '' }}
-      loadingHistory={popup.loadingHistory}
+      messages={sessionState?.messages || []}
+      processing={sessionState?.processing || false}
+      activity={sessionState?.activity || null}
+      thinking={{ active: sessionState?.thinking || false, text: '' }}
+      loadingHistory={sessionState?.loadingHistory || false}
       compact={true}
       onPermissionRespond={handlePermissionRespond}
-      taskItems={popup.tasks || []}
+      taskItems={sessionState?.tasks || []}
     />
     <InputArea
-      processing={popup.processing}
+      processing={sessionState?.processing || false}
       compact={true}
       onSend={handleSend}
       onStop={handleStop}
