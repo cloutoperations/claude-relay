@@ -119,98 +119,47 @@
   let hiddenCount = $derived(0);
 
   let messagesEl = $state(null);
-  let isUserScrolledUp = false;
-  let prevMessageCount = 0;
-  let sentinelEl = $state(null);
-  let loadEarlierDebounce = null;
+  let isAtBottom = true;
 
   function scrollToBottom() {
-    if (!messagesEl || isUserScrolledUp) return;
+    if (!messagesEl || !isAtBottom) return;
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // Throttled scroll handler — max once per frame
+  let scrollTicking = false;
+  function handleScroll() {
+    if (scrollTicking) return;
+    scrollTicking = true;
     requestAnimationFrame(() => {
-      if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+      scrollTicking = false;
+      if (!messagesEl) return;
+      isAtBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 100;
     });
   }
 
-  function handleScroll() {
-    if (!messagesEl) return;
-    const threshold = 100;
-    const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < threshold;
-    isUserScrolledUp = !atBottom;
-  }
-
-  // Preserve scroll position when earlier messages are prepended.
-  // Uses a pre/post measurement pattern triggered by the prependHistory call.
-  let scrollAnchorKey = $state(null);
-
-  $effect(() => {
-    // When loadingEarlier becomes true, save what's currently at the top of the viewport
-    if (loadingEarlier && messagesEl && visibleItems.length > 0) {
-      // Find the first msg-item that's visible
-      const items = messagesEl.querySelectorAll('.msg-item');
-      for (const item of items) {
-        const rect = item.getBoundingClientRect();
-        const containerRect = messagesEl.getBoundingClientRect();
-        if (rect.bottom > containerRect.top) {
-          scrollAnchorKey = item.dataset.key || null;
-          break;
-        }
-      }
-    }
-  });
-
-  $effect(() => {
-    // After loadingEarlier goes false and we have more messages, scroll to the anchor
-    if (!loadingEarlier && scrollAnchorKey && messagesEl) {
-      requestAnimationFrame(() => {
-        const anchor = messagesEl.querySelector('[data-key=\"' + scrollAnchorKey + '\"]');
-        if (anchor) {
-          anchor.scrollIntoView({ block: 'start' });
-          messagesEl.scrollTop -= 20; // small offset so it's not flush
-        }
-        scrollAnchorKey = null;
-      });
-    }
-  });
-
-  // Reset scroll state when loading new session history
-  $effect(() => {
-    if (loadingHistory) {
-      isUserScrolledUp = false;
-      prevMessageCount = 0;
-    }
-  });
-
   // Scroll to bottom when history finishes loading
   $effect(() => {
-    if (!loadingHistory && messages.length > 0 && !isUserScrolledUp) {
+    if (!loadingHistory && messages.length > 0) {
+      isAtBottom = true;
       setTimeout(() => {
         if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
       }, 50);
     }
   });
 
-  // Auto-scroll on new messages (during live streaming) — only if at bottom
+  // Auto-scroll on new messages — only if at bottom
+  let lastMsgCount = 0;
   $effect(() => {
-    messages; // subscribe
-    scrollToBottom();
+    const count = messages.length;
+    if (count > lastMsgCount && isAtBottom) {
+      requestAnimationFrame(scrollToBottom);
+    }
+    lastMsgCount = count;
   });
 
   $effect(() => {
-    if (thinking.active) scrollToBottom();
-  });
-
-  // Intersection observer — auto-load earlier when scrolled to top
-  $effect(() => {
-    if (!sentinelEl || !hasEarlier || !onLoadEarlier) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting && !loadingEarlier) {
-        // Debounce to avoid rapid-fire requests
-        if (loadEarlierDebounce) clearTimeout(loadEarlierDebounce);
-        loadEarlierDebounce = setTimeout(() => onLoadEarlier(), 100);
-      }
-    }, { root: messagesEl, threshold: 0 });
-    observer.observe(sentinelEl);
-    return () => observer.disconnect();
+    if (thinking.active && isAtBottom) scrollToBottom();
   });
 </script>
 
@@ -316,8 +265,6 @@
     width: 100%;
     align-self: center;
     box-sizing: border-box;
-    content-visibility: auto;
-    contain-intrinsic-size: auto 80px;
   }
 
   .load-earlier-zone {
