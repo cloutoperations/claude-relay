@@ -16,6 +16,10 @@
   import SessionTagger from '../board/SessionTagger.svelte';
   import FileTree from '../files/FileTree.svelte';
   import { searchFiles, fileSearchResults, fileSearchQuery, openFile } from '../../stores/files.svelte.js';
+  import { agents, agentOrder, getAgentList, getRunningCount } from '../../stores/agents.svelte.js';
+  import { gitStatus, getTotalCount as getGitCount, refreshStatus as refreshGit, stageFile, unstageFile, discardFile, openDiff, pendingGitChat, buildGitSummary } from '../../stores/git.svelte.js';
+
+  const AGENT_PREFIX = '__agent__:';
 
   const ACCOUNT_COLORS = ['#da7756', '#5b9fd6', '#57ab5a', '#c084fc', '#f59e0b', '#ec4899'];
 
@@ -72,6 +76,106 @@
   function handleFileSearch(e) {
     fileQuery = e.target.value;
     searchFiles(fileQuery);
+  }
+
+  // Git section collapsed state
+  let gitExpanded = $state(false);
+  let gitCount = $derived(getGitCount());
+  let gitContextMenu = $state(null); // { x, y, path, section }
+
+  function gitFileName(p) {
+    const parts = p.split('/');
+    return parts[parts.length - 1];
+  }
+
+  function gitFileDir(p) {
+    const parts = p.split('/');
+    if (parts.length <= 1) return '';
+    return parts.slice(0, -1).join('/');
+  }
+
+  function handleGitContextMenu(e, filePath, section) {
+    e.preventDefault();
+    e.stopPropagation();
+    gitContextMenu = { x: e.clientX, y: e.clientY, path: filePath, section };
+  }
+
+  function closeGitContextMenu() {
+    gitContextMenu = null;
+  }
+
+  function handleGitStage(filePath) {
+    stageFile(filePath);
+    closeGitContextMenu();
+  }
+
+  function handleGitUnstage(filePath) {
+    unstageFile(filePath);
+    closeGitContextMenu();
+  }
+
+  function handleGitDiscard(filePath) {
+    if (confirm('Discard changes to ' + gitFileName(filePath) + '?')) {
+      discardFile(filePath);
+    }
+    closeGitContextMenu();
+  }
+
+  function startGitChat() {
+    pendingGitChat.active = true;
+    createSession();
+  }
+
+  // Agents section collapsed state
+  let agentsExpanded = $state(false);
+
+  let agentList = $derived(getAgentList());
+  let runningAgentCount = $derived(getRunningCount());
+
+  function openAgentTab(agentId) {
+    const tabId = AGENT_PREFIX + agentId;
+    const existing = findPaneForTab(tabId);
+    if (existing) {
+      switchPaneTab(existing, tabId);
+      activePaneId.value = existing;
+    } else {
+      addTabToPane(tabId);
+    }
+  }
+
+  function agentTypeIcon(type) {
+    if (type === 'ralph') return '\u27F3'; // ⟳
+    if (type === 'cron') return '\u23F0';  // ⏰
+    return '\u25CF'; // ●
+  }
+
+  function agentStatusLabel(status) {
+    if (status === 'running') return 'running';
+    if (status === 'passed') return 'passed';
+    if (status === 'failed') return 'failed';
+    if (status === 'scheduled') return 'scheduled';
+    if (status === 'stopped') return 'stopped';
+    return 'idle';
+  }
+
+  function formatAgentTime(ts) {
+    if (!ts) return '';
+    const diff = Date.now() - ts;
+    if (diff < 60000) return Math.floor(diff / 1000) + 's';
+    if (diff < 3600000) return Math.floor(diff / 60000) + 'm';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + 'h';
+    return Math.floor(diff / 86400000) + 'd';
+  }
+
+  function openNewAgentTab() {
+    const tabId = '__agent_new__';
+    const existing = findPaneForTab(tabId);
+    if (existing) {
+      switchPaneTab(existing, tabId);
+      activePaneId.value = existing;
+    } else {
+      addTabToPane(tabId);
+    }
   }
 
   // Files section collapsed state
@@ -436,6 +540,167 @@
       {/each}
     {/if}
   </div>
+
+  <!-- Agents section (collapsible) -->
+  <div class="collapse-section" class:expanded={agentsExpanded}>
+    <button class="collapse-header" onclick={() => agentsExpanded = !agentsExpanded}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={agentsExpanded}>
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+      <span>AGENTS</span>
+      {#if agentOrder.length > 0}
+        <span class="collapse-count">{agentOrder.length}</span>
+      {/if}
+      {#if runningAgentCount > 0}
+        <span class="agent-running-badge">{runningAgentCount}</span>
+      {/if}
+    </button>
+    {#if agentsExpanded}
+      <div class="collapse-body">
+        {#if agentList.length === 0}
+          <div class="section-status">No agents yet</div>
+        {:else}
+          <div class="agents-list">
+            {#each agentList as agent (agent.id)}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                class="agent-item"
+                class:running={agent.status === 'running'}
+                class:passed={agent.status === 'passed'}
+                class:failed={agent.status === 'failed'}
+                onclick={() => openAgentTab(agent.id)}
+              >
+                <span class="agent-type-icon">{agentTypeIcon(agent.type)}</span>
+                <span class="agent-name">{agent.name || agent.id}</span>
+                <span class="agent-status-badge" class:running={agent.status === 'running'} class:passed={agent.status === 'passed'} class:failed={agent.status === 'failed'}>{agentStatusLabel(agent.status)}</span>
+                {#if agent.lastActivity}
+                  <span class="agent-time">{formatAgentTime(agent.lastActivity)}</span>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+        <button class="agent-new-btn" onclick={openNewAgentTab}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          New Agent
+        </button>
+      </div>
+    {/if}
+  </div>
+
+  <!-- Git section (collapsible) -->
+  <div class="collapse-section" class:expanded={gitExpanded}>
+    <button class="collapse-header" onclick={() => { gitExpanded = !gitExpanded; if (gitExpanded) refreshGit(); }}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={gitExpanded}>
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+      <span>GIT</span>
+      {#if gitCount > 0}
+        <span class="collapse-count">{gitCount}</span>
+      {/if}
+      {#if gitStatus.loading}
+        <span class="git-loading-dot"></span>
+      {/if}
+    </button>
+    {#if gitExpanded}
+      <div class="collapse-body">
+        <div class="git-toolbar">
+          {#if gitCount > 0}
+            <button class="git-chat-btn" onclick={startGitChat} title="Open a chat session about these changes">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              Review
+            </button>
+          {/if}
+          <button class="git-refresh-btn" onclick={() => refreshGit()} title="Refresh git status">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+          </button>
+        </div>
+
+        {#if gitCount === 0 && !gitStatus.error}
+          <div class="section-status">Working tree clean</div>
+        {/if}
+
+        {#if gitStatus.error}
+          <div class="section-status git-error">{gitStatus.error}</div>
+        {/if}
+
+        <!-- Staged files -->
+        {#if gitStatus.staged.length > 0}
+          <div class="git-group">
+            <div class="git-group-label">Staged ({gitStatus.staged.length})</div>
+            {#each gitStatus.staged as file (file.path)}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div class="git-file" onclick={() => openDiff(file.path, true)} oncontextmenu={(e) => handleGitContextMenu(e, file.path, 'staged')}>
+                <span class="git-status-letter staged">{file.status}</span>
+                <span class="git-file-name">{gitFileName(file.path)}</span>
+                <span class="git-file-dir">{gitFileDir(file.path)}</span>
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        <!-- Changed (unstaged) files -->
+        {#if gitStatus.changed.length > 0}
+          <div class="git-group">
+            <div class="git-group-label">Changed ({gitStatus.changed.length})</div>
+            {#each gitStatus.changed as file (file.path)}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div class="git-file" onclick={() => openDiff(file.path, false)} oncontextmenu={(e) => handleGitContextMenu(e, file.path, 'changed')}>
+                <span class="git-status-letter changed">{file.status}</span>
+                <span class="git-file-name">{gitFileName(file.path)}</span>
+                <span class="git-file-dir">{gitFileDir(file.path)}</span>
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        <!-- Untracked files -->
+        {#if gitStatus.untracked.length > 0}
+          <div class="git-group">
+            <div class="git-group-label">Untracked ({gitStatus.untracked.length})</div>
+            {#each gitStatus.untracked as file (file.path)}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div class="git-file" onclick={() => openDiff(file.path, false)} oncontextmenu={(e) => handleGitContextMenu(e, file.path, 'untracked')}>
+                <span class="git-status-letter untracked">?</span>
+                <span class="git-file-name">{gitFileName(file.path)}</span>
+                <span class="git-file-dir">{gitFileDir(file.path)}</span>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {/if}
+  </div>
+
+  {#if gitContextMenu}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="git-context-backdrop" onclick={closeGitContextMenu}></div>
+    <div class="git-context-menu" style="left: {gitContextMenu.x}px; top: {gitContextMenu.y}px">
+      <button class="git-context-item" onclick={() => { openDiff(gitContextMenu.path, gitContextMenu.section === 'staged'); closeGitContextMenu(); }}>View Diff</button>
+      <button class="git-context-item" onclick={() => { openFile(gitContextMenu.path); closeGitContextMenu(); }}>Open File</button>
+      {#if gitContextMenu.section === 'changed' || gitContextMenu.section === 'untracked'}
+        <button class="git-context-item" onclick={() => handleGitStage(gitContextMenu.path)}>Stage</button>
+      {/if}
+      {#if gitContextMenu.section === 'staged'}
+        <button class="git-context-item" onclick={() => handleGitUnstage(gitContextMenu.path)}>Unstage</button>
+      {/if}
+      {#if gitContextMenu.section === 'changed'}
+        <button class="git-context-item danger" onclick={() => handleGitDiscard(gitContextMenu.path)}>Discard Changes</button>
+      {/if}
+    </div>
+  {/if}
 
   <!-- Sessions section (collapsible) -->
   <div class="collapse-section" class:expanded={sessionsExpanded}>
@@ -1282,6 +1547,268 @@
     font-size: 9px;
     color: var(--accent);
     flex-shrink: 0;
+  }
+
+  /* Git section */
+  .git-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 2px 4px;
+  }
+
+  .git-chat-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px solid rgba(var(--overlay-rgb), 0.12);
+    border-radius: 4px;
+    background: none;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .git-chat-btn:hover {
+    background: rgba(var(--overlay-rgb), 0.06);
+    color: var(--text);
+    border-color: rgba(var(--overlay-rgb), 0.2);
+  }
+
+  .git-refresh-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text-dimmer);
+    cursor: pointer;
+    padding: 0;
+    margin-left: auto;
+  }
+
+  .git-refresh-btn:hover {
+    background: rgba(var(--overlay-rgb), 0.08);
+    color: var(--text);
+  }
+
+  .git-loading-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-left: 4px;
+    animation: pulse-badge 1s ease-in-out infinite;
+  }
+
+  .git-error {
+    color: #e5534b !important;
+  }
+
+  .git-group {
+    margin-bottom: 6px;
+  }
+
+  .git-group-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-dimmer);
+    padding: 2px 8px;
+  }
+
+  .git-file {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.1s;
+  }
+
+  .git-file:hover {
+    background: rgba(var(--overlay-rgb), 0.08);
+  }
+
+  .git-status-letter {
+    flex-shrink: 0;
+    width: 14px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: monospace;
+    text-align: center;
+  }
+
+  .git-status-letter.staged { color: #57ab5a; }
+  .git-status-letter.changed { color: #d4a72c; }
+  .git-status-letter.untracked { color: #768390; }
+
+  .git-file-name {
+    flex-shrink: 0;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .git-file-dir {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-dimmer);
+    font-size: 11px;
+  }
+
+  .git-context-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+  }
+
+  .git-context-menu {
+    position: fixed;
+    z-index: 201;
+    background: var(--bg-raised, var(--bg));
+    border: 1px solid rgba(var(--overlay-rgb), 0.15);
+    border-radius: 6px;
+    padding: 4px;
+    min-width: 140px;
+    box-shadow: 0 4px 12px rgba(var(--shadow-rgb), 0.15);
+  }
+
+  .git-context-item {
+    display: block;
+    width: 100%;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text);
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .git-context-item:hover {
+    background: rgba(var(--overlay-rgb), 0.08);
+  }
+
+  .git-context-item.danger {
+    color: #e5534b;
+  }
+
+  .git-context-item.danger:hover {
+    background: rgba(229, 83, 75, 0.1);
+  }
+
+  /* Agents section */
+  .agent-running-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--bg);
+    background: var(--accent);
+    border-radius: 8px;
+    padding: 0 5px;
+    margin-left: 4px;
+    line-height: 16px;
+    animation: pulse-badge 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-badge {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .agents-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .agent-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.1s;
+  }
+
+  .agent-item:hover {
+    background: rgba(var(--overlay-rgb), 0.08);
+  }
+
+  .agent-type-icon {
+    flex-shrink: 0;
+    font-size: 13px;
+    width: 16px;
+    text-align: center;
+  }
+
+  .agent-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+  }
+
+  .agent-status-badge {
+    flex-shrink: 0;
+    font-size: 9px;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .agent-status-badge.running {
+    color: var(--accent);
+  }
+
+  .agent-status-badge.passed {
+    color: #57ab5a;
+  }
+
+  .agent-status-badge.failed {
+    color: #e5534b;
+  }
+
+  .agent-time {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--text-dimmer);
+  }
+
+  .agent-new-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 8px;
+    margin-top: 4px;
+    border: 1px dashed rgba(var(--overlay-rgb), 0.15);
+    border-radius: 4px;
+    background: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .agent-new-btn:hover {
+    background: rgba(var(--overlay-rgb), 0.06);
+    color: var(--text);
+    border-color: rgba(var(--overlay-rgb), 0.25);
   }
 
   /* File search results */

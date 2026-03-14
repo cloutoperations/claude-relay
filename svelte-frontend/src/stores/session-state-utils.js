@@ -244,7 +244,7 @@ export function processBufferedEvent(buf, msg, t) {
     buf._thinkingText = (buf._thinkingText || '') + (msg.text || '');
   } else if (t === 'thinking_stop') {
     if (buf._thinkingText) {
-      buf.msgs.push({ type: 'thinking', text: buf._thinkingText, _key: nextMsgKey() });
+      buf.msgs.push({ type: 'thinking', text: buf._thinkingText, duration: msg.duration || 0, _key: nextMsgKey() });
     }
     buf._thinkingText = '';
   } else if (t === 'rate_limit') {
@@ -310,7 +310,7 @@ export function processLiveEvent(state, msg, t) {
     // Persist the thinking block into messages if there's content
     if (state.thinkingText) {
       state.messages = [...state.messages, {
-        type: 'thinking', text: state.thinkingText, _key: nextMsgKey(),
+        type: 'thinking', text: state.thinkingText, duration: msg.duration || 0, _key: nextMsgKey(),
       }];
     }
     state.thinking = false;

@@ -3,6 +3,7 @@
   import { panes, paneLayout, activePaneId, updateRatios, splitPane, addTabToPane, moveTabToPane } from '../../stores/panes.svelte.js';
   import { tabs } from '../../stores/tabs.svelte.js';
   import { sendTabMessage, stopTab, sendTabPermissionResponse, loadEarlierHistory } from '../../stores/tabs.svelte.js';
+  import { send } from '../../stores/ws.svelte.js';
   import { popups, isPopupOpen } from '../../stores/popups.svelte.js';
   import { promotePopupToTab } from '../../stores/tabs.svelte.js';
   import { sessions as sessionStates } from '../../stores/session-state.svelte.js';
@@ -14,6 +15,7 @@
   import ProjectDetailTab from '../board/ProjectDetailTab.svelte';
   import AgentDetailTab from '../board/AgentDetailTab.svelte';
   import AgentCreateTab from '../board/AgentCreateTab.svelte';
+  import DiffViewer from '../files/DiffViewer.svelte';
 
   const FILE_PREFIX = '__file__:';
   const AREA_PREFIX = '__area__:';
@@ -71,6 +73,10 @@
       const pastes = attachmentData?.pastes?.length > 0 ? attachmentData.pastes : undefined;
       sendTabMessage(tabId, text, images, pastes, documents);
     }
+  }
+
+  function handleStopAgent(toolUseId) {
+    send({ type: 'stop_task', toolUseId });
   }
 
   function handleStop(tabId) {
@@ -226,6 +232,8 @@
           <AgentCreateTab />
         {:else if pane.activeTabId?.startsWith(AGENT_PREFIX)}
           <AgentDetailTab agentId={pane.activeTabId.slice(AGENT_PREFIX.length)} />
+        {:else if pane.activeTabId === '__git_diff__'}
+          <DiffViewer />
         {:else if pane.activeTabId === '__file__' || pane.activeTabId?.startsWith(FILE_PREFIX)}
           <FileViewer />
         {:else if tabs[pane.activeTabId] && sessionStates[pane.activeTabId]}
@@ -240,6 +248,7 @@
               hasEarlier={sessionStates[pane.activeTabId]?.historyFrom > 0}
               onLoadEarlier={() => loadEarlierHistory(pane.activeTabId)}
               onPermissionRespond={(reqId, decision) => handlePermissionRespond(pane.activeTabId, reqId, decision)}
+              onStopAgent={handleStopAgent}
               taskItems={sessionStates[pane.activeTabId]?.tasks}
             />
           {/key}

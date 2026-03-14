@@ -33,6 +33,9 @@
     if (id === '__agent_new__') {
       return { id, title: 'New Agent', isHome: false, type: 'agent-new' };
     }
+    if (id === '__git_diff__') {
+      return { id, title: 'Diff', isHome: false, type: 'git-diff' };
+    }
     if (id.startsWith(AGENT_PREFIX)) {
       const agentId = id.slice(AGENT_PREFIX.length);
       const agent = agents[agentId];

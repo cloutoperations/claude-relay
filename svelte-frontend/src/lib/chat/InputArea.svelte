@@ -84,17 +84,19 @@
   }
 
   function readFileAsBase64(file) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result.split(',')[1]); // strip data:...;base64,
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(file);
     });
   }
 
   function readFileAsText(file) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
       reader.readAsText(file);
     });
   }
@@ -105,18 +107,22 @@
       const kind = classifyFile(file);
       if (!kind) continue;
 
-      if (kind === 'text') {
-        const content = await readFileAsText(file);
-        attachments = [...attachments, {
-          type: 'text', name: file.name, content,
-          size: file.size, lines: content.split('\n').length,
-        }];
-      } else {
-        const data = await readFileAsBase64(file);
-        attachments = [...attachments, {
-          type: kind, name: file.name, mediaType: file.type, data,
-          size: file.size,
-        }];
+      try {
+        if (kind === 'text') {
+          const content = await readFileAsText(file);
+          attachments = [...attachments, {
+            type: 'text', name: file.name, content,
+            size: file.size, lines: content.split('\n').length,
+          }];
+        } else {
+          const data = await readFileAsBase64(file);
+          attachments = [...attachments, {
+            type: kind, name: file.name, mediaType: file.type || (kind === 'document' ? 'application/pdf' : 'application/octet-stream'), data,
+            size: file.size,
+          }];
+        }
+      } catch (e) {
+        console.warn('Failed to read file:', file.name, e);
       }
     }
   }

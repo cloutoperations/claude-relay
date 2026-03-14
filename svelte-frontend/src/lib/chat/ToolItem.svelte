@@ -2,7 +2,10 @@
   import DiffView from './DiffView.svelte';
   import CodeView from './CodeView.svelte';
 
-  let { name = '', status = 'running', input = null, output = null, subtitle = '', subTools = null, compact = false } = $props();
+  let { name = '', status = 'running', input = null, output = null, subtitle = '', subTools = null, toolId = null, compact = false, onStopAgent = null } = $props();
+
+  let isAgent = $derived(name === 'Task' || name === 'Agent');
+  let canStop = $derived(isAgent && status === 'running' && onStopAgent);
 
   let expanded = $state(false);
 
@@ -62,6 +65,11 @@
       {#if subtitle}
         <span class="cp-tool-subtitle">{subtitle}</span>
       {/if}
+      {#if canStop}
+        <button class="cp-tool-stop" onclick={(e) => { e.stopPropagation(); onStopAgent(toolId); }} title="Stop">
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        </button>
+      {/if}
       {#if status !== 'running' && (hasEditDiff || hasReadOutput || output)}
         <span class="cp-tool-chevron">{expanded ? '▾' : '▸'}</span>
       {/if}
@@ -116,6 +124,11 @@
         {/if}
         {#if status === 'running'}
           <span class="tool-running">running</span>
+        {/if}
+        {#if canStop}
+          <button class="tool-stop-btn" onclick={(e) => { e.stopPropagation(); onStopAgent(toolId); }} title="Stop this agent">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          </button>
         {/if}
         <span class="tool-expand">{expanded ? '▾' : '▸'}</span>
       </div>
@@ -420,6 +433,43 @@
     color: var(--border);
     padding: 1px 0;
   }
+
+  /* ─── Stop button ─── */
+  .tool-stop-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: rgba(var(--error-rgb, 220, 50, 50), 0.1);
+    border: 1px solid rgba(var(--error-rgb, 220, 50, 50), 0.2);
+    border-radius: 4px;
+    color: var(--error);
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+
+  .tool-stop-btn:hover { background: rgba(var(--error-rgb, 220, 50, 50), 0.2); }
+
+  .cp-tool-stop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: rgba(var(--error-rgb, 220, 50, 50), 0.1);
+    border: none;
+    border-radius: 3px;
+    color: var(--error);
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+
+  .cp-tool-stop:hover { background: rgba(var(--error-rgb, 220, 50, 50), 0.2); }
 
   /* ─── Shared animations ─── */
   @keyframes spin { to { transform: rotate(360deg); } }

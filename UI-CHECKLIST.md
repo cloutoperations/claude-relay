@@ -1,17 +1,18 @@
 # UI/UX Improvement Checklist
 
-## Phase 1 — Quick Wins (CSS/template only, minimal risk)
+## Phase 1 — Quick Wins ✅
 
-- [ ] **1.1** Message width: 900px → `min(1100px, 90%)`
-- [ ] **1.2** User bubble max-width: 95% → 75%
-- [ ] **1.3** Tab bar height: 36px → 42px, font 12px → 13px, close/popout buttons 20px hit area
-- [ ] **1.4** Border opacity: 0.06 → 0.10 for structural borders (sidebar, tab bar, sections)
-- [ ] **1.5** Popup height: 480px → 380px, max-height: 50vh
-- [ ] **1.6** Popup width: clamp(340px, 18vw, 440px) → clamp(380px, 25vw, 500px)
-- [ ] **1.7** Tool item font: 12px → 13px
-- [ ] **1.8** Send button: "Send" → "Send ↵"
-- [ ] **1.9** Home tab: add "Home" label next to icon
-- [ ] **1.10** Turn separator: thin divider line between assistant turns
+- [x] **1.1** Message width: 900px → `min(1100px, 90%)`
+- [x] **1.2** User bubble max-width: 95% → 70%
+- [x] **1.3** Tab bar height: 36px → 42px, font 12px → 13px, close/popout buttons 20px hit area
+- [x] **1.4** Border opacity: 0.06 → 0.10 for structural borders
+- [x] **1.5** Popup height: 480px → 380px, max-height: 50vh (now 80vh with resize)
+- [x] **1.6** Popup width: clamp(380px, 25vw, 500px)
+- [x] ~~**1.7** Tool item font~~ — already 15px, dropped
+- [x] **1.8** Send button: "Send ↵"
+- [x] ~~**1.9** Home tab~~ — removed, no longer exists
+- [x] **1.10** Turn separator: thin divider line between turns
+- [x] **1.11** Sidebar width: 320px → 280px
 
 ## Phase 2 — Sidebar & Layout
 
@@ -225,10 +226,11 @@ Sidebar              Area Panel (500px)        Sub-Panel (400px)
 - [ ] **3b.1** Tab loading indicator: spinner/progress on tabs while session history loads
 - [ ] **3b.2** Skeleton loading: grey placeholder blocks while messages render
 - [ ] **3b.3** Tab drag smoothing: animate tab reorder with CSS transitions
-- [ ] **3b.4** Popup height resizable: drag top edge to resize, persisted to localStorage
-- [ ] **3b.5** Popup height affects main chat: padding-bottom on pane adjusts to popup height
-- [ ] **3b.6** Drag popup to tab bar: promote to tab (DONE ✓)
-- [ ] **3b.7** Drag tab to popup area: demote to popup
+- [x] **3b.4** Popup height resizable: drag top edge, persisted to localStorage
+- [x] **3b.5** Popup height affects main chat: padding-bottom adjusts
+- [x] **3b.6** Drag popup to tab bar: promote to tab
+- [x] **3b.7** Drag popup to pane: promote + split/move
+- [ ] **3b.8** Drag tab to popup area: demote to popup
 
 ## Phase 4 — Advanced Features
 

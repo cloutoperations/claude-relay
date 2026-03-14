@@ -1,6 +1,10 @@
 <script>
   import { treeData, expandedDirs, toggleDir, openFile, loadRootDir, activeFilePath } from '../../stores/files.svelte.js';
+  import { getStatusMap, getDirtyDirs } from '../../stores/git.svelte.js';
   import { onMount } from 'svelte';
+
+  let statusMap = $derived(getStatusMap());
+  let dirtyDirs = $derived(getDirtyDirs());
 
   onMount(() => {
     // Load root directory on mount
@@ -62,6 +66,8 @@
     {@const isDir = entry.type === 'dir'}
     {@const isExpanded = expandedDirs.value.has(entry.path)}
     {@const isActive = !isDir && activeFilePath.value === entry.path}
+    {@const gitSt = isDir ? null : statusMap.get(entry.path)}
+    {@const dirDirty = isDir && dirtyDirs.has(entry.path)}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
@@ -83,6 +89,12 @@
         {/if}
       </span>
       <span class="tree-name">{entry.name}</span>
+      {#if gitSt}
+        <span class="tree-git-badge" class:git-modified={gitSt === 'M'} class:git-added={gitSt === 'A'} class:git-deleted={gitSt === 'D'} class:git-untracked={gitSt === '?'} class:git-renamed={gitSt === 'R'}>{gitSt}</span>
+      {/if}
+      {#if dirDirty}
+        <span class="tree-git-dot"></span>
+      {/if}
     </div>
     {#if isDir && isExpanded}
       {@render treeNode(renderDir(entry.path), depth + 1)}
@@ -167,5 +179,32 @@
     color: var(--text-dimmer);
     padding: 4px 8px;
     font-style: italic;
+  }
+
+  .tree-git-badge {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: monospace;
+    padding: 0 3px;
+    border-radius: 2px;
+    line-height: 15px;
+    margin-left: auto;
+  }
+
+  .tree-git-badge.git-modified { color: #d4a72c; }
+  .tree-git-badge.git-added { color: #57ab5a; }
+  .tree-git-badge.git-deleted { color: #e5534b; }
+  .tree-git-badge.git-untracked { color: #768390; }
+  .tree-git-badge.git-renamed { color: #5b9fd6; }
+
+  .tree-git-dot {
+    flex-shrink: 0;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #d4a72c;
+    margin-left: auto;
+    opacity: 0.6;
   }
 </style>

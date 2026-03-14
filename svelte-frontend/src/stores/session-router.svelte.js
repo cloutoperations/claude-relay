@@ -9,7 +9,7 @@ import {
 } from './session-state.svelte.js';
 import {
   tabs, activeTabId, tabOrder, getTabSessionIds, onTabRekey,
-  saveLayout as saveTabLayout, HOME_TAB, pendingForkRequests,
+  saveLayout as saveTabLayout, HOME_TAB, pendingForkRequests, sendTabMessage,
 } from './tabs.svelte.js';
 import {
   popups, popupOrder, isPopupOpen, onPopupRekey,
@@ -17,9 +17,11 @@ import {
 } from './popups.svelte.js';
 import { renameTabInPanes, panes as paneList, addTabToPane } from './panes.svelte.js';
 import { sessionList, pendingNewSessionRequests, searchSeq, sessionSearchQuery, sessionSearchResults } from './sessions.svelte.js';
-import { contextData, sessionCost, projectInfo, clientCount, slashCommands, modelInfo, rateLimitState } from './chat.svelte.js';
+import { contextData, sessionCost, projectInfo, clientCount, slashCommands, modelInfo, rateLimitState, configState } from './chat.svelte.js';
 import { ambientState } from './ambient.svelte.js';
 import { routeFileMessage } from './files.svelte.js';
+import { handleAgentList, handleAgentStatus, handleAgentCreated, handleAgentDeleted } from './agents.svelte.js';
+import { handleGitStatusResult, handleGitActionResult, handleGitDiffResult, refreshStatus as refreshGitStatus, pendingGitChat, buildGitSummary } from './git.svelte.js';
 
 // staleTabs is imported from session-state.svelte.js to avoid circular deps
 
@@ -206,6 +208,37 @@ function routeGlobalMessage(msg, t) {
         rateLimitState.text = '';
       }, 60000);
       break;
+    case 'config_state':
+      Object.assign(configState, {
+        model: msg.model || configState.model,
+        effort: msg.effort ?? configState.effort,
+        fastMode: msg.fastMode ?? configState.fastMode,
+        permissionMode: msg.permissionMode || configState.permissionMode,
+      });
+      break;
+    // --- Agent messages ---
+    case 'agent_list':
+      handleAgentList(msg.agents || []);
+      break;
+    case 'agent_status':
+      handleAgentStatus(msg);
+      break;
+    case 'agent_created':
+      handleAgentCreated(msg.agent || msg);
+      break;
+    case 'agent_deleted':
+      handleAgentDeleted(msg);
+      break;
+    // --- Git messages ---
+    case 'git_status_result':
+      handleGitStatusResult(msg);
+      break;
+    case 'git_action_result':
+      handleGitActionResult(msg);
+      break;
+    case 'git_diff_working_result':
+      handleGitDiffResult(msg);
+      break;
   }
 }
 
@@ -281,6 +314,16 @@ function handleSessionSwitched(msg) {
   send({ type: 'tab_subscribe', sessionId, skip_history: true });
   send({ type: 'leave_session' });
   saveTabLayout();
+
+  // If this was triggered by the git chat button, auto-send the git summary
+  if (pendingGitChat.active) {
+    pendingGitChat.active = false;
+    const summary = buildGitSummary();
+    // Small delay to let the session initialize
+    setTimeout(() => {
+      sendTabMessage(sessionId, summary);
+    }, 500);
+  }
 }
 
 // --- Reconnect handler ---
@@ -312,6 +355,9 @@ function handleReconnect() {
   // Restore tabs from localStorage on first connect
   restoreTabsOnFirstConnect();
   restorePopupsOnFirstConnect();
+
+  // Fetch git status on connect
+  refreshGitStatus();
 }
 
 // --- First-connect restore ---

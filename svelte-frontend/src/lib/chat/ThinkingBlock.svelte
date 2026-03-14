@@ -1,5 +1,6 @@
 <script>
-  let { text = '', compact = false } = $props();
+  let { text = '', duration = 0, compact = false } = $props();
+  let durationStr = $derived(duration > 0 ? (duration / 1000).toFixed(1) + 's' : '');
   let expanded = $state(false);
 </script>
 
@@ -8,7 +9,7 @@
 <div class="thinking-block" class:compact class:expanded onclick={() => expanded = !expanded}>
   <div class="thinking-header">
     <svg class="thinking-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-    <span class="thinking-label">Thinking</span>
+    <span class="thinking-label">Thinking{#if durationStr} <span class="thinking-duration">{durationStr}</span>{/if}</span>
     {#if !expanded}
       <span class="thinking-preview">{text.substring(0, 80)}{text.length > 80 ? '...' : ''}</span>
     {/if}
@@ -54,6 +55,12 @@
     font-weight: 500;
     color: var(--text-muted);
     flex-shrink: 0;
+  }
+
+  .thinking-duration {
+    font-weight: 400;
+    color: var(--text-dimmer);
+    font-size: 11px;
   }
 
   .thinking-preview {

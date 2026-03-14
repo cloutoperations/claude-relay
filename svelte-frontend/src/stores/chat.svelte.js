@@ -16,6 +16,9 @@ export let modelInfo = $state({ model: '', models: [] });
 // Rate limit indicator — set by session-router when any session hits a rate limit
 export let rateLimitState = $state({ active: false, text: '', clearTimer: null });
 
+// Unified config state — synced from server
+export let configState = $state({ model: '', effort: '', fastMode: false, permissionMode: 'default' });
+
 // Legacy exports — kept for StatusBar compatibility
 export let processing = $state(false);
 export let activity = $state(null);

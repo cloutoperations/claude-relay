@@ -22,6 +22,7 @@
     compact = false,
     onPermissionRespond = null,
     onLoadEarlier = null,
+    onStopAgent = null,
     shouldCollapseTool = null,
     taskItems = null,
   } = $props();
@@ -199,9 +200,9 @@
     {:else if item.type === 'system' || item.type === 'info'}
       <SystemMessage text={item.text} isError={item.isError} {compact} />
     {:else if item.type === 'tool_group'}
-      <ToolGroup tools={item.tools} {compact} />
+      <ToolGroup tools={item.tools} {compact} {onStopAgent} />
     {:else if item.type === 'tool'}
-      <ToolItem name={item.name} status={item.status} input={item.input} output={item.output} subtitle={item.subtitle} subTools={item.subTools} {compact} />
+      <ToolItem name={item.name} status={item.status} input={item.input} output={item.output} subtitle={item.subtitle} subTools={item.subTools} toolId={item.toolId} {compact} {onStopAgent} />
     {:else if item.type === 'task_widget'}
       <TaskWidget {compact} items={taskItems} />
     {:else if item.type === 'thinking'}

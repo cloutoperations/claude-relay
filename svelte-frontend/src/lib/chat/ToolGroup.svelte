@@ -1,7 +1,7 @@
 <script>
   import ToolItem from './ToolItem.svelte';
 
-  let { tools = [], compact = false } = $props();
+  let { tools = [], compact = false, onStopAgent = null } = $props();
 
   let expanded = $state(false);
 
@@ -65,7 +65,9 @@
     output={tools[0].output}
     subtitle={tools[0].subtitle}
     subTools={tools[0].subTools}
+    toolId={tools[0].toolId}
     {compact}
+    {onStopAgent}
   />
 {:else}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -88,7 +90,7 @@
       {#if expanded}
         <div class="cp-group-items">
           {#each tools as tool (tool.toolId)}
-            <ToolItem name={tool.name} status={tool.status} input={tool.input} output={tool.output} subtitle={tool.subtitle} subTools={tool.subTools} compact={true} />
+            <ToolItem name={tool.name} status={tool.status} input={tool.input} output={tool.output} subtitle={tool.subtitle} subTools={tool.subTools} toolId={tool.toolId} compact={true} {onStopAgent} />
           {/each}
         </div>
       {/if}
@@ -112,7 +114,7 @@
       {#if expanded}
         <div class="tool-group-items">
           {#each tools as tool (tool.toolId)}
-            <ToolItem name={tool.name} status={tool.status} input={tool.input} output={tool.output} subtitle={tool.subtitle} subTools={tool.subTools} {compact} />
+            <ToolItem name={tool.name} status={tool.status} input={tool.input} output={tool.output} subtitle={tool.subtitle} subTools={tool.subTools} toolId={tool.toolId} {compact} {onStopAgent} />
           {/each}
         </div>
       {/if}
