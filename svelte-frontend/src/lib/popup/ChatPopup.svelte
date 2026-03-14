@@ -103,6 +103,7 @@
       taskItems={sessionState?.tasks || []}
     />
     <InputArea
+      sessionId={popup.sessionId}
       processing={sessionState?.processing || false}
       compact={true}
       onSend={handleSend}
