@@ -3,7 +3,8 @@
   import { panes, paneLayout, activePaneId, updateRatios, splitPane, addTabToPane, moveTabToPane } from '../../stores/panes.svelte.js';
   import { tabs } from '../../stores/tabs.svelte.js';
   import { sendTabMessage, stopTab, sendTabPermissionResponse, loadEarlierHistory } from '../../stores/tabs.svelte.js';
-  import { popups } from '../../stores/popups.svelte.js';
+  import { popups, isPopupOpen } from '../../stores/popups.svelte.js';
+  import { promotePopupToTab } from '../../stores/tabs.svelte.js';
   import { sessions as sessionStates } from '../../stores/session-state.svelte.js';
   import MessageList from '../chat/MessageList.svelte';
   import InputArea from '../chat/InputArea.svelte';
@@ -11,10 +12,13 @@
   import CommandPost from '../board/CommandPost.svelte';
   import AreaDetailTab from '../board/AreaDetailTab.svelte';
   import ProjectDetailTab from '../board/ProjectDetailTab.svelte';
+  import AgentDetailTab from '../board/AgentDetailTab.svelte';
+  import AgentCreateTab from '../board/AgentCreateTab.svelte';
 
   const FILE_PREFIX = '__file__:';
   const AREA_PREFIX = '__area__:';
   const PROJECT_PREFIX = '__project__:';
+  const AGENT_PREFIX = '__agent__:';
 
   let paneList = $derived(panes);
   let layout = $derived(paneLayout);
@@ -119,14 +123,27 @@
   function handlePaneDrop(e, paneId) {
     e.preventDefault();
     const tabId = e.dataTransfer.getData('text/plain');
-    if (!tabId) return;
+    if (!tabId) { dropZone = null; dropPaneId = null; return; }
+
+    // If dropping a popup, promote it to a tab first
+    if (isPopupOpen(tabId)) {
+      promotePopupToTab(tabId);
+      const zone = dropZone;
+      setTimeout(() => {
+        if (zone === 'right' && paneList.length < 6) splitPane(tabId, 'horizontal');
+        else if (zone === 'bottom' && paneList.length < 6) splitPane(tabId, 'vertical');
+        else moveTabToPane(tabId, paneId);
+      }, 50);
+      dropZone = null;
+      dropPaneId = null;
+      return;
+    }
 
     if (dropZone === 'right' && paneList.length < 6) {
       splitPane(tabId, 'horizontal');
     } else if (dropZone === 'bottom' && paneList.length < 6) {
       splitPane(tabId, 'vertical');
     } else if (dropZone === 'center') {
-      // Move tab to this pane
       moveTabToPane(tabId, paneId);
     }
 
@@ -142,12 +159,16 @@
   }
 
   // Popup bar height calculation
+  // Read saved popup height from localStorage
+  let savedPopupH = 380;
+  try { const h = parseInt(localStorage.getItem('claude-relay-popup-height')); if (h > 200) savedPopupH = h; } catch {}
+
   let popupBarHeight = $derived.by(() => {
     const list = Object.values(popups);
     if (list.length === 0) return 0;
     let maxH = 0;
     for (const p of list) {
-      maxH = Math.max(maxH, p.minimized ? 40 : 480);
+      maxH = Math.max(maxH, p.minimized ? 40 : savedPopupH);
     }
     return maxH > 0 ? maxH + 8 : 0;
   });
@@ -201,6 +222,10 @@
           <AreaDetailTab areaName={pane.activeTabId.slice(AREA_PREFIX.length)} />
         {:else if pane.activeTabId?.startsWith(PROJECT_PREFIX)}
           <ProjectDetailTab projectPath={pane.activeTabId.slice(PROJECT_PREFIX.length)} />
+        {:else if pane.activeTabId === '__agent_new__'}
+          <AgentCreateTab />
+        {:else if pane.activeTabId?.startsWith(AGENT_PREFIX)}
+          <AgentDetailTab agentId={pane.activeTabId.slice(AGENT_PREFIX.length)} />
         {:else if pane.activeTabId === '__file__' || pane.activeTabId?.startsWith(FILE_PREFIX)}
           <FileViewer />
         {:else if tabs[pane.activeTabId] && sessionStates[pane.activeTabId]}

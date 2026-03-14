@@ -30,6 +30,9 @@
       const formatted = name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       return { id, title: formatted, isHome: false, type: 'project' };
     }
+    if (id === '__agent_new__') {
+      return { id, title: 'New Agent', isHome: false, type: 'agent-new' };
+    }
     if (id.startsWith(AGENT_PREFIX)) {
       const agentId = id.slice(AGENT_PREFIX.length);
       const agent = agents[agentId];

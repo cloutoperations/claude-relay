@@ -57,6 +57,39 @@
   function truncate(str, len) {
     return str.length <= len ? str : str.substring(0, len) + '\u2026';
   }
+
+  // Resizable height
+  const POPUP_HEIGHT_KEY = 'claude-relay-popup-height';
+  let savedHeight = null;
+  try { savedHeight = parseInt(localStorage.getItem(POPUP_HEIGHT_KEY)); } catch {}
+  let popupHeight = $state(savedHeight && savedHeight > 200 ? savedHeight : null);
+  let isResizing = $state(false);
+
+  function startResize(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    isResizing = true;
+    const startY = e.clientY;
+    const startHeight = popupHeight || 380;
+
+    function onMove(e) {
+      const delta = startY - e.clientY;
+      const newH = Math.max(200, Math.min(window.innerHeight * 0.8, startHeight + delta));
+      popupHeight = newH;
+    }
+
+    function onUp() {
+      isResizing = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      if (popupHeight) {
+        try { localStorage.setItem(POPUP_HEIGHT_KEY, String(Math.round(popupHeight))); } catch {}
+      }
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
 </script>
 
 <div
@@ -66,7 +99,13 @@
   class:cp-done={sessionState?.status === 'done' || sessionState?.status === 'idle'}
   class:cp-permission={sessionState?.status === 'permission'}
   class:has-unread={popup.hasUnread}
+  class:resizing={isResizing}
+  style={popupHeight ? `height: ${popupHeight}px` : ''}
 >
+  <!-- Resize handle at top -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="cp-resize-handle" onmousedown={startResize}></div>
+
   <!-- Header -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -113,10 +152,26 @@
 </div>
 
 <style>
+  .cp-resize-handle {
+    position: absolute;
+    top: -3px;
+    left: 20px;
+    right: 20px;
+    height: 6px;
+    cursor: ns-resize;
+    z-index: 2;
+  }
+
+  .cp-resize-handle:hover, .resizing .cp-resize-handle {
+    background: var(--accent-25);
+    border-radius: 3px;
+  }
+
   .chat-popup {
+    position: relative;
     width: clamp(380px, 25vw, 500px);
     height: 380px;
-    max-height: 50vh;
+    max-height: 80vh;
     display: flex;
     flex-direction: column;
     background: var(--bg-alt);

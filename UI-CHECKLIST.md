@@ -220,6 +220,16 @@ Sidebar              Area Panel (500px)        Sub-Panel (400px)
 └────────────┘
 ```
 
+## Phase 3b — Tab & Popup UX
+
+- [ ] **3b.1** Tab loading indicator: spinner/progress on tabs while session history loads
+- [ ] **3b.2** Skeleton loading: grey placeholder blocks while messages render
+- [ ] **3b.3** Tab drag smoothing: animate tab reorder with CSS transitions
+- [ ] **3b.4** Popup height resizable: drag top edge to resize, persisted to localStorage
+- [ ] **3b.5** Popup height affects main chat: padding-bottom on pane adjusts to popup height
+- [ ] **3b.6** Drag popup to tab bar: promote to tab (DONE ✓)
+- [ ] **3b.7** Drag tab to popup area: demote to popup
+
 ## Phase 4 — Advanced Features
 
 ### Content editing
