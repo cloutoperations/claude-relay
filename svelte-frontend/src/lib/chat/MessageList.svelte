@@ -247,18 +247,17 @@
     </div>
   {/if}
 </div>
-{#if showScrollButtons}
+{#if showScrollButtons && !isAtBottom}
   <div class="scroll-buttons">
-    {#if !isAtTop}
-      <button class="scroll-btn scroll-top" onclick={jumpToTop} title="Scroll to top">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></svg>
-      </button>
-    {/if}
-    {#if !isAtBottom}
-      <button class="scroll-btn scroll-bottom" onclick={jumpToBottom} title="Scroll to bottom">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
-      </button>
-    {/if}
+    <button class="scroll-btn" onclick={jumpToBottom} title="Scroll to bottom">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+    </button>
+  </div>
+{:else if showScrollButtons && isAtBottom && !isAtTop}
+  <div class="scroll-buttons">
+    <button class="scroll-btn" onclick={jumpToTop} title="Scroll to top">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></svg>
+    </button>
   </div>
 {/if}
 {#if !compact}
