@@ -157,21 +157,38 @@
     isUserScrolledUp = !atBottom;
   }
 
-  // Preserve scroll position when messages are prepended (earlier history loaded)
+  // Preserve scroll position when earlier messages are prepended.
+  // Uses a pre/post measurement pattern triggered by the prependHistory call.
+  let scrollAnchorKey = $state(null);
+
   $effect(() => {
-    const count = messages.length;
-    if (count > prevMessageCount && prevMessageCount > 0 && isUserScrolledUp && messagesEl) {
-      // Messages were added — if user was scrolled up, they were prepended
-      // Save scroll height before DOM updates, restore after
-      const oldHeight = messagesEl.scrollHeight;
-      requestAnimationFrame(() => {
-        if (messagesEl) {
-          const newHeight = messagesEl.scrollHeight;
-          messagesEl.scrollTop += (newHeight - oldHeight);
+    // When loadingEarlier becomes true, save what's currently at the top of the viewport
+    if (loadingEarlier && messagesEl && visibleItems.length > 0) {
+      // Find the first msg-item that's visible
+      const items = messagesEl.querySelectorAll('.msg-item');
+      for (const item of items) {
+        const rect = item.getBoundingClientRect();
+        const containerRect = messagesEl.getBoundingClientRect();
+        if (rect.bottom > containerRect.top) {
+          scrollAnchorKey = item.dataset.key || null;
+          break;
         }
+      }
+    }
+  });
+
+  $effect(() => {
+    // After loadingEarlier goes false and we have more messages, scroll to the anchor
+    if (!loadingEarlier && scrollAnchorKey && messagesEl) {
+      requestAnimationFrame(() => {
+        const anchor = messagesEl.querySelector('[data-key=\"' + scrollAnchorKey + '\"]');
+        if (anchor) {
+          anchor.scrollIntoView({ block: 'start' });
+          messagesEl.scrollTop -= 20; // small offset so it's not flush
+        }
+        scrollAnchorKey = null;
       });
     }
-    prevMessageCount = count;
   });
 
   // Reset scroll state when loading new session history
@@ -250,7 +267,7 @@
   {/if}
 
   {#each visibleItems as item, i (item._key || item.uuid || item.toolId || item.requestId || 'i' + i)}
-    <div class="msg-item">
+    <div class="msg-item" data-key={item._key || item.toolId || item.requestId || ''}>
     {#if item.type === 'user'}
       <UserMessage text={item.text} images={item.images} pastes={item.pastes} imageCount={item.imageCount || 0} {compact} />
     {:else if item.type === 'assistant'}
