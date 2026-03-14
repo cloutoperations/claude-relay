@@ -356,8 +356,9 @@ function restoreTabsOnFirstConnect() {
     }
 
     // Clean up panes: if activeTabId points to a session that isn't a tab, fix it
+    // Skip special tab IDs (__home__, __file__, __file__:*, __area__:*, __project__:*)
     for (const p of paneList) {
-      if (p.activeTabId && p.activeTabId !== '__home__' && !tabs[p.activeTabId]) {
+      if (p.activeTabId && p.activeTabId !== '__home__' && !p.activeTabId.startsWith('__') && !tabs[p.activeTabId]) {
         const realTab = p.tabIds.find(id => id !== '__home__' && tabs[id]);
         console.log('[restore] Fixing stale pane activeTabId:', p.activeTabId.substring(0, 8), '→', realTab?.substring(0, 8) || '__home__');
         p.activeTabId = realTab || '__home__';

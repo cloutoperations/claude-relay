@@ -88,6 +88,8 @@ async function dumpState() {
         tabs: localStorage.getItem('claude-relay-tabs')?.substring(0, 500) || null,
         panes: localStorage.getItem('claude-relay-panes')?.substring(0, 500) || null,
         popups: localStorage.getItem('claude-relay-popups')?.substring(0, 500) || null,
+        fileTabs: localStorage.getItem('claude-relay-file-tabs') || null,
+        activeFile: localStorage.getItem('claude-relay-active-tab') || null,
       },
     }));
     writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
