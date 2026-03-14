@@ -246,6 +246,27 @@ Sidebar              Area Panel (500px)        Sub-Panel (400px)
 - [ ] **4.8** Tablet range (768-1024px): tighter layout, reduced sidebar
 - [ ] **4.9** Popup responsive: intermediate breakpoints at 768px
 
+## Phase 4b — Session Archiving
+
+### Server
+- [ ] **4b.1** Add `archived` flag to session metadata in JSONL
+- [ ] **4b.2** WS handler: `archive_session` — sets flag, re-saves, re-broadcasts session list
+- [ ] **4b.3** WS handler: `unarchive_session` — clears flag
+- [ ] **4b.4** WS handler: `bulk_archive` — archive by age ("older than 7d") or by area
+- [ ] **4b.5** Filter archived sessions from default `session_list` broadcast
+- [ ] **4b.6** WS handler: `list_archived` — returns only archived sessions
+
+### Frontend
+- [ ] **4b.7** Right-click session → "Archive" option
+- [ ] **4b.8** Sidebar: "Archived (N)" collapsed section
+- [ ] **4b.9** Archived sessions don't count toward area totals
+- [ ] **4b.10** Unarchive: click archived session → option to restore
+
+### Slash commands
+- [ ] **4b.11** `/archive` — archive current session
+- [ ] **4b.12** `/archive-old 7d` — bulk archive sessions older than N days
+- [ ] **4b.13** Claude auto-suggest: after task completion, offer to archive
+
 ## Phase 5 — Polish & Cleanup
 
 - [ ] **5.1** Light theme contrast: increase hierarchy between bg/bg-alt/bg-raised
