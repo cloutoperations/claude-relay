@@ -1,11 +1,14 @@
 <script>
-  import { tabs, activeTabId, switchTab, closeTab, demoteTabToPopup, moveTab, forkTab } from '../../stores/tabs.svelte.js';
+  import { tabs, activeTabId, switchTab, closeTab, demoteTabToPopup, moveTab, forkTab, promotePopupToTab } from '../../stores/tabs.svelte.js';
   import { tabOrder } from '../../stores/tabs.svelte.js';
+  import { isPopupOpen } from '../../stores/popups.svelte.js';
   import { openFiles, activeFilePath, closeFileTab, switchTab as switchFileTab } from '../../stores/files.svelte.js';
   import { panes, paneLayout, findPaneForTab, switchPaneTab, addTabToPane, moveTabToPane, activePaneId, splitPane, closePane } from '../../stores/panes.svelte.js';
+  import { agents } from '../../stores/agents.svelte.js';
   const FILE_PREFIX = '__file__:';
   const AREA_PREFIX = '__area__:';
   const PROJECT_PREFIX = '__project__:';
+  const AGENT_PREFIX = '__agent__:';
 
   let paneList = $derived(panes);
   let layout = $derived(paneLayout);
@@ -26,6 +29,11 @@
       const name = path.split('/').pop() || path;
       const formatted = name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       return { id, title: formatted, isHome: false, type: 'project' };
+    }
+    if (id.startsWith(AGENT_PREFIX)) {
+      const agentId = id.slice(AGENT_PREFIX.length);
+      const agent = agents[agentId];
+      return { id, title: agent?.name || 'Agent', isHome: false, type: 'agent' };
     }
     if (id.startsWith(FILE_PREFIX)) {
       const path = id.slice(FILE_PREFIX.length);
@@ -129,7 +137,8 @@
   }
 
   function handleDragOver(e, id) {
-    if (!dragTabId || dragTabId === id) return;
+    // Allow both internal tab drags and external popup drags
+    if (dragTabId && dragTabId === id) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     dropTargetId = id;
@@ -141,6 +150,17 @@
 
   function handleDrop(e, id, targetPaneId) {
     e.preventDefault();
+
+    // Check if this is a popup being dragged to the tab bar
+    if (!dragTabId) {
+      const sessionId = e.dataTransfer.getData('text/plain');
+      if (sessionId && isPopupOpen(sessionId)) {
+        promotePopupToTab(sessionId);
+        dropTargetId = null;
+        return;
+      }
+    }
+
     if (!dragTabId || dragTabId === id) return;
 
     // If dropping into a different pane section, move the tab to that pane
@@ -231,7 +251,17 @@
       class:active-pane={activePaneId.value === section.paneId}
       style={isSplit ? `flex: ${layout.ratios[idx] || 1}` : 'flex: 1'}
     >
-      <div class="tab-list">
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="tab-list"
+        ondragover={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+        ondrop={(e) => {
+          e.preventDefault();
+          const sessionId = e.dataTransfer.getData('text/plain');
+          if (sessionId && isPopupOpen(sessionId)) {
+            promotePopupToTab(sessionId);
+          }
+        }}
+      >
         {#each section.tabs as tab (tab.id)}
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
