@@ -114,28 +114,9 @@
     processing ? messages.filter(m => m.type === 'tool' && m.isAgent && m.status === 'running').length : 0
   );
 
-  // --- Windowed rendering ---
-  // Only render last WINDOW_SIZE items initially; user can load more.
-  const WINDOW_SIZE = 150;
-  let renderAll = $state(false);
-
-  let visibleItems = $derived.by(() => {
-    if (renderAll || displayItems.length <= WINDOW_SIZE) return displayItems;
-    return displayItems.slice(-WINDOW_SIZE);
-  });
-
-  let hiddenCount = $derived(displayItems.length - visibleItems.length);
-
-  function loadAllMessages() {
-    renderAll = true;
-  }
-
-  // Reset window when messages change drastically (session switch)
-  $effect(() => {
-    if (displayItems.length <= WINDOW_SIZE) {
-      renderAll = false;
-    }
-  });
+  // Render all items — no windowing. CSS content-visibility handles render performance.
+  let visibleItems = $derived(displayItems);
+  let hiddenCount = $derived(0);
 
   let messagesEl = $state(null);
   let isUserScrolledUp = false;
@@ -244,27 +225,6 @@
     </div>
   {/if}
 
-  {#if hasEarlier && onLoadEarlier}
-    <div class="load-earlier-zone" bind:this={sentinelEl}>
-      {#if loadingEarlier}
-        <div class="load-earlier-spinner">
-          <div class="le-ring"></div>
-          <span>Loading earlier messages</span>
-        </div>
-      {:else}
-        <div class="load-earlier-hint">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></svg>
-          <span>Scroll for more</span>
-        </div>
-      {/if}
-    </div>
-  {/if}
-
-  {#if hiddenCount > 0}
-    <button class="load-earlier" onclick={loadAllMessages}>
-      Show {hiddenCount} more (already loaded)
-    </button>
-  {/if}
 
   {#each visibleItems as item, i (item._key || item.uuid || item.toolId || item.requestId || 'i' + i)}
     <div class="msg-item" data-key={item._key || item.toolId || item.requestId || ''}>
@@ -356,6 +316,8 @@
     width: 100%;
     align-self: center;
     box-sizing: border-box;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 80px;
   }
 
   .load-earlier-zone {
