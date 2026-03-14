@@ -223,7 +223,12 @@
       <!-- Pane content -->
       <div class="pane-content" style:padding-bottom="{idx === paneList.length - 1 && pane.activeTabId && !pane.activeTabId.startsWith('__') ? popupBarHeight : 0}px">
         {#if pane.activeTabId === '__home__'}
-          <CommandPost />
+          <div class="pane-welcome">
+            <div class="welcome-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <span class="welcome-text">Open a session from the sidebar to get started</span>
+          </div>
         {:else if pane.activeTabId?.startsWith(AREA_PREFIX)}
           <AreaDetailTab areaName={pane.activeTabId.slice(AREA_PREFIX.length)} />
         {:else if pane.activeTabId?.startsWith(PROJECT_PREFIX)}
@@ -249,6 +254,7 @@
               onLoadEarlier={() => loadEarlierHistory(pane.activeTabId)}
               onPermissionRespond={(reqId, decision) => handlePermissionRespond(pane.activeTabId, reqId, decision)}
               onStopAgent={handleStopAgent}
+              onSend={(text) => handleSend(pane.id, pane.activeTabId, text, {})}
               taskItems={sessionStates[pane.activeTabId]?.tasks}
             />
           {/key}
@@ -331,6 +337,24 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0;
+  }
+
+  .pane-welcome {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-dimmer);
+  }
+
+  .welcome-icon {
+    opacity: 0.3;
+  }
+
+  .welcome-text {
+    font-size: 14px;
   }
 
   .pane-empty {

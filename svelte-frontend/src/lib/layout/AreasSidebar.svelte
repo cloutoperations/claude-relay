@@ -478,6 +478,30 @@
       </svg>
     </button>
   </div>
+
+  <!-- New Session — primary action at top -->
+  <button class="new-session-btn top" onclick={handleNewSession}>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+    New Session
+    {#if hasMultipleAccounts}
+      <svg class="chevron" class:open={showAccountPicker} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    {/if}
+  </button>
+  {#if showAccountPicker}
+    <div class="account-picker top">
+      <div class="account-picker-label">Select account</div>
+      {#each accounts as account, i}
+        <button class="account-option" onclick={() => handlePickAccount(account.id)}>
+          <span class="account-dot" style="background: {ACCOUNT_COLORS[i % ACCOUNT_COLORS.length]}"></span>
+          <span class="account-email">{account.email || account.id}</span>
+        </button>
+      {/each}
+    </div>
+  {/if}
+
   <!-- Areas section -->
   <div class="areas-section">
     {#if boardLoading.value && !boardData.value}
@@ -504,17 +528,10 @@
             <span class="area-name clickable" onclick={(e) => { e.stopPropagation(); openAreaTab(area.name); }}>{formatAreaName(area.name)}</span>
             <div class="area-meta" onclick={() => toggleAreaCollapse(area.name)} role="button" tabindex="0">
               {#if processingCount > 0}
-                <span class="meta-badge active">{processingCount}</span>
+                <span class="meta-count active">{processingCount} active</span>
+                <span class="meta-sep">·</span>
               {/if}
-              <span class="meta-badge">{sessionCount}</span>
-              <div class="area-dots">
-                {#each allSessions.slice(0, 6) as session (session.id)}
-                  <SessionBubble {session} size="sm" onContextMenu={handleContextMenu} />
-                {/each}
-                {#if allSessions.length > 6}
-                  <span class="dots-overflow">+{allSessions.length - 6}</span>
-                {/if}
-              </div>
+              <span class="meta-count">{sessionCount}</span>
             </div>
           </div>
 
@@ -1335,6 +1352,23 @@
     background: var(--accent-12);
   }
 
+  .meta-count {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    font-weight: 500;
+  }
+
+  .meta-count.active {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .meta-sep {
+    color: var(--text-dimmer);
+    font-size: 10px;
+    margin: 0 2px;
+  }
+
   .area-dots {
     display: flex;
     align-items: center;
@@ -1949,6 +1983,15 @@
   .new-session-btn:hover {
     background: var(--accent-15);
     border-color: var(--accent-50);
+  }
+
+  .new-session-btn.top {
+    margin: 8px 12px;
+    width: calc(100% - 24px);
+  }
+
+  .account-picker.top {
+    margin: 0 12px 8px;
   }
 
   .new-session-btn .chevron {

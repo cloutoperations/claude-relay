@@ -14,14 +14,11 @@
 - [x] **1.10** Turn separator: thin divider line between turns
 - [x] **1.11** Sidebar width: 320px → 280px
 
-## Phase 2 — Sidebar & Layout
+## Phase 2 — Sidebar Tweaks (small, then Phase 3 does the real work)
 
-- [ ] **2.1** Fix empty home screen — dashboard with recent sessions, quick actions, area summary
-- [ ] **2.2** Move "New Session" button to top of sidebar
-- [ ] **2.3** Area indicators → "3 active · 50" format (replace cryptic dots)
-- [ ] **2.4** Sidebar sessions/files: move from collapsed bottom to tabs/segments near top
-- [ ] **2.5** Area row height: ~36px with better padding between name and indicators
-- [ ] **2.6** Sidebar collapsible to icons-only (48px) on medium screens (1024-1440px)
+- [ ] **2.1** Move "New Session" button to top of sidebar
+- [ ] **2.2** Area indicators → "3 active · 50" format (replace cryptic dots with readable counts)
+- [ ] **2.3** Empty main area: minimal clean state ("Open a session to get started") instead of CommandPost
 
 ## Phase 3 — Area Hover System (the big one)
 
