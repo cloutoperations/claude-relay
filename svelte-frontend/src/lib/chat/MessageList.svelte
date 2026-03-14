@@ -205,7 +205,7 @@
     {:else if item.type === 'task_widget'}
       <TaskWidget {compact} items={taskItems} />
     {:else if item.type === 'thinking'}
-      <ThinkingBlock text={item.text} {compact} />
+      <ThinkingBlock text={item.text} duration={item.duration} {compact} />
     {:else if item.type === 'turn_meta'}
       <TurnMeta cost={item.cost} duration={item.duration} usage={item.usage} {compact} />
     {:else if item.type === 'permission'}
@@ -332,6 +332,7 @@
   .message-list {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 16px 12px;
     display: flex;
     flex-direction: column;
@@ -348,6 +349,7 @@
     width: 100%;
     align-self: center;
     box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   .load-earlier-zone {

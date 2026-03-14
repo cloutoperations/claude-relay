@@ -100,11 +100,13 @@
   class:cp-permission={sessionState?.status === 'permission'}
   class:has-unread={popup.hasUnread}
   class:resizing={isResizing}
-  style={popupHeight ? `height: ${popupHeight}px` : ''}
+  style={popupHeight && !popup.minimized ? `height: ${popupHeight}px` : ''}
 >
   <!-- Resize handle at top -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="cp-resize-handle" onmousedown={startResize}></div>
+  {#if !popup.minimized}
+    <div class="cp-resize-handle" onmousedown={startResize}></div>
+  {/if}
 
   <!-- Header -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
