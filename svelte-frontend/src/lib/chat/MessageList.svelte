@@ -247,7 +247,7 @@
     </div>
   {/if}
 </div>
-{#if showScrollButtons && !compact}
+{#if showScrollButtons}
   <div class="scroll-buttons">
     {#if !isAtTop}
       <button class="scroll-btn scroll-top" onclick={jumpToTop} title="Scroll to top">
@@ -310,6 +310,22 @@
 
   .scroll-btn:active {
     transform: scale(0.95);
+  }
+
+  .compact .scroll-buttons {
+    right: 10px;
+    bottom: 8px;
+    gap: 4px;
+  }
+
+  .compact .scroll-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .compact .scroll-btn svg {
+    width: 12px;
+    height: 12px;
   }
 
   .message-list {
