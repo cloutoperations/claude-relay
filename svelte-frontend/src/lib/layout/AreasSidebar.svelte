@@ -527,10 +527,6 @@
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <span class="area-name clickable" onclick={(e) => { e.stopPropagation(); openAreaTab(area.name); }}>{formatAreaName(area.name)}</span>
             <div class="area-meta" onclick={() => toggleAreaCollapse(area.name)} role="button" tabindex="0">
-              {#if processingCount > 0}
-                <span class="meta-count active">{processingCount} active</span>
-                <span class="meta-sep">·</span>
-              {/if}
               <span class="meta-count">{sessionCount}</span>
             </div>
           </div>
@@ -543,11 +539,7 @@
                 {#if projSessions.length > 0}
                   <div class="project-row" onmouseenter={(e) => onProjectMouseEnter(e, proj, area)} onmouseleave={onProjectMouseLeave}>
                     <span class="project-name clickable" onclick={(e) => { e.stopPropagation(); openProjectTab(proj.path); }}>{proj.name}</span>
-                    <div class="project-dots">
-                      {#each projSessions.slice(0, 4) as session (session.id)}
-                        <SessionBubble {session} size="sm" onContextMenu={handleContextMenu} />
-                      {/each}
-                    </div>
+                    <span class="project-count">{projSessions.length}</span>
                   </div>
                 {/if}
               {/each}
@@ -1407,6 +1399,12 @@
     display: flex;
     align-items: center;
     gap: 3px;
+    flex-shrink: 0;
+  }
+
+  .project-count {
+    font-size: 11px;
+    color: var(--text-dimmer);
     flex-shrink: 0;
   }
 
