@@ -15,7 +15,7 @@ import {
   popups, popupOrder, isPopupOpen, onPopupRekey,
   saveLayout as savePopupLayout,
 } from './popups.svelte.js';
-import { renameTabInPanes } from './panes.svelte.js';
+import { renameTabInPanes, panes as paneList } from './panes.svelte.js';
 import { sessionList, pendingNewSessionRequests, searchSeq, sessionSearchQuery, sessionSearchResults } from './sessions.svelte.js';
 import { contextData, sessionCost, projectInfo, clientCount, slashCommands, modelInfo, rateLimitState } from './chat.svelte.js';
 import { ambientState } from './ambient.svelte.js';
@@ -57,14 +57,21 @@ function handleIncoming(msg) {
     // --- History start/done ---
     if (t === 'popup_history_start' || t === 'tab_history_start') {
       const sessionId = resolveSessionId(msg.sessionId);
-      if (!sessionId || !sessionStates[sessionId]) return;
+      if (!sessionId || !sessionStates[sessionId]) {
+        console.warn('[router] history_start dropped — no session state for', msg.sessionId?.substring(0, 12), 'resolved:', sessionId?.substring(0, 12));
+        return;
+      }
       startHistoryReplay(sessionId);
       return;
     }
 
     if (t === 'popup_history_done' || t === 'tab_history_done') {
       const sessionId = resolveSessionId(msg.sessionId);
-      if (!sessionId || !sessionStates[sessionId]) return;
+      if (!sessionId || !sessionStates[sessionId]) {
+        console.warn('[router] history_done dropped — no session state for', msg.sessionId?.substring(0, 12), 'resolved:', sessionId?.substring(0, 12));
+        return;
+      }
+      console.log('[router] history_done OK for', sessionId.substring(0, 12));
       finishHistoryReplay(sessionId);
       return;
     }
@@ -323,21 +330,22 @@ function restoreTabsOnFirstConnect() {
       };
       if (!tabOrder.includes(sessionId)) tabOrder.push(sessionId);
 
-      // Replay tabs that are visible in panes, mark others stale
+      // Replay tabs that are in any pane's tabIds — they're potentially visible
       // Read panes from localStorage directly (panes module may not be ready yet during restore)
       let visibleInPane = false;
       try {
         const savedPanes = JSON.parse(localStorage.getItem('claude-relay-panes') || '{}');
         if (savedPanes.panes) {
-          visibleInPane = savedPanes.panes.some(p => p.activeTabId === sessionId);
+          visibleInPane = savedPanes.panes.some(p =>
+            p.tabIds && p.tabIds.includes(sessionId)
+          );
         }
       } catch {}
+      console.log('[restore]', sessionId.substring(0, 8), item.title, 'activeTab:', layout.activeTabId === sessionId, 'inPane:', visibleInPane);
       if (layout.activeTabId === sessionId || visibleInPane) {
-        // Stagger replays — don't flood the server with simultaneous history loads
         replayQueue.push(sessionId);
       } else {
         staleTabs.add(sessionId);
-        // Override loadingHistory — stale tabs load on click, not now
         const ss = sessionStates[sessionId];
         if (ss) ss.loadingHistory = false;
       }
@@ -347,10 +355,29 @@ function restoreTabsOnFirstConnect() {
       activeTabId.value = layout.activeTabId;
     }
 
+    // Clean up panes: if activeTabId points to a session that isn't a tab, fix it
+    for (const p of paneList) {
+      if (p.activeTabId && p.activeTabId !== '__home__' && !tabs[p.activeTabId]) {
+        const realTab = p.tabIds.find(id => id !== '__home__' && tabs[id]);
+        console.log('[restore] Fixing stale pane activeTabId:', p.activeTabId.substring(0, 8), '→', realTab?.substring(0, 8) || '__home__');
+        p.activeTabId = realTab || '__home__';
+      }
+    }
+
     // Send tab_subscribe one at a time with delays to avoid server blocking
     let delay = 0;
     for (const sessionId of replayQueue) {
-      setTimeout(() => send({ type: 'tab_subscribe', sessionId }), delay);
+      setTimeout(() => {
+        send({ type: 'tab_subscribe', sessionId });
+        // Safety net: if history replay never completes, clear loadingHistory
+        setTimeout(() => {
+          const ss = sessionStates[sessionId];
+          if (ss?.loadingHistory) {
+            console.warn('[restore] Safety net: clearing stuck loadingHistory for', sessionId.substring(0, 12));
+            ss.loadingHistory = false;
+          }
+        }, 15000);
+      }, delay);
       delay += 2000; // 2s between each replay
     }
   }, 300);

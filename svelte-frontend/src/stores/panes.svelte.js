@@ -75,8 +75,14 @@ export function switchPaneTab(paneId, tabId) {
     if (p.id === paneId) p.activeTabId = tabId;
   }
   activePaneId.value = paneId;
+  // Trigger stale replay if needed (imported lazily to avoid circular dep)
+  if (_onPaneTabSwitch) _onPaneTabSwitch(tabId);
   saveState();
 }
+
+// Callback for tab switch — set by tabs.svelte.js to trigger stale replay
+let _onPaneTabSwitch = null;
+export function setOnPaneTabSwitch(fn) { _onPaneTabSwitch = fn; }
 
 export function findPaneForTab(tabId) {
   return panes.find(p => p.tabIds.includes(tabId))?.id || null;

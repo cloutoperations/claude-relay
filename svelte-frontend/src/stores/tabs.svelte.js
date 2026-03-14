@@ -5,7 +5,7 @@ import { send } from './ws.svelte.js';
 import { ensureSession, removeSessionState, sessions as sessionStates, staleTabs } from './session-state.svelte.js';
 import { finishAssistantInArray } from './session-state-utils.js';
 import { closePopup, isPopupOpen, popups, popupOrder, saveLayout as savePopupLayout } from './popups.svelte.js';
-import { addTabToPane, setPaneTab, onTabClosed, renameTabInPanes, findPaneForTab, pruneStaleTabsFromPanes } from './panes.svelte.js';
+import { addTabToPane, setPaneTab, onTabClosed, renameTabInPanes, findPaneForTab, pruneStaleTabsFromPanes, setOnPaneTabSwitch } from './panes.svelte.js';
 import { showToast } from './toasts.svelte.js';
 
 export const HOME_TAB = '__home__';
@@ -118,13 +118,22 @@ export function closeTab(sessionId) {
 export function switchTab(sessionId) {
   activeTabId.value = sessionId;
   if (tabs[sessionId]) tabs[sessionId].hasUnread = false;
-  // If this tab was marked stale after reconnect, replay its history now
-  if (staleTabs.has(sessionId)) {
-    staleTabs.delete(sessionId);
-    send({ type: 'tab_subscribe', sessionId });
-  }
+  replayIfStale(sessionId);
   saveLayout();
 }
+
+// Shared stale-replay logic — used by switchTab and pane tab switch
+function replayIfStale(sessionId) {
+  if (staleTabs.has(sessionId)) {
+    staleTabs.delete(sessionId);
+    const ss = sessionStates[sessionId];
+    if (ss) ss.loadingHistory = true;
+    send({ type: 'tab_subscribe', sessionId });
+  }
+}
+
+// Register pane tab switch callback
+setOnPaneTabSwitch(replayIfStale);
 
 export function moveTab(sessionId, newIndex) {
   const filtered = tabOrder.filter(id => id !== sessionId);
