@@ -24,19 +24,23 @@ function openDB() {
 }
 
 // Save processed messages for a session
+// Must deep-copy because Svelte $state proxies can't be structured-cloned by IndexedDB
 export async function cacheSession(sessionId, data) {
   try {
     const d = await openDB();
     const tx = d.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put({
+    const plain = JSON.parse(JSON.stringify({
       sessionId,
       messages: data.messages,
       tasks: data.tasks || [],
       historyFrom: data.historyFrom || 0,
       historyTotal: data.historyTotal || 0,
       cachedAt: Date.now(),
-    });
-  } catch {}
+    }));
+    tx.objectStore(STORE_NAME).put(plain);
+  } catch (e) {
+    console.warn('[cache] Failed to cache session:', e.message);
+  }
 }
 
 // Load cached messages for a session
