@@ -349,7 +349,8 @@
     width: 100%;
     align-self: center;
     box-sizing: border-box;
-    overflow-x: hidden;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   .load-earlier-zone {
