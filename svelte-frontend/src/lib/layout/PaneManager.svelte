@@ -1,4 +1,5 @@
 <script>
+  import { onDestroy } from 'svelte';
   import { panes, paneLayout, activePaneId, updateRatios, splitPane, addTabToPane, moveTabToPane } from '../../stores/panes.svelte.js';
   import { tabs } from '../../stores/tabs.svelte.js';
   import { sendTabMessage, stopTab, sendTabPermissionResponse, loadEarlierHistory } from '../../stores/tabs.svelte.js';
@@ -46,11 +47,17 @@
       isResizing = false;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      _resizeCleanup = null;
     }
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+    _resizeCleanup = onUp; // track for cleanup on destroy
   }
+
+  // Clean up resize listeners if component destroyed mid-drag
+  let _resizeCleanup = null;
+  onDestroy(() => { if (_resizeCleanup) _resizeCleanup(); });
 
   // Send/stop for session tabs in a specific pane
   function handleSend(paneId, tabId, text) {

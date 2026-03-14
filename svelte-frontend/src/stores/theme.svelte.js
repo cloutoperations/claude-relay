@@ -310,11 +310,14 @@ export function initTheme() {
   loadThemes();
 
   if (typeof window !== 'undefined') {
+    // Remove previous listeners if initTheme called again (HMR)
+    if (_themeCleanup) _themeCleanup();
+
     prefersColorSchemeQuery = window.matchMedia('(prefers-color-scheme: light)');
-    prefersColorSchemeQuery.addEventListener('change', () => {
+    const onSchemeChange = () => {
       if (themeMode.value === 'auto') setTheme(resolveAutoTheme());
-    });
-    window.addEventListener('storage', (e) => {
+    };
+    const onStorage = (e) => {
       if (e.key === MODE_KEY && e.newValue) {
         themeMode.value = e.newValue;
         if (e.newValue === 'auto') setTheme(resolveAutoTheme());
@@ -322,6 +325,13 @@ export function initTheme() {
       if (e.key === STORAGE_KEY && e.newValue && e.newValue !== currentTheme.value) {
         if (themeMode.value !== 'auto') setTheme(e.newValue);
       }
-    });
+    };
+    prefersColorSchemeQuery.addEventListener('change', onSchemeChange);
+    window.addEventListener('storage', onStorage);
+    _themeCleanup = () => {
+      prefersColorSchemeQuery.removeEventListener('change', onSchemeChange);
+      window.removeEventListener('storage', onStorage);
+    };
   }
 }
+let _themeCleanup = null;

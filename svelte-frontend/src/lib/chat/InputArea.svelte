@@ -79,10 +79,14 @@
     textareaEl?.focus();
   }
 
+  let draftSaveTimer = null;
   function handleInput() {
     autoResize();
-    // Save draft to tab store
-    if (sessionId) saveTabDraft(sessionId, inputText);
+    // Debounced draft save — avoid thrashing store on every keystroke
+    if (sessionId) {
+      if (draftSaveTimer) clearTimeout(draftSaveTimer);
+      draftSaveTimer = setTimeout(() => saveTabDraft(sessionId, inputText), 300);
+    }
     // Show slash menu when typing / at start
     if (inputText.startsWith('/') && !inputText.includes(' ')) {
       showSlashMenu = true;
