@@ -119,11 +119,23 @@
   let hiddenCount = $derived(0);
 
   let messagesEl = $state(null);
-  let isAtBottom = true;
+  let isAtBottom = $state(true);
+  let isAtTop = $state(false);
+  let showScrollButtons = $state(false);
 
   function scrollToBottom() {
     if (!messagesEl || !isAtBottom) return;
     messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function jumpToBottom() {
+    if (!messagesEl) return;
+    messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
+  }
+
+  function jumpToTop() {
+    if (!messagesEl) return;
+    messagesEl.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   // Throttled scroll handler — max once per frame
@@ -134,7 +146,10 @@
     requestAnimationFrame(() => {
       scrollTicking = false;
       if (!messagesEl) return;
-      isAtBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 100;
+      const { scrollTop, scrollHeight, clientHeight } = messagesEl;
+      isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+      isAtTop = scrollTop < 100;
+      showScrollButtons = scrollHeight > clientHeight * 2; // only show if content is scrollable
     });
   }
 
@@ -232,6 +247,20 @@
     </div>
   {/if}
 </div>
+{#if showScrollButtons && !compact}
+  <div class="scroll-buttons">
+    {#if !isAtTop}
+      <button class="scroll-btn scroll-top" onclick={jumpToTop} title="Scroll to top">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></svg>
+      </button>
+    {/if}
+    {#if !isAtBottom}
+      <button class="scroll-btn scroll-bottom" onclick={jumpToBottom} title="Scroll to bottom">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+      </button>
+    {/if}
+  </div>
+{/if}
 {#if !compact}
   <SearchTimeline {messagesEl} messageCount={messages.length} {messages} />
 {/if}
@@ -244,6 +273,43 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+  }
+
+  .scroll-buttons {
+    position: absolute;
+    right: 20px;
+    bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 5;
+  }
+
+  .scroll-btn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--text-muted);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(var(--shadow-rgb), 0.2);
+    transition: all 0.15s;
+    padding: 0;
+  }
+
+  .scroll-btn:hover {
+    background: var(--bg-raised);
+    color: var(--accent);
+    border-color: var(--accent-25);
+    transform: scale(1.1);
+  }
+
+  .scroll-btn:active {
+    transform: scale(0.95);
   }
 
   .message-list {
