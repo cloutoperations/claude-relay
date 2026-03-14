@@ -322,83 +322,78 @@ function restoreTabsOnFirstConnect() {
   if (hasRestoredTabs) return;
   hasRestoredTabs = true;
 
-  // Defer slightly to let WS handshake complete
-  setTimeout(() => {
-    const { loadTabLayout } = getTabPersistence();
-    const layout = loadTabLayout();
-    if (!layout || !layout.tabs || layout.tabs.length === 0) return;
-    const replayQueue = [];
+  const { loadTabLayout } = getTabPersistence();
+  const layout = loadTabLayout();
+  if (!layout || !layout.tabs || layout.tabs.length === 0) return;
+
+  // Step 1: Create tab UI state immediately (no delay)
+  for (const item of layout.tabs) {
+    const sessionId = item.sessionId;
+    ensureSession(sessionId, null);
+    tabs[sessionId] = {
+      title: item.title || 'Session',
+      scrollPosition: 0,
+      draftText: item.draftText || '',
+      hasUnread: false,
+    };
+    if (!tabOrder.includes(sessionId)) tabOrder.push(sessionId);
+  }
+
+  if (layout.activeTabId && layout.activeTabId !== HOME_TAB && tabs[layout.activeTabId]) {
+    activeTabId.value = layout.activeTabId;
+  }
+
+  // Step 2: Try IndexedDB cache immediately (async but fast — no server round-trip)
+  (async () => {
+    const uncached = [];
 
     for (const item of layout.tabs) {
-      const sessionId = item.sessionId;
-      ensureSession(sessionId, null); // loadingHistory = true
-      tabs[sessionId] = {
-        title: item.title || 'Session',
-        scrollPosition: 0,
-        draftText: item.draftText || '',
-        hasUnread: false,
-      };
-      if (!tabOrder.includes(sessionId)) tabOrder.push(sessionId);
-
-      // Replay tabs that are in any pane's tabIds — they're potentially visible
-      // Read panes from localStorage directly (panes module may not be ready yet during restore)
-      let visibleInPane = false;
-      try {
-        const savedPanes = JSON.parse(localStorage.getItem('claude-relay-panes') || '{}');
-        if (savedPanes.panes) {
-          visibleInPane = savedPanes.panes.some(p =>
-            p.tabIds && p.tabIds.includes(sessionId)
-          );
-        }
-      } catch {}
-      console.log('[restore]', sessionId.substring(0, 8), item.title, 'activeTab:', layout.activeTabId === sessionId, 'inPane:', visibleInPane);
-      if (layout.activeTabId === sessionId || visibleInPane) {
-        replayQueue.push(sessionId);
+      const restored = await restoreFromCache(item.sessionId);
+      if (restored) {
+        console.log('[restore] Cached:', item.sessionId.substring(0, 12));
+        // Register with server for live updates only (skip history replay)
+        send({ type: 'tab_subscribe', sessionId: item.sessionId, skip_history: true });
       } else {
-        staleTabs.add(sessionId);
-        const ss = sessionStates[sessionId];
-        if (ss) ss.loadingHistory = false;
+        uncached.push(item.sessionId);
       }
     }
 
-    if (layout.activeTabId && layout.activeTabId !== HOME_TAB && tabs[layout.activeTabId]) {
-      activeTabId.value = layout.activeTabId;
-    }
-
-    // Clean up panes: if activeTabId points to a session that isn't a tab, fix it
-    // Skip special tab IDs (__home__, __file__, __file__:*, __area__:*, __project__:*)
+    // Step 3: Pane cleanup
     for (const p of paneList) {
       if (p.activeTabId && p.activeTabId !== '__home__' && !p.activeTabId.startsWith('__') && !tabs[p.activeTabId]) {
         const realTab = p.tabIds.find(id => id !== '__home__' && tabs[id]);
-        console.log('[restore] Fixing stale pane activeTabId:', p.activeTabId.substring(0, 8), '→', realTab?.substring(0, 8) || '__home__');
         p.activeTabId = realTab || '__home__';
       }
     }
 
-    // Try IndexedDB cache first, fall back to server replay
-    let delay = 0;
-    for (const sessionId of replayQueue) {
-      setTimeout(async () => {
-        const restored = await restoreFromCache(sessionId);
-        if (restored) {
-          console.log('[restore] Loaded from cache:', sessionId.substring(0, 12));
-          // Still register with server for live updates (skip history)
-          send({ type: 'tab_subscribe', sessionId, skip_history: true });
-        } else {
-          send({ type: 'tab_subscribe', sessionId });
-          // Safety net: if history replay never completes, clear loadingHistory
+    // Step 4: Server replay for uncached tabs only
+    if (uncached.length > 0) {
+      let delay = 0;
+      for (const sessionId of uncached) {
+        // Check if visible in any pane
+        let visible = layout.activeTabId === sessionId;
+        try {
+          const savedPanes = JSON.parse(localStorage.getItem('claude-relay-panes') || '{}');
+          if (savedPanes.panes) visible = visible || savedPanes.panes.some(p => p.tabIds && p.tabIds.includes(sessionId));
+        } catch {}
+
+        if (visible) {
           setTimeout(() => {
-            const ss = sessionStates[sessionId];
-            if (ss?.loadingHistory) {
-              console.warn('[restore] Safety net: clearing stuck loadingHistory for', sessionId.substring(0, 12));
-              ss.loadingHistory = false;
-            }
-          }, 15000);
+            send({ type: 'tab_subscribe', sessionId });
+            setTimeout(() => {
+              const ss = sessionStates[sessionId];
+              if (ss && ss.loadingHistory) ss.loadingHistory = false;
+            }, 15000);
+          }, delay);
+          delay += 2000;
+        } else {
+          staleTabs.add(sessionId);
+          const ss = sessionStates[sessionId];
+          if (ss) ss.loadingHistory = false;
         }
-      }, delay);
-      delay += 500; // Faster with cache — only 500ms stagger
+      }
     }
-  }, 300);
+  })();
 }
 
 function restorePopupsOnFirstConnect() {
