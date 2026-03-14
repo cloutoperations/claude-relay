@@ -203,7 +203,7 @@
 
   // Intersection observer — auto-load earlier when scrolled to top
   $effect(() => {
-    if (!sentinelEl || !hasEarlier || !onLoadEarlier || compact) return;
+    if (!sentinelEl || !hasEarlier || !onLoadEarlier) return;
     const observer = new IntersectionObserver((entries) => {
       if (entries[0]?.isIntersecting && !loadingEarlier) {
         // Debounce to avoid rapid-fire requests
