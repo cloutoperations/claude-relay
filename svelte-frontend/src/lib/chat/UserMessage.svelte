@@ -1,5 +1,5 @@
 <script>
-  let { text = '', images = null, pastes = null, compact = false } = $props();
+  let { text = '', images = null, pastes = null, imageCount = 0, compact = false } = $props();
 </script>
 
 <div class="msg-user" class:compact>
@@ -9,6 +9,11 @@
         {#each images as img}
           <img class="bubble-img" src="data:{img.mediaType};base64,{img.data}" alt="Attached" />
         {/each}
+      </div>
+    {:else if imageCount > 0}
+      <div class="bubble-image-placeholder">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        {imageCount} image{imageCount > 1 ? 's' : ''} attached
       </div>
     {/if}
 
@@ -80,6 +85,25 @@
   .compact .bubble-img {
     max-width: 120px;
     max-height: 120px;
+  }
+
+  .bubble-image-placeholder {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    background: rgba(var(--overlay-rgb), 0.06);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .compact .bubble-image-placeholder {
+    color: rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.1);
+    font-size: 11px;
+    padding: 4px 8px;
   }
 
   .bubble-pastes {

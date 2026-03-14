@@ -200,7 +200,7 @@
   {#each visibleItems as item, i (item._key || item.uuid || item.toolId || item.requestId || i)}
     <div class="msg-item">
     {#if item.type === 'user'}
-      <UserMessage text={item.text} images={item.images} pastes={item.pastes} {compact} />
+      <UserMessage text={item.text} images={item.images} pastes={item.pastes} imageCount={item.imageCount || 0} {compact} />
     {:else if item.type === 'assistant'}
       <AssistantMessage text={item.text} finalized={item.finalized} {compact} />
     {:else if item.type === 'system' || item.type === 'info'}
