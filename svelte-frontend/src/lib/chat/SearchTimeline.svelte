@@ -94,7 +94,8 @@
 
       if (best) {
         best.classList.add('search-blink');
-        setTimeout(() => best.classList.remove('search-blink'), 1500);
+        const el = best;
+        setTimeout(() => { if (el.isConnected) el.classList.remove('search-blink'); }, 1500);
       }
     }, 400);
   }

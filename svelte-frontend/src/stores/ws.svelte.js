@@ -50,6 +50,8 @@ export function getBasePath() {
 export function send(obj) {
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify(obj));
+  } else if (typeof obj === 'object' && obj.type) {
+    console.warn('[ws] Dropped message (not connected):', obj.type);
   }
 }
 

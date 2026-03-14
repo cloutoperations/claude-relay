@@ -197,7 +197,7 @@
     </button>
   {/if}
 
-  {#each visibleItems as item, i (item._key || item.uuid || item.toolId || item.requestId || i)}
+  {#each visibleItems as item, i (item._key || item.uuid || item.toolId || item.requestId || 'i' + i)}
     <div class="msg-item">
     {#if item.type === 'user'}
       <UserMessage text={item.text} images={item.images} pastes={item.pastes} imageCount={item.imageCount || 0} {compact} />

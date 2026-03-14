@@ -174,6 +174,7 @@ export function sendTabMessage(sessionId, text, images, pastes) {
 
   if (tabs[sessionId]) tabs[sessionId].draftText = '';
 
+  // Uses popup_message — server handles identically for tabs and popups
   const msg = { type: 'popup_message', sessionId, text };
   if (images && images.length > 0) msg.images = images;
   if (pastes && pastes.length > 0) msg.pastes = pastes;

@@ -147,7 +147,7 @@
 
   function handleNewSession(projectPath = null) {
     createSession(null, true, projectPath);
-    setTimeout(() => fetchBoard(), 1500);
+    setTimeout(() => { if (!destroyed) fetchBoard(); }, 1500);
   }
 
   // Clean up timers on unmount

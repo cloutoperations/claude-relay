@@ -4,6 +4,8 @@
 import { send } from './ws.svelte.js';
 import { ensureSession, removeSessionState, sessions as sessionStates } from './session-state.svelte.js';
 import { finishAssistantInArray } from './session-state-utils.js';
+// Note: circular import with tabs.svelte.js — works via ES module hoisting.
+// Uses getTabSessionIds() (lazy function call) to avoid accessing uninitialized exports.
 import { getTabSessionIds } from './tabs.svelte.js';
 
 const MAX_POPUPS = 20;

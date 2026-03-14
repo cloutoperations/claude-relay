@@ -79,6 +79,8 @@ export function ensureSession(sessionId, seedState) {
 export function removeSessionState(sessionId) {
   delete sessions[sessionId];
   delete replayBuffers[sessionId];
+  delete rekeyMap[sessionId];
+  staleTabs.delete(sessionId);
 }
 
 // --- History replay ---

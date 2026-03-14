@@ -1,6 +1,9 @@
 // Shared session state utilities — used by both tabs.js and popups.js
 // Extracts duplicated message-processing logic.
 
+let _msgKeyCounter = 0;
+export function nextMsgKey() { return 'mk-' + (++_msgKeyCounter); }
+
 export const TASK_TOOLS = new Set(['TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet', 'TaskOutput', 'TaskStop', 'TodoWrite']);
 export const AGENT_TOOLS = new Set(['Task', 'Agent']);
 export const HIDDEN_TOOLS = new Set(['EnterPlanMode', 'ExitPlanMode']);
@@ -113,7 +116,7 @@ export function processBufferedEvent(buf, msg, t) {
     if (!images && msg.imagePaths && msg.imagePaths.length > 0) {
       images = msg.imagePaths.map(p => ({ url: 'api/session-image/' + p, mediaType: 'image/png' }));
     }
-    buf.msgs.push({ type: 'user', text: msg.text || '', images, pastes: msg.pastes || null, imageCount: msg.imageCount || 0 });
+    buf.msgs.push({ type: 'user', text: msg.text || '', images, pastes: msg.pastes || null, imageCount: msg.imageCount || 0, _key: nextMsgKey() });
   } else if (t === 'delta' || t === 'assistant_delta') {
     const delta = msg.text || msg.delta || '';
     if (!buf.isStreaming) {
@@ -172,7 +175,7 @@ export function processBufferedEvent(buf, msg, t) {
       buf.currentText = '';
     }
     if (t === 'result' && (msg.cost != null || msg.duration != null)) {
-      buf.msgs.push({ type: 'turn_meta', cost: msg.cost, duration: msg.duration });
+      buf.msgs.push({ type: 'turn_meta', _key: nextMsgKey(), cost: msg.cost, duration: msg.duration });
     }
   } else if (t === 'subagent_activity') {
     const pid = msg.parentToolId || msg.agentId;
@@ -236,18 +239,18 @@ export function processBufferedEvent(buf, msg, t) {
       }
     }
   } else if (t === 'rate_limit') {
-    buf.msgs.push({ type: 'system', text: 'Rate limited: ' + (msg.text || 'API rate limit reached'), isError: true, isRateLimit: true });
+    buf.msgs.push({ type: 'system', _key: nextMsgKey(), text: 'Rate limited: ' + (msg.text || 'API rate limit reached'), isError: true, isRateLimit: true });
   } else if (t === 'error') {
-    buf.msgs.push({ type: 'system', text: msg.text || msg.error || msg.message || 'Unknown error', isError: true });
+    buf.msgs.push({ type: 'system', _key: nextMsgKey(), text: msg.text || msg.error || msg.message || 'Unknown error', isError: true });
   } else if (t === 'compact_boundary') {
-    buf.msgs.push({ type: 'system', text: 'Context compacted' + (msg.preTokens ? ' (was ' + Math.round(msg.preTokens / 1000) + 'K tokens)' : '') });
+    buf.msgs.push({ type: 'system', _key: nextMsgKey(), text: 'Context compacted' + (msg.preTokens ? ' (was ' + Math.round(msg.preTokens / 1000) + 'K tokens)' : '') });
   } else if (t === 'files_persisted') {
     if (msg.failed && msg.failed.length > 0) {
-      buf.msgs.push({ type: 'system', text: 'File save failed: ' + msg.failed.map(f => f.name).join(', '), isError: true });
+      buf.msgs.push({ type: 'system', _key: nextMsgKey(), text: 'File save failed: ' + msg.failed.map(f => f.name).join(', '), isError: true });
     }
   } else if (t === 'task_notification') {
     if (msg.status === 'failed') {
-      buf.msgs.push({ type: 'system', text: 'Task failed' + (msg.summary ? ': ' + msg.summary : ''), isError: true });
+      buf.msgs.push({ type: 'system', _key: nextMsgKey(), text: 'Task failed' + (msg.summary ? ': ' + msg.summary : ''), isError: true });
     }
   }
 }
@@ -269,7 +272,7 @@ export function processLiveEvent(state, msg, t) {
     if (!liveImages && msg.imagePaths && msg.imagePaths.length > 0) {
       liveImages = msg.imagePaths.map(p => ({ url: 'api/session-image/' + p, mediaType: 'image/png' }));
     }
-    state.messages = [...state.messages, { type: 'user', text: msg.text || '', images: liveImages, pastes: msg.pastes || null, imageCount: msg.imageCount || 0 }];
+    state.messages = [...state.messages, { type: 'user', text: msg.text || '', images: liveImages, pastes: msg.pastes || null, imageCount: msg.imageCount || 0, _key: nextMsgKey() }];
   } else if (t === 'delta' || t === 'assistant_delta') {
     state.thinking = false;
     state.activity = null;
@@ -341,7 +344,7 @@ export function processLiveEvent(state, msg, t) {
     }
     state.processing = false;
     if (msg.cost != null || msg.duration != null) {
-      state.messages = [...state.messages, { type: 'turn_meta', cost: msg.cost, duration: msg.duration }];
+      state.messages = [...state.messages, { type: 'turn_meta', _key: nextMsgKey(), cost: msg.cost, duration: msg.duration }];
     }
     if (msg.cost != null) {
       state.sessionCost = (state.sessionCost || 0) + (msg.cost || 0);
@@ -474,11 +477,11 @@ export function processLiveEvent(state, msg, t) {
       }];
     }
   } else if (t === 'slash_command_result') {
-    state.messages = [...state.messages, { type: 'system', text: msg.result || msg.output || '' }];
+    state.messages = [...state.messages, { type: 'system', _key: nextMsgKey(), text: msg.result || msg.output || '' }];
   } else if (t === 'rewind_complete') {
-    state.messages = [...state.messages, { type: 'system', text: 'Rewind complete' }];
+    state.messages = [...state.messages, { type: 'system', _key: nextMsgKey(), text: 'Rewind complete' }];
   } else if (t === 'rewind_error') {
-    state.messages = [...state.messages, { type: 'system', text: 'Rewind failed: ' + (msg.error || 'Unknown error'), isError: true }];
+    state.messages = [...state.messages, { type: 'system', _key: nextMsgKey(), text: 'Rewind failed: ' + (msg.error || 'Unknown error'), isError: true }];
   }
 
   return state;
