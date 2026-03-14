@@ -1,6 +1,6 @@
 <script>
   import { boardData, drilldownView, navigateHome, navigateToArea, navigateToProject, fetchBoardFile, fetchBoard } from '../../stores/board.svelte.js';
-  import { openPopup } from '../../stores/popups.svelte.js';
+  import { openTab } from '../../stores/tabs.svelte.js';
   import { activeSessionId, leaveSession, createSession } from '../../stores/sessions.svelte.js';
   import { sidebarOpen } from '../../stores/ui.svelte.js';
   import { renderMarkdown } from '../../utils/markdown.js';
@@ -65,7 +65,7 @@
 
   function handleSessionClick(sessionId, title) {
     if (activeSessionId.value) leaveSession();
-    openPopup(sessionId, title || 'Session');
+    openTab(sessionId, title || 'Session');
     if (window.innerWidth < 1024) sidebarOpen.value = false;
   }
 

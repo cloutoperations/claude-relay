@@ -3,7 +3,7 @@
   import { ambientState } from '../../stores/ambient.svelte.js';
   import { workspaceEnabled } from '../../stores/ui.svelte.js';
   import { send } from '../../stores/ws.svelte.js';
-  import { openPopup } from '../../stores/popups.svelte.js';
+  import { openTab } from '../../stores/tabs.svelte.js';
 
   // Sort sessions: needs attention first, then processing, then recent
   let sortedSessions = $derived.by(() => {
@@ -68,7 +68,7 @@
           <button
             class="rail-item rail-{statusClass}"
             class:active={activeSessionId.value === session.id}
-            onclick={() => openPopup(session.id, session.title)}
+            onclick={() => openTab(session.id, session.title)}
             title={session.title || 'Untitled'}
           >
             <div class="rail-item-header">

@@ -1,5 +1,5 @@
 <script>
-  import { openPopup } from '../../stores/popups.svelte.js';
+  import { openTab } from '../../stores/tabs.svelte.js';
   import { activeSessionId, leaveSession } from '../../stores/sessions.svelte.js';
   import { sidebarOpen } from '../../stores/ui.svelte.js';
 
@@ -19,7 +19,7 @@
   function handleClick(e) {
     e.stopPropagation();
     if (activeSessionId.value) leaveSession();
-    openPopup(session.id, session.title || 'Session');
+    openTab(session.id, session.title || 'Session');
     if (window.innerWidth < 1024) sidebarOpen.value = false;
   }
 

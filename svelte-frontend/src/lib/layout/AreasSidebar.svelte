@@ -6,7 +6,6 @@
   import { createSession, sessionList as sessions, searchSessions, sessionSearchQuery, sessionSearchResults } from '../../stores/sessions.svelte.js';
   import { projectInfo, clientCount } from '../../stores/chat.svelte.js';
   import { themeMode, getCurrentVariant, setThemeMode } from '../../stores/theme.svelte.js';
-  import { openPopup } from '../../stores/popups.svelte.js';
   import { openTab } from '../../stores/tabs.svelte.js';
   import { addTabToPane, onTabClosed, findPaneForTab, switchPaneTab, activePaneId } from '../../stores/panes.svelte.js';
 
@@ -482,7 +481,7 @@
                 class:processing={session.isProcessing}
                 onclick={(e) => {
                   if (e.shiftKey) {
-                    openPopup(session.id, session.title || 'Session');
+                    openTab(session.id, session.title || 'Session');
                   } else {
                     openTab(session.id, session.title || 'Session');
                   }
@@ -691,7 +690,7 @@
                     if (e.shiftKey) {
                       openTab(session.id, session.title || 'Session');
                     } else {
-                      openPopup(session.id, session.title || 'Session');
+                      openTab(session.id, session.title || 'Session');
                     }
                     hoverPanelVisible = false;
                   }}
@@ -730,7 +729,7 @@
             if (e.shiftKey) {
               openTab(session.id, session.title || 'Session');
             } else {
-              openPopup(session.id, session.title || 'Session');
+              openTab(session.id, session.title || 'Session');
             }
             hoverPanelVisible = false;
           }}
@@ -800,7 +799,7 @@
                   class="hp-session"
                   onclick={(e) => {
                     if (e.shiftKey) { openTab(session.id, session.title || 'Session'); }
-                    else { openPopup(session.id, session.title || 'Session'); }
+                    else { openTab(session.id, session.title || 'Session'); }
                     projectPanelVisible = false;
                   }}
                   oncontextmenu={(e) => handleContextMenu(e, session.id)}
@@ -826,7 +825,7 @@
           class="hp-session"
           onclick={(e) => {
             if (e.shiftKey) { openTab(session.id, session.title || 'Session'); }
-            else { openPopup(session.id, session.title || 'Session'); }
+            else { openTab(session.id, session.title || 'Session'); }
             projectPanelVisible = false;
           }}
           oncontextmenu={(e) => handleContextMenu(e, session.id)}

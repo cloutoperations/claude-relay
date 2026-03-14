@@ -1,6 +1,5 @@
 <script>
   import { boardData, fetchBoard, fetchBoardFile } from '../../stores/board.svelte.js';
-  import { openPopup } from '../../stores/popups.svelte.js';
   import { openTab } from '../../stores/tabs.svelte.js';
   import { createSession } from '../../stores/sessions.svelte.js';
   import { renderMarkdown } from '../../utils/markdown.js';
@@ -58,7 +57,7 @@
 
   function handleSessionClick(e, session) {
     if (e.shiftKey) {
-      openPopup(session.id, session.title || 'Session');
+      openTab(session.id, session.title || 'Session');
     } else {
       openTab(session.id, session.title || 'Session');
     }

@@ -1,6 +1,6 @@
 <script>
   import { sessionList as sessions } from '../../stores/sessions.svelte.js';
-  import { openPopup } from '../../stores/popups.svelte.js';
+  import { openTab } from '../../stores/tabs.svelte.js';
   import { activeSessionId, leaveSession } from '../../stores/sessions.svelte.js';
   import { boardData } from '../../stores/board.svelte.js';
   import { onMount } from 'svelte';
@@ -71,7 +71,7 @@
   function handleClick(e, ev) {
     e.stopPropagation();
     if (activeSessionId.value) leaveSession();
-    openPopup(ev.sessionId, ev.title);
+    openTab(ev.sessionId, ev.title);
   }
 
   // Refresh times every 30s
