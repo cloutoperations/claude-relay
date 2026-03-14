@@ -208,7 +208,7 @@
       if (entries[0]?.isIntersecting && !loadingEarlier) {
         // Debounce to avoid rapid-fire requests
         if (loadEarlierDebounce) clearTimeout(loadEarlierDebounce);
-        loadEarlierDebounce = setTimeout(() => onLoadEarlier(), 300);
+        loadEarlierDebounce = setTimeout(() => onLoadEarlier(), 100);
       }
     }, { root: messagesEl, threshold: 0 });
     observer.observe(sentinelEl);
@@ -228,14 +228,19 @@
   {/if}
 
   {#if hasEarlier && onLoadEarlier}
-    <!-- Sentinel for intersection observer — triggers auto-load on scroll -->
-    <div class="load-earlier-sentinel" bind:this={sentinelEl}></div>
-    {#if loadingEarlier}
-      <div class="loading-earlier">
-        <div class="loading-dots"><span></span><span></span><span></span></div>
-        <span>Loading earlier messages...</span>
-      </div>
-    {/if}
+    <div class="load-earlier-zone" bind:this={sentinelEl}>
+      {#if loadingEarlier}
+        <div class="load-earlier-spinner">
+          <div class="le-ring"></div>
+          <span>Loading earlier messages</span>
+        </div>
+      {:else}
+        <div class="load-earlier-hint">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="18" x2="12" y2="6"/></svg>
+          <span>Scroll for more</span>
+        </div>
+      {/if}
+    </div>
   {/if}
 
   {#if hiddenCount > 0}
@@ -336,19 +341,46 @@
     box-sizing: border-box;
   }
 
-  .load-earlier-sentinel {
-    height: 1px;
-    width: 100%;
-  }
-
-  .loading-earlier {
+  .load-earlier-zone {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 12px;
+    padding: 16px 0 12px;
+    min-height: 48px;
+  }
+
+  .load-earlier-spinner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--accent);
+    font-size: 12px;
+    font-family: 'SF Mono', Menlo, monospace;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .le-ring {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--accent-20);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+
+  .load-earlier-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     color: var(--text-dimmer);
     font-size: 11px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+  }
+
+  .load-earlier-zone:hover .load-earlier-hint {
+    opacity: 1;
   }
 
   .load-earlier {
