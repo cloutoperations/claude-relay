@@ -1,5 +1,15 @@
 <script>
   let { text = '', images = null, pastes = null, imageCount = 0, compact = false } = $props();
+  let expandedPastes = $state(new Set());
+
+  function togglePaste(idx) {
+    if (expandedPastes.has(idx)) {
+      expandedPastes.delete(idx);
+    } else {
+      expandedPastes.add(idx);
+    }
+    expandedPastes = new Set(expandedPastes);
+  }
 </script>
 
 <div class="msg-user" class:compact>
@@ -7,7 +17,7 @@
     {#if images && images.length > 0}
       <div class="bubble-images">
         {#each images as img}
-          <img class="bubble-img" src="data:{img.mediaType};base64,{img.data}" alt="Attached" />
+          <img class="bubble-img" src={img.url || `data:${img.mediaType};base64,${img.data}`} alt="Attached" />
         {/each}
       </div>
     {:else if imageCount > 0}
@@ -19,10 +29,17 @@
 
     {#if pastes && pastes.length > 0}
       <div class="bubble-pastes">
-        {#each pastes as paste}
-          <div class="bubble-paste">
-            <span class="bubble-paste-preview">{paste.substring(0, 60).replace(/\n/g, ' ')}{paste.length > 60 ? '...' : ''}</span>
-            <span class="bubble-paste-label">PASTED</span>
+        {#each pastes as paste, idx}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div class="bubble-paste" class:expanded={expandedPastes.has(idx)} onclick={() => togglePaste(idx)}>
+            {#if expandedPastes.has(idx)}
+              <pre class="bubble-paste-full">{paste}</pre>
+              <span class="bubble-paste-collapse">COLLAPSE</span>
+            {:else}
+              <span class="bubble-paste-preview">{paste.substring(0, 80).replace(/\n/g, ' ')}{paste.length > 80 ? '...' : ''}</span>
+              <span class="bubble-paste-label">PASTED · {paste.split('\n').length} lines</span>
+            {/if}
           </div>
         {/each}
       </div>
@@ -114,19 +131,28 @@
   }
 
   .bubble-paste {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
+    padding: 6px 10px;
     background: rgba(var(--overlay-rgb), 0.05);
+    border: 1px solid rgba(var(--overlay-rgb), 0.06);
     border-radius: 6px;
     font-size: 12px;
     cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .bubble-paste:hover {
+    background: rgba(var(--overlay-rgb), 0.08);
+  }
+
+  .bubble-paste.expanded {
+    background: var(--bg-deeper);
+    border-color: var(--border);
   }
 
   .compact .bubble-paste {
     font-size: 11px;
-    background: rgba(var(--overlay-rgb), 0.1);
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.1);
   }
 
   .bubble-paste-preview {
@@ -138,10 +164,11 @@
   }
 
   .compact .bubble-paste-preview {
-    color: rgba(var(--overlay-rgb), 0.7);
+    color: rgba(255,255,255,0.7);
   }
 
   .bubble-paste-label {
+    float: right;
     font-size: 10px;
     font-weight: 600;
     color: var(--text-dimmer);
@@ -150,6 +177,37 @@
   }
 
   .compact .bubble-paste-label {
-    color: rgba(var(--overlay-rgb), 0.5);
+    color: rgba(255,255,255,0.5);
+  }
+
+  .bubble-paste-full {
+    font-family: 'SF Mono', 'Fira Code', Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+    margin: 4px 0;
+    padding: 0;
+    background: none;
+  }
+
+  .compact .bubble-paste-full {
+    color: rgba(255,255,255,0.85);
+    font-size: 10px;
+    max-height: 200px;
+  }
+
+  .bubble-paste-collapse {
+    display: block;
+    text-align: right;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
   }
 </style>

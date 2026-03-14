@@ -108,7 +108,12 @@ export function processBufferedEvent(buf, msg, t) {
       buf.isStreaming = false;
       buf.currentText = '';
     }
-    buf.msgs.push({ type: 'user', text: msg.text || '', images: msg.images || null, pastes: msg.pastes || null, imageCount: msg.imageCount || 0 });
+    // Convert imagePaths from history to displayable image objects
+    let images = msg.images || null;
+    if (!images && msg.imagePaths && msg.imagePaths.length > 0) {
+      images = msg.imagePaths.map(p => ({ url: 'api/session-image/' + p, mediaType: 'image/png' }));
+    }
+    buf.msgs.push({ type: 'user', text: msg.text || '', images, pastes: msg.pastes || null, imageCount: msg.imageCount || 0 });
   } else if (t === 'delta' || t === 'assistant_delta') {
     const delta = msg.text || msg.delta || '';
     if (!buf.isStreaming) {
@@ -259,7 +264,12 @@ export function processLiveEvent(state, msg, t) {
       state.isStreaming = false;
       state.currentText = '';
     }
-    state.messages = [...state.messages, { type: 'user', text: msg.text || '', images: msg.images || null, pastes: msg.pastes || null, imageCount: msg.imageCount || 0 }];
+    // Convert imagePaths from history to displayable image objects
+    let liveImages = msg.images || null;
+    if (!liveImages && msg.imagePaths && msg.imagePaths.length > 0) {
+      liveImages = msg.imagePaths.map(p => ({ url: 'api/session-image/' + p, mediaType: 'image/png' }));
+    }
+    state.messages = [...state.messages, { type: 'user', text: msg.text || '', images: liveImages, pastes: msg.pastes || null, imageCount: msg.imageCount || 0 }];
   } else if (t === 'delta' || t === 'assistant_delta') {
     state.thinking = false;
     state.activity = null;
