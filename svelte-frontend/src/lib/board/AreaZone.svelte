@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import SessionBubble from './SessionBubble.svelte';
   import SessionTagger from './SessionTagger.svelte';
   import { openTab } from '../../stores/tabs.svelte.js';
@@ -150,14 +150,23 @@
     setTimeout(() => fetchBoard(), 1500);
   }
 
+  // Clean up timers on unmount
+  let destroyed = false;
+  onDestroy(() => {
+    destroyed = true;
+    if (showTimer) clearTimeout(showTimer);
+    if (hideTimer) clearTimeout(hideTimer);
+  });
+
   // Load doc when focused
   $effect(() => {
     if (focused && area) {
       docContent = null;
       docLoading = true;
       fetchBoardFile(area.name + '/' + area.name + '.md').then(content => {
-        docContent = content;
-        docLoading = false;
+        if (!destroyed) { docContent = content; docLoading = false; }
+      }).catch(() => {
+        if (!destroyed) { docLoading = false; docContent = null; }
       });
     }
   });

@@ -15,7 +15,7 @@ import {
   popups, popupOrder, isPopupOpen, onPopupRekey,
   saveLayout as savePopupLayout,
 } from './popups.svelte.js';
-import { renameTabInPanes, panes as paneList } from './panes.svelte.js';
+import { renameTabInPanes, panes as paneList, addTabToPane } from './panes.svelte.js';
 import { sessionList, pendingNewSessionRequests, searchSeq, sessionSearchQuery, sessionSearchResults } from './sessions.svelte.js';
 import { contextData, sessionCost, projectInfo, clientCount, slashCommands, modelInfo, rateLimitState } from './chat.svelte.js';
 import { ambientState } from './ambient.svelte.js';
@@ -265,6 +265,7 @@ function handleSessionSwitched(msg) {
   };
   if (!tabOrder.includes(sessionId)) tabOrder.push(sessionId);
   activeTabId.value = sessionId;
+  addTabToPane(sessionId);
 
   // Register with server
   send({ type: 'tab_subscribe', sessionId, skip_history: true });

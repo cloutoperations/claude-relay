@@ -106,9 +106,9 @@ export function finishHistoryReplay(sessionId) {
     state.loadingHistory = false;
     state.isStreaming = false;
     state.currentText = '';
-    state.processing = false;
-    state.thinking = false;
-    state.activity = null;
+    // Don't reset processing/thinking — server sends status:processing after
+    // history_done if session is still active. Resetting here causes a flicker
+    // where the processing indicator disappears then reappears.
   } else if (state) {
     state.loadingHistory = false;
   }

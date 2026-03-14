@@ -165,6 +165,7 @@ export function onTabClosed(tabId) {
     }
   }
   autoCloseEmptyPanes();
+  saveState();
 }
 
 function autoCloseEmptyPanes() {

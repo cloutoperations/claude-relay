@@ -3,6 +3,7 @@
 
 import { send } from './ws.svelte.js';
 import { ensureSession, removeSessionState, sessions as sessionStates } from './session-state.svelte.js';
+import { finishAssistantInArray } from './session-state-utils.js';
 import { getTabSessionIds } from './tabs.svelte.js';
 
 const MAX_POPUPS = 20;
@@ -102,6 +103,12 @@ export function sendPopupMessage(sessionId, text) {
 
   const state = sessionStates[sessionId];
   if (state) {
+    // Finalize any in-flight streaming assistant message
+    if (state.isStreaming && state.currentText) {
+      state.messages = finishAssistantInArray(state.messages, state.currentText);
+      state.isStreaming = false;
+      state.currentText = '';
+    }
     state.messages.push({ type: 'user', text });
     state.processing = true;
     state.status = 'processing';
