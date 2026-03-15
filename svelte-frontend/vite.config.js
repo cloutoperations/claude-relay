@@ -8,7 +8,7 @@ export default defineConfig({
     proxy: {
       // Proxy all /p/ routes (including WebSocket) to relay dev server
       '/p/': {
-        target: process.env.RELAY_URL || 'http://localhost:2633',
+        target: process.env.RELAY_URL || 'https://localhost:2633',
         ws: true,
         secure: false, // accept self-signed certs
       },

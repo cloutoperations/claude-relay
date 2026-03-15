@@ -164,8 +164,8 @@
   let isAtTop = $state(false);
   let showScrollButtons = $state(false);
 
-  function scrollToBottom() {
-    if (!messagesEl || !isAtBottom) return;
+  function scrollToBottom(force = false) {
+    if (!messagesEl || (!force && !isAtBottom)) return;
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
@@ -188,7 +188,7 @@
       scrollTicking = false;
       if (!messagesEl) return;
       const { scrollTop, scrollHeight, clientHeight } = messagesEl;
-      isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+      isAtBottom = scrollHeight - scrollTop - clientHeight < 200;
       isAtTop = scrollTop < 100;
       showScrollButtons = scrollHeight > clientHeight * 2; // only show if content is scrollable
     });
@@ -214,18 +214,34 @@
     lastMsgCount = count;
   });
 
-  // Auto-scroll during streaming — throttled to avoid jank
-  let streamScrollTimer;
+  // Auto-scroll during streaming — use ResizeObserver on the scroll container.
+  // When content grows (streaming text, new messages), scroll down if user is at bottom.
+  // If user has scrolled up, leave them alone.
   $effect(() => {
-    if (streamingText && isAtBottom) {
-      if (!streamScrollTimer) {
-        streamScrollTimer = setTimeout(() => {
-          streamScrollTimer = null;
-          scrollToBottom();
-        }, 80);
+    if (!messagesEl) return;
+    const ro = new ResizeObserver(() => {
+      if (isAtBottom) {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
       }
+    });
+    // Observe the scrollable content (all children)
+    for (const child of messagesEl.children) {
+      ro.observe(child);
     }
-    return () => { if (streamScrollTimer) { clearTimeout(streamScrollTimer); streamScrollTimer = null; } };
+    // Also observe the container itself for overall size changes
+    const mo = new MutationObserver(() => {
+      // Re-observe new children (new messages added to DOM)
+      ro.disconnect();
+      for (const child of messagesEl.children) {
+        ro.observe(child);
+      }
+      if (isAtBottom) {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+    });
+    mo.observe(messagesEl, { childList: true });
+
+    return () => { ro.disconnect(); mo.disconnect(); };
   });
 
   $effect(() => {
@@ -657,19 +673,9 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  /* ─── Streaming message reveal effect ─── */
+  /* ─── Streaming message ─── */
   .streaming-msg {
     animation: none;
-  }
-
-  /* Subtle reveal — avoid flashing on rapid deltas */
-  .streaming-msg :global(.md-content > :last-child) {
-    animation: textReveal 0.15s ease-out;
-  }
-
-  @keyframes textReveal {
-    from { opacity: 0.85; }
-    to { opacity: 1; }
   }
 
   @keyframes msgFadeIn {

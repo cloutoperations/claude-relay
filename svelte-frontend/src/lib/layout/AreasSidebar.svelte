@@ -1,12 +1,12 @@
 <script>
   import { onMount } from 'svelte';
-  import { boardData, boardLoading, fetchBoard } from '../../stores/board.svelte.js';
+  import { boardData, boardLoading, fetchBoard, tagSession } from '../../stores/board.svelte.js';
   import { sidebarOpen, chatSearchQuery } from '../../stores/ui.svelte.js';
   import { wsState } from '../../stores/ws.svelte.js';
-  import { createSession, sessionList as sessions, searchSessions, sessionSearchQuery, sessionSearchResults } from '../../stores/sessions.svelte.js';
+  import { createSession, sessionList as sessions, searchSessions, sessionSearchQuery, sessionSearchResults, startAutoTag, startAreaAnalysis } from '../../stores/sessions.svelte.js';
   import { projectInfo, clientCount } from '../../stores/chat.svelte.js';
   import { themeMode, getCurrentVariant, setThemeMode } from '../../stores/theme.svelte.js';
-  import { openTab, activeTabId } from '../../stores/tabs.svelte.js';
+  import { openTab, activeTabId, HOME_TAB } from '../../stores/tabs.svelte.js';
   import { addTabToPane, onTabClosed, findPaneForTab, switchPaneTab, activePaneId } from '../../stores/panes.svelte.js';
 
 
@@ -51,7 +51,7 @@
   function saveSidebarSections() {
     try {
       localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify({
-        sessions: sessionsExpanded, agents: agentsExpanded, git: gitExpanded, files: filesExpanded,
+        sessions: sessionsExpanded, agents: agentsExpanded, git: gitExpanded, files: filesExpanded, untagged: untaggedExpanded,
       }));
     } catch {}
   }
@@ -599,6 +599,11 @@
     return session?.projectPath?.split('/')[0] || null;
   });
 
+  // Untagged sessions
+  let untaggedSessions = $derived(sessions.filter(s => !s.projectPath));
+  let sidebarTaggerId = $state(null); // session ID being tagged from sidebar
+  let sidebarTaggerPos = $state({ x: 0, y: 0 }); // position for fixed dropdown
+
   // Session count badges by area (Task 9.13)
   let sessionCountByArea = $derived.by(() => {
     const counts = {};
@@ -629,7 +634,7 @@
 <aside class="sidebar" class:open={sidebarOpen.value}>
   <!-- Sidebar header with collapse button -->
   <div class="sidebar-header">
-    <span class="sidebar-project-name">{projectInfo.name || 'Claude Relay'}</span>
+    <span class="sidebar-project-name clickable" onclick={() => { switchPaneTab(activePaneId.value, HOME_TAB); activeTabId.value = HOME_TAB; }}>{projectInfo.name || 'Claude Relay'}</span>
     <button class="collapse-btn" onclick={() => sidebarOpen.value = false} title="Collapse sidebar">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -904,6 +909,16 @@
             </button>
           {/if}
         </div>
+        {#if untaggedSessions.length > 0}
+          <div class="git-toolbar">
+            <button class="git-chat-btn" onclick={startAutoTag} title="Create a session that auto-tags all untagged sessions">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
+              </svg>
+              Auto-tag {untaggedSessions.length} sessions
+            </button>
+          </div>
+        {/if}
         {#if sessionSearchPending}
           <div class="section-status">Searching...</div>
         {:else if sessionQuery.trim() && displayedSessions.length === 0}
@@ -927,6 +942,11 @@
               >
                 <span class="session-dot" class:processing={session.isProcessing}></span>
                 <span class="session-title">{session.title || 'Untitled'}</span>
+                {#if !session.projectPath}
+                  <button class="session-tag-btn" title="Tag this session" onclick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); sidebarTaggerPos = { x: rect.right + 4, y: rect.top }; sidebarTaggerId = sidebarTaggerId === session.id ? null : session.id; if (!boardData.value) fetchBoard(); }}>
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                  </button>
+                {/if}
                 {#if session.matchType}
                   <span class="session-match-badge">{session.matchType === 'both' ? 'title + chat' : session.matchType === 'content' ? 'in chat' : 'title'}</span>
                 {/if}
@@ -934,6 +954,7 @@
                   <span class="session-processing-badge">active</span>
                 {/if}
               </div>
+              <!-- tag picker is rendered as fixed overlay below -->
             {/each}
             {#if displayedSessions.length > 100}
               <div class="section-status">{displayedSessions.length - 100} more...</div>
@@ -1088,6 +1109,26 @@
   {/if}
 </aside>
 
+<!-- Fixed sidebar tag picker -->
+{#if sidebarTaggerId && boardData.value}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="sidebar-tagger-backdrop" onclick={() => sidebarTaggerId = null}></div>
+  <div class="sidebar-tagger-fixed" style="left: {sidebarTaggerPos.x}px; top: {Math.min(sidebarTaggerPos.y, (typeof window !== 'undefined' ? window.innerHeight - 300 : sidebarTaggerPos.y))}px">
+    <div class="sidebar-tagger-header">Tag session</div>
+    {#each boardData.value.areas as area}
+      <button class="sidebar-tag-area" onclick={() => { tagSession(sidebarTaggerId, area.name); sidebarTaggerId = null; }}>
+        {area.name}
+      </button>
+      {#each area.projects.slice(0, 5) as proj}
+        <button class="sidebar-tag-proj" onclick={() => { tagSession(sidebarTaggerId, proj.path); sidebarTaggerId = null; }}>
+          {proj.name}
+        </button>
+      {/each}
+    {/each}
+  </div>
+{/if}
+
 <!-- Hover panel — 3-column layout -->
 {#if hoverPanelVisible && hoveredArea}
   {@const hpAllSessions = getAreaSessions(hoveredArea)}
@@ -1125,6 +1166,16 @@
           {#if hpProcessingCount > 0}
             <span class="hp-stat-active">{hpProcessingCount} processing</span>
           {/if}
+        </div>
+        <div class="hp-overview-actions">
+          <button class="hp-overview-btn" onclick={() => { createSession(null, true, hoveredArea.name); hoverPanelVisible = false; }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Session
+          </button>
+          <button class="hp-overview-btn analyse" onclick={() => { startAreaAnalysis(hoveredArea.name, boardData.value); hoverPanelVisible = false; }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Analyse
+          </button>
         </div>
       </div>
 
@@ -1226,6 +1277,12 @@
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
             New Session
+          </button>
+          <button class="hp-detail-action analyse" onclick={() => { startAreaAnalysis(hoveredArea.name, boardData.value); hoverPanelVisible = false; }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Analyse Area
           </button>
         {/if}
       </div>
@@ -1420,6 +1477,12 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     padding-left: 8px;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .sidebar-project-name:hover {
+    color: var(--text);
   }
 
   .collapse-btn {
@@ -1812,6 +1875,55 @@
     color: var(--accent);
     flex-shrink: 0;
   }
+
+  .session-tag-btn {
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: none; padding: 2px;
+    color: var(--text-dimmer); opacity: 0.4;
+    cursor: pointer; flex-shrink: 0; border-radius: 3px;
+    transition: all 0.12s;
+  }
+  .session-tag-btn:hover { opacity: 1; color: var(--accent); background: rgba(var(--overlay-rgb), 0.06); }
+
+  .sidebar-tagger-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 199;
+  }
+
+  .sidebar-tagger-fixed {
+    position: fixed;
+    z-index: 200;
+    width: 200px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--bg-alt);
+    border: 1px solid rgba(var(--overlay-rgb), 0.1);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(var(--shadow-rgb), 0.5);
+    padding: 4px 0;
+    animation: hpSlideIn 0.15s ease-out;
+  }
+
+  .sidebar-tagger-header {
+    padding: 8px 12px 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .sidebar-tag-area, .sidebar-tag-proj {
+    display: block; width: 100%; text-align: left;
+    padding: 5px 12px; background: none; border: none;
+    border-radius: 0; font-size: 12px; cursor: pointer;
+    color: var(--text-muted); transition: background 0.1s;
+    font-family: inherit;
+  }
+  .sidebar-tag-area { font-weight: 600; color: var(--text); padding-top: 8px; }
+  .sidebar-tag-area:hover, .sidebar-tag-proj:hover { background: rgba(var(--overlay-rgb), 0.06); }
+  .sidebar-tag-proj { padding-left: 24px; color: var(--text-dimmer); font-size: 11px; }
 
   /* Archived sessions */
   .archived-toggle {
@@ -2440,6 +2552,44 @@
     font-weight: 500;
   }
 
+  .hp-overview-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .hp-overview-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: 1px solid var(--accent-30);
+    border-radius: 6px;
+    background: var(--accent-8);
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.12s;
+    font-family: inherit;
+  }
+
+  .hp-overview-btn:hover {
+    background: var(--accent-15);
+    border-color: var(--accent-50);
+  }
+
+  .hp-overview-btn.analyse {
+    background: rgba(var(--overlay-rgb), 0.04);
+    border-color: rgba(var(--overlay-rgb), 0.15);
+    color: var(--text-muted);
+  }
+
+  .hp-overview-btn.analyse:hover {
+    background: rgba(var(--overlay-rgb), 0.08);
+    color: var(--text);
+  }
+
   /* Bottom detail section */
   .hp-detail {
     border-top: 1px solid rgba(var(--overlay-rgb), 0.12);
@@ -2496,6 +2646,16 @@
   .hp-detail-action:hover {
     background: var(--accent-15);
     border-color: var(--accent-50);
+  }
+
+  .hp-detail-action.analyse {
+    background: rgba(var(--overlay-rgb), 0.04);
+    border-color: rgba(var(--overlay-rgb), 0.15);
+    color: var(--text-muted);
+  }
+  .hp-detail-action.analyse:hover {
+    background: rgba(var(--overlay-rgb), 0.08);
+    color: var(--text);
   }
 
   .hp-area-name {
@@ -3005,5 +3165,81 @@
 
   .hp-operation.clickable:hover {
     background: rgba(var(--overlay-rgb), 0.06);
+  }
+
+  /* Untagged sessions */
+  .untagged-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+  }
+
+  .untagged-title {
+    flex: 1;
+    font-size: 12px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    min-width: 0;
+  }
+
+  .untagged-title:hover {
+    color: var(--text);
+  }
+
+  .untagged-tag-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: none;
+    border: 1px solid rgba(var(--overlay-rgb), 0.08);
+    border-radius: 4px;
+    color: var(--text-dimmer);
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    transition: all 0.12s;
+  }
+
+  .untagged-tag-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent-20);
+  }
+
+  .untagged-picker {
+    padding: 2px 12px 6px 20px;
+  }
+
+  .untagged-pick-area, .untagged-pick-proj {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 3px 8px;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: background 0.1s;
+  }
+
+  .untagged-pick-area {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .untagged-pick-area:hover, .untagged-pick-proj:hover {
+    background: var(--accent-12);
+  }
+
+  .untagged-pick-proj {
+    padding-left: 16px;
+    color: var(--text-dimmer);
   }
 </style>

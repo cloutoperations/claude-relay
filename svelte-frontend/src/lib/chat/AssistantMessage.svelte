@@ -1,36 +1,110 @@
 <script>
   import { renderMarkdown, highlightCodeBlocks } from '../../utils/markdown.js';
+  import { onDestroy } from 'svelte';
 
   let { text = '', finalized = false, compact = false } = $props();
 
-  // Render markdown reactively — no bind:this race condition
-  let renderedHtml = $derived(text ? renderMarkdown(text) : '');
+  // ── Smooth streaming with markdown ──
+  // Tokens arrive in uneven bursts from the network. We buffer them and reveal
+  // at a steady rate via rAF. Markdown is rendered from the smoothed buffer,
+  // so re-renders are evenly paced (no burst → DOM churn). On finalize, the
+  // buffer is already caught up, so there's no visual jump.
 
-  // Highlight code blocks after HTML is in the DOM
+  let visibleLen = $state(0);     // how many chars of targetText are "revealed"
+  let targetText = '';            // raw buffer (non-reactive, updated by $effect)
+  let rafId = null;
+  let lastFrameTime = 0;
+  let mdText = $state('');        // text fed to markdown renderer (throttled from visibleLen)
+  let mdTimer = null;
+
+  const CHARS_PER_SECOND = 2000;
+  const MD_INTERVAL = 80;         // re-render markdown every 80ms (~12fps)
+
+  function animateReveal(now) {
+    if (!lastFrameTime) lastFrameTime = now;
+    const elapsed = now - lastFrameTime;
+    lastFrameTime = now;
+
+    const targetLen = targetText.length;
+    if (visibleLen < targetLen) {
+      const charsThisFrame = Math.max(1, Math.round(CHARS_PER_SECOND * (elapsed / 1000)));
+      visibleLen = Math.min(visibleLen + charsThisFrame, targetLen);
+    }
+
+    rafId = requestAnimationFrame(animateReveal);
+  }
+
+  function startAnimation() {
+    if (!rafId) {
+      lastFrameTime = 0;
+      rafId = requestAnimationFrame(animateReveal);
+    }
+    if (!mdTimer) {
+      mdTimer = setInterval(() => {
+        const slice = targetText.slice(0, visibleLen);
+        if (slice !== mdText) mdText = slice;
+      }, MD_INTERVAL);
+    }
+  }
+
+  function stopAnimation() {
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    if (mdTimer) { clearInterval(mdTimer); mdTimer = null; }
+  }
+
+  $effect(() => {
+    const t = text;
+    const fin = finalized;
+
+    if (fin) {
+      stopAnimation();
+      targetText = t;
+      visibleLen = t.length;
+      mdText = t;
+      return;
+    }
+
+    if (t) {
+      targetText = t;
+      startAnimation();
+    } else {
+      stopAnimation();
+      targetText = '';
+      visibleLen = 0;
+      mdText = '';
+    }
+  });
+
+  onDestroy(stopAnimation);
+
+  // ── Markdown rendering — always on, fed from the smooth buffer ──
+  let renderedHtml = $derived(mdText ? renderMarkdown(mdText) : '');
+
+  // Highlight code blocks (debounced during streaming, immediate on finalize)
   let contentEl = $state(null);
   let lastHighlighted = '';
 
   $effect(() => {
     if (contentEl && renderedHtml && finalized && lastHighlighted !== text) {
       lastHighlighted = text;
-      // Use tick to ensure DOM has updated with {@html}
       queueMicrotask(() => highlightCodeBlocks(contentEl));
     }
   });
 
-  // Debounced highlighting during streaming
   let highlightTimer;
   $effect(() => {
     if (contentEl && renderedHtml && !finalized) {
       clearTimeout(highlightTimer);
       highlightTimer = setTimeout(() => {
         highlightCodeBlocks(contentEl);
-      }, 300);
+      }, 600);
     }
     return () => clearTimeout(highlightTimer);
   });
 
-  // Copy handler (full mode only)
+  let isStreaming = $derived(!finalized && !!text);
+
+  // Copy handler
   let copyState = $state('idle');
   let resetTimer;
 
@@ -54,7 +128,7 @@
     <div class="md-content compact" dir="auto" bind:this={contentEl}>{@html renderedHtml}</div>
   </div>
 {:else}
-  <div class="msg-assistant" class:copy-done={copyState === 'done'} onclick={handleClick}>
+  <div class="msg-assistant" class:copy-done={copyState === 'done'} class:is-streaming={isStreaming} onclick={handleClick}>
     <div class="md-content" dir="auto" bind:this={contentEl}>{@html renderedHtml}</div>
     {#if finalized || copyState !== 'idle'}
       <div class="msg-copy-hint">
@@ -84,6 +158,13 @@
   @keyframes assistMsgIn {
     from { opacity: 0; transform: translateX(-8px); }
     to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* Subtle left accent while streaming */
+  .is-streaming {
+    border-left: 2px solid var(--accent-40);
+    padding-left: 12px;
+    border-top-color: transparent;
   }
 
   /* ─── Compact mode ─── */

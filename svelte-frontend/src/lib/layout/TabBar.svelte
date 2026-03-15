@@ -11,6 +11,7 @@
   const AREA_PREFIX = '__area__:';
   const PROJECT_PREFIX = '__project__:';
   const AGENT_PREFIX = '__agent__:';
+  const OPERATION_PREFIX = '__operation__:';
 
   let paneList = $derived(panes);
   let layout = $derived(paneLayout);
@@ -31,6 +32,12 @@
       const name = path.split('/').pop() || path;
       const formatted = name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       return { id, title: formatted, isHome: false, type: 'project' };
+    }
+    if (id.startsWith(OPERATION_PREFIX)) {
+      const path = id.slice(OPERATION_PREFIX.length);
+      const name = path.split('/').pop() || path;
+      const formatted = name.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      return { id, title: formatted, isHome: false, type: 'operation' };
     }
     if (id === '__agent_new__') {
       return { id, title: 'New Agent', isHome: false, type: 'agent-new' };
@@ -104,7 +111,7 @@
   function handleMiddleClick(e, id) {
     if (e.button === 1 && id !== '__home__') {
       e.preventDefault();
-      if (id.startsWith(AREA_PREFIX) || id.startsWith(PROJECT_PREFIX)) { onTabClosed(id); return; }
+      if (id.startsWith(AREA_PREFIX) || id.startsWith(PROJECT_PREFIX) || id.startsWith(OPERATION_PREFIX) || id.startsWith(AGENT_PREFIX) || id === '__agent_new__' || id === '__git_diff__') { onTabClosed(id); return; }
       if (id.startsWith(FILE_PREFIX)) { closeFileTab(id.slice(FILE_PREFIX.length)); return; }
       closeTab(id);
     }
@@ -114,7 +121,7 @@
 
   function handleCloseClick(e, id) {
     e.stopPropagation();
-    if (id.startsWith(AREA_PREFIX) || id.startsWith(PROJECT_PREFIX)) {
+    if (id.startsWith(AREA_PREFIX) || id.startsWith(PROJECT_PREFIX) || id.startsWith(OPERATION_PREFIX) || id.startsWith(AGENT_PREFIX) || id === '__agent_new__' || id === '__git_diff__') {
       onTabClosed(id);
       return;
     }
@@ -346,7 +353,11 @@
               {/if}
               {@const tabSession = sessionList.find(s => s.id === tab.id)}
               {#if tabSession?.projectPath}
-                <span class="tab-area-prefix">[{tabSession.projectPath.split('/')[0]}]</span>
+                <span class="tab-area-prefix" onclick={(e) => { e.stopPropagation(); addTabToPane('__area__:' + tabSession.projectPath.split('/')[0]); }} title="Open area: {tabSession.projectPath.split('/')[0]}">[{tabSession.projectPath.split('/')[0]}]</span>
+              {:else}
+                <button class="tab-tag-btn" title="Tag this session" onclick={(e) => { e.stopPropagation(); handleContextMenu(e, tab); }}>
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                </button>
               {/if}
               <span class="tab-title">{tab.title}</span>
               <button class="tab-popout" onclick={(e) => handlePopOut(e, tab.id)} title="Pop out to window">
@@ -546,7 +557,30 @@
     font-size: 10px;
     color: var(--text-dimmer);
     flex-shrink: 0;
+    cursor: pointer;
+    transition: color 0.12s;
   }
+  .tab-area-prefix:hover {
+    color: var(--accent);
+  }
+
+  .tab-tag-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    color: var(--text-dimmer);
+    opacity: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.12s;
+    padding: 0;
+  }
+
+  .tab:hover .tab-tag-btn { opacity: 0.5; }
+  .tab-tag-btn:hover { opacity: 1 !important; color: var(--accent); background: rgba(var(--overlay-rgb), 0.06); }
 
   .tab-title {
     max-width: clamp(80px, 15vw, 160px);
