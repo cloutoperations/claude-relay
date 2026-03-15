@@ -72,7 +72,19 @@
     openTab(session.id, session.title || 'Session');
   }
 
-  // Find sessions linked to this operation's area
+  // Find sessions relevant to this operation — filter area sessions by operation name
+  let operationSessions = $derived.by(() => {
+    if (!boardData.value || !operation) return [];
+    const area = boardData.value.areas.find(a => a.name === operation.areaName);
+    const allSessions = area?.areaSessions || [];
+    const opName = operation.name.toLowerCase();
+    return allSessions.filter(s => {
+      const title = (s.title || '').toLowerCase();
+      const pPath = (s.projectPath || '').toLowerCase();
+      return title.includes(opName) || pPath.includes(opName);
+    });
+  });
+  // Also keep full area sessions as fallback
   let areaSessions = $derived.by(() => {
     if (!boardData.value || !operation) return [];
     const area = boardData.value.areas.find(a => a.name === operation.areaName);
@@ -128,10 +140,27 @@
         </div>
       {/if}
 
-      <!-- Area sessions -->
+      <!-- Operation-specific sessions -->
+      {#if operationSessions.length > 0}
+        <div class="od-section">
+          <h3 class="od-section-title">Sessions ({operationSessions.length})</h3>
+          <div class="od-sessions-list">
+            {#each operationSessions as session (session.id)}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div class="od-session" onclick={(e) => handleSessionClick(e, session)}>
+                <span class="od-session-dot" class:processing={session.isProcessing}></span>
+                <span class="od-session-title">{session.title || 'Untitled'}</span>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- All area sessions -->
       {#if areaSessions.length > 0}
         <div class="od-section">
-          <h3 class="od-section-title">Area Sessions ({areaSessions.length})</h3>
+          <h3 class="od-section-title">All {formatName(operation.areaName)} Sessions ({areaSessions.length})</h3>
           <div class="od-sessions-list">
             {#each areaSessions as session (session.id)}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
