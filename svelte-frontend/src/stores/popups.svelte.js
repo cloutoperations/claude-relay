@@ -3,7 +3,7 @@
 
 import { send } from './ws.svelte.js';
 import { ensureSession, removeSessionState, sessions as sessionStates } from './session-state.svelte.js';
-import { finishAssistantInArray } from './session-state-utils.js';
+import { finishAssistantInArray, nextMsgKey } from './session-state-utils.js';
 // Note: circular import with tabs.svelte.js — works via ES module hoisting.
 // Uses getTabSessionIds() (lazy function call) to avoid accessing uninitialized exports.
 import { getTabSessionIds } from './tabs.svelte.js';
@@ -100,8 +100,8 @@ export function toggleMinimize(sessionId) {
   saveLayout();
 }
 
-export function sendPopupMessage(sessionId, text) {
-  if (!text.trim()) return;
+export function sendPopupMessage(sessionId, text, images, pastes, documents) {
+  if (!text?.trim() && (!images || images.length === 0) && (!documents || documents.length === 0)) return;
 
   const state = sessionStates[sessionId];
   if (state) {
@@ -111,7 +111,7 @@ export function sendPopupMessage(sessionId, text) {
       state.isStreaming = false;
       state.currentText = '';
     }
-    state.messages.push({ type: 'user', text });
+    state.messages = [...state.messages, { type: 'user', text: text || '', images: images || null, pastes: pastes || null, documents: documents || null, _key: nextMsgKey(), _local: true }];
     state.processing = true;
     state.status = 'processing';
     state.thinking = true;
@@ -121,7 +121,11 @@ export function sendPopupMessage(sessionId, text) {
   if (popupFlightTimer) clearTimeout(popupFlightTimer);
   popupFlightTimer = setTimeout(() => { popupMessageInFlight.value = false; }, 2000);
 
-  send({ type: 'popup_message', sessionId, text });
+  const msg = { type: 'popup_message', sessionId, text };
+  if (images && images.length > 0) msg.images = images;
+  if (pastes && pastes.length > 0) msg.pastes = pastes;
+  if (documents && documents.length > 0) msg.documents = documents;
+  send(msg);
 }
 
 export function sendPopupPermissionResponse(sessionId, requestId, decision) {

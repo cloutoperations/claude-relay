@@ -55,12 +55,14 @@ export function send(obj) {
   }
 }
 
-export function connect() {
+export function connect(sessionId) {
   if (ws) {
     try { ws.close(); } catch (e) {}
   }
 
-  ws = new WebSocket(getWsUrl());
+  let url = getWsUrl();
+  if (sessionId) url += (url.includes('?') ? '&' : '?') + 's=' + sessionId;
+  ws = new WebSocket(url);
 
   ws.onopen = () => {
     setConnected(true);

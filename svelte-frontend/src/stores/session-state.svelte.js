@@ -113,14 +113,20 @@ export function removeSessionState(sessionId) {
 
 // --- History replay ---
 
-export function startHistoryReplay(sessionId, from, total) {
+export function startHistoryReplay(sessionId, from, total, suppressSkeleton) {
   replayBuffers[sessionId] = { msgs: [], tasks: [], isStreaming: false, currentText: '' };
   const state = sessions[sessionId];
   if (state) {
-    state.messages = [];
     if (typeof from === 'number') state.historyFrom = from;
     if (typeof total === 'number') state.historyTotal = total;
-    state.loadingHistory = true;
+    if (suppressSkeleton || state.messages.length > 0) {
+      // Keep existing messages visible while replay buffers silently.
+      // finishHistoryReplay will swap atomically — no flash.
+      state.loadingHistory = false;
+    } else {
+      state.messages = [];
+      state.loadingHistory = true;
+    }
   }
 }
 

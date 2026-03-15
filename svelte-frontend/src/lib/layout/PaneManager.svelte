@@ -7,6 +7,8 @@
   import { popups, isPopupOpen } from '../../stores/popups.svelte.js';
   import { promotePopupToTab } from '../../stores/tabs.svelte.js';
   import { sessions as sessionStates } from '../../stores/session-state.svelte.js';
+  import { sessionList } from '../../stores/sessions.svelte.js';
+  import { tagSession, boardData, fetchBoard } from '../../stores/board.svelte.js';
   import MessageList from '../chat/MessageList.svelte';
   import InputArea from '../chat/InputArea.svelte';
   import FileViewer from '../files/FileViewer.svelte';
@@ -15,16 +17,47 @@
   import ProjectDetailTab from '../board/ProjectDetailTab.svelte';
   import AgentDetailTab from '../board/AgentDetailTab.svelte';
   import AgentCreateTab from '../board/AgentCreateTab.svelte';
+  import OperationDetailTab from '../board/OperationDetailTab.svelte';
   import DiffViewer from '../files/DiffViewer.svelte';
 
   const FILE_PREFIX = '__file__:';
   const AREA_PREFIX = '__area__:';
   const PROJECT_PREFIX = '__project__:';
   const AGENT_PREFIX = '__agent__:';
+  const OPERATION_PREFIX = '__operation__:';
 
   let paneList = $derived(panes);
   let layout = $derived(paneLayout);
   let currentActivePaneId = $derived(activePaneId.value);
+
+  // Session → projectPath lookup from session list
+  function getSessionProjectPath(sessionId) {
+    const s = sessionList.find(s => s.id === sessionId);
+    return s?.projectPath || null;
+  }
+
+  function formatProjectPath(pp) {
+    if (!pp) return null;
+    const parts = pp.split('/');
+    const area = parts[0];
+    if (parts.length < 2) return { area, project: null, operation: null, full: pp };
+    const isOperation = parts.some(p => p.includes('operations'));
+    const leaf = parts[parts.length - 1];
+    return { area, project: isOperation ? null : (parts.length > 2 ? leaf : null), operation: isOperation ? leaf : null, full: pp };
+  }
+
+  function openAreaTab(areaName) {
+    const tabId = AREA_PREFIX + areaName;
+    addTabToPane(tabId);
+  }
+
+  function openProjectTab(projectPath) {
+    const tabId = PROJECT_PREFIX + projectPath;
+    addTabToPane(tabId);
+  }
+
+  // --- Tag picker state ---
+  let tagPickerPane = $state(null); // pane ID where picker is open
 
   // --- Resize state ---
   let isResizing = $state(false);
@@ -221,7 +254,7 @@
       {/if}
 
       <!-- Pane content -->
-      <div class="pane-content" style:padding-bottom="{idx === paneList.length - 1 && pane.activeTabId && !pane.activeTabId.startsWith('__') ? popupBarHeight : 0}px">
+      <div class="pane-content">
         {#if pane.activeTabId === '__home__'}
           <CommandPost />
         {:else if pane.activeTabId?.startsWith(AREA_PREFIX)}
@@ -232,6 +265,8 @@
           <AgentCreateTab />
         {:else if pane.activeTabId?.startsWith(AGENT_PREFIX)}
           <AgentDetailTab agentId={pane.activeTabId.slice(AGENT_PREFIX.length)} />
+        {:else if pane.activeTabId?.startsWith(OPERATION_PREFIX)}
+          <OperationDetailTab operationPath={pane.activeTabId.slice(OPERATION_PREFIX.length)} />
         {:else if pane.activeTabId === '__git_diff__'}
           <DiffViewer />
         {:else if pane.activeTabId === '__file__' || pane.activeTabId?.startsWith(FILE_PREFIX)}
@@ -256,6 +291,52 @@
               isStreaming={sessionStates[pane.activeTabId]?.isStreaming || false}
             />
           {/key}
+          {@const pp = formatProjectPath(getSessionProjectPath(pane.activeTabId))}
+          {#if pp}
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="session-breadcrumb">
+              <span class="breadcrumb-link" onclick={() => openAreaTab(pp.area)}>{pp.area}</span>
+              {#if pp.project}
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-link" onclick={() => openProjectTab(pp.full)}>{pp.project}</span>
+              {/if}
+              {#if pp.operation}
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-op">{pp.operation}</span>
+              {/if}
+              <button class="breadcrumb-untag" onclick={() => { tagSession(pane.activeTabId, null); }} title="Remove tag">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          {:else}
+            <div class="session-breadcrumb">
+              <button class="tag-btn" onclick={() => { tagPickerPane = tagPickerPane === pane.id ? null : pane.id; fetchBoard(); }} title="Tag to area/project">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+              </button>
+            </div>
+          {/if}
+          {#if tagPickerPane === pane.id && boardData.value}
+            <div class="tag-picker">
+              {#each boardData.value.areas as area}
+                <button class="tag-picker-area" onclick={() => { tagSession(pane.activeTabId, area.name); tagPickerPane = null; }}>
+                  {area.name}
+                </button>
+                {#each area.projects as proj}
+                  <button class="tag-picker-project" onclick={() => { tagSession(pane.activeTabId, proj.path); tagPickerPane = null; }}>
+                    └ {proj.name}
+                  </button>
+                {/each}
+                {#if area.operations?.length > 0}
+                  {#each area.operations as op}
+                    <button class="tag-picker-operation" onclick={() => { tagSession(pane.activeTabId, op.path); tagPickerPane = null; }}>
+                      ⚙ {op.name}
+                    </button>
+                  {/each}
+                {/if}
+              {/each}
+            </div>
+          {/if}
           <InputArea
             sessionId={pane.activeTabId}
             processing={sessionStates[pane.activeTabId]?.processing}
@@ -445,6 +526,80 @@
   .drop-indicator.center {
     inset: 4px;
   }
+
+  /* Session breadcrumb */
+  .session-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: var(--content-width);
+    width: 100%;
+    margin: 0 auto;
+    padding: 4px 14px;
+    box-sizing: border-box;
+    font-size: 11px;
+    color: var(--text-dimmer);
+  }
+
+  .breadcrumb-link {
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.12s;
+  }
+
+  .breadcrumb-link:hover {
+    color: var(--accent);
+  }
+
+  .breadcrumb-sep {
+    color: var(--text-dimmer);
+    font-size: 10px;
+  }
+
+  .tag-btn {
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: 1px solid rgba(var(--overlay-rgb), 0.08);
+    border-radius: 4px; padding: 2px 6px; cursor: pointer;
+    color: var(--text-dimmer); transition: all 0.12s;
+  }
+  .tag-btn:hover { color: var(--accent); border-color: var(--accent-20); }
+
+  .tag-picker {
+    position: fixed; bottom: 120px; left: 50%;
+    transform: translateX(-50%);
+    width: min(400px, 80vw);
+    background: var(--bg-raised); border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px;
+    box-shadow: 0 4px 24px rgba(var(--shadow-rgb), 0.4);
+    z-index: 100; max-height: 400px; overflow-y: auto;
+  }
+  .tag-picker-area, .tag-picker-project {
+    display: block; width: 100%; text-align: left; padding: 6px 10px;
+    background: none; border: none; border-radius: 4px;
+    font-size: 12px; cursor: pointer; color: var(--text);
+    transition: background 0.1s;
+  }
+  .tag-picker-area:hover, .tag-picker-project:hover { background: var(--accent-12); }
+  .tag-picker-area { font-weight: 600; }
+  .tag-picker-project { padding-left: 20px; color: var(--text-muted); font-size: 11px; }
+  .tag-picker-operation {
+    display: block; width: 100%; text-align: left; padding: 6px 10px 6px 20px;
+    background: none; border: none; border-radius: 4px;
+    font-size: 11px; cursor: pointer; color: var(--text-dimmer);
+    transition: background 0.1s; font-style: italic;
+  }
+  .tag-picker-operation:hover { background: var(--accent-12); color: var(--text-muted); }
+
+  .breadcrumb-op { color: var(--text-dimmer); font-style: italic; }
+
+  .breadcrumb-untag {
+    display: flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; margin-left: 4px;
+    background: none; border: none; border-radius: 50%;
+    color: var(--text-dimmer); cursor: pointer; padding: 0;
+    transition: all 0.12s;
+  }
+  .breadcrumb-untag:hover { color: var(--text-muted); background: rgba(var(--overlay-rgb), 0.06); }
 
   @keyframes pSpin { to { transform: rotate(360deg); } }
 </style>

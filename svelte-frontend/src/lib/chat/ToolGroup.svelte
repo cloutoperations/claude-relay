@@ -89,13 +89,13 @@
         <span class="cp-group-label">{summary}</span>
         <span class="cp-group-chevron">{expanded ? '▾' : '▸'}</span>
       </div>
-      <div class="cp-group-items-wrap" class:open={expanded}>
+      {#if expanded}
         <div class="cp-group-items">
           {#each tools as tool (tool.toolId)}
             <ToolItem name={tool.name} status={tool.status} input={tool.input} output={tool.output} subtitle={tool.subtitle} subTools={tool.subTools} toolId={tool.toolId} summary={tool.summary} usage={tool.usage} compact={true} {onStopAgent} />
           {/each}
         </div>
-      </div>
+      {/if}
     </div>
   {:else}
     <div class="tool-group" class:done={allDone}>
@@ -113,13 +113,13 @@
           {/if}
         </span>
       </div>
-      <div class="tool-group-items-wrap" class:open={expanded}>
+      {#if expanded}
         <div class="tool-group-items">
           {#each tools as tool (tool.toolId)}
             <ToolItem name={tool.name} status={tool.status} input={tool.input} output={tool.output} subtitle={tool.subtitle} subTools={tool.subTools} toolId={tool.toolId} summary={tool.summary} usage={tool.usage} {compact} {onStopAgent} />
           {/each}
         </div>
-      </div>
+      {/if}
     </div>
   {/if}
 {/if}
@@ -213,20 +213,7 @@
     animation: spin 0.7s linear infinite;
   }
 
-  .tool-group-items-wrap {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    overflow: hidden;
-  }
-
-  .tool-group-items-wrap.open {
-    grid-template-rows: 1fr;
-  }
-
   .tool-group-items {
-    min-height: 0;
-    overflow: hidden;
     border-top: 1px solid var(--border);
     padding: 4px 8px;
   }
@@ -284,20 +271,7 @@
     font-size: 10px;
   }
 
-  .cp-group-items-wrap {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    overflow: hidden;
-  }
-
-  .cp-group-items-wrap.open {
-    grid-template-rows: 1fr;
-  }
-
   .cp-group-items {
-    min-height: 0;
-    overflow: hidden;
     padding-left: 20px;
   }
 

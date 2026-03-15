@@ -131,19 +131,17 @@
     {#if isAgent && status === 'done' && agentMeta}
       <div class="cp-agent-meta">{agentMeta}</div>
     {/if}
-    {#if status !== 'running'}
+    {#if expanded && status !== 'running'}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="cp-tool-details-wrap" class:open={expanded} onclick={e => e.stopPropagation()}>
-        <div class="cp-tool-details-inner">
-          {#if hasEditDiff}
-            <DiffView oldStr={input.old_string} newStr={input.new_string} filePath={input.file_path} />
-          {:else if hasReadOutput}
-            <CodeView content={cleanOutput(output)} filePath={input.file_path} />
-          {:else if output}
-            <pre class="cp-tool-output">{typeof output === 'string' ? cleanOutput(output) : JSON.stringify(output, null, 2)}</pre>
-          {/if}
-        </div>
+      <div class="cp-tool-details-inner" onclick={e => e.stopPropagation()}>
+        {#if hasEditDiff}
+          <DiffView oldStr={input.old_string} newStr={input.new_string} filePath={input.file_path} />
+        {:else if hasReadOutput}
+          <CodeView content={cleanOutput(output)} filePath={input.file_path} />
+        {:else if output}
+          <pre class="cp-tool-output">{typeof output === 'string' ? cleanOutput(output) : JSON.stringify(output, null, 2)}</pre>
+        {/if}
       </div>
     {/if}
     {#if subTools && subTools.length > 0}
@@ -210,7 +208,9 @@
         <div class="agent-meta">{agentMeta}</div>
       {/if}
 
-      <div class="tool-details-wrap" class:open={expanded}>
+      {#if expanded}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="tool-details" onclick={e => e.stopPropagation()}>
           {#if hasEditDiff}
             <DiffView oldStr={input.old_string} newStr={input.new_string} filePath={input.file_path} />
@@ -231,7 +231,7 @@
             {/if}
           {/if}
         </div>
-      </div>
+      {/if}
     </div>
   {/if}
 {/if}
@@ -316,21 +316,6 @@
     flex-shrink: 0;
   }
 
-  .tool-details-wrap {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    overflow: hidden;
-  }
-
-  .tool-details-wrap.open {
-    grid-template-rows: 1fr;
-  }
-
-  .tool-details-wrap > .tool-details {
-    min-height: 0;
-  }
-
   .tool-details {
     border-top: 1px solid var(--border);
     padding: 8px 12px;
@@ -356,7 +341,7 @@
     max-height: 350px;
     overflow-y: auto;
     white-space: pre-wrap;
-    word-break: break-all;
+    word-break: break-word;
   }
 
   /* ─── Subagent log ─── */
@@ -364,7 +349,7 @@
     margin: 0 12px 6px 34px;
     border-left: 2px solid var(--border);
     padding-left: 10px;
-    max-height: 80px;
+    max-height: 200px;
     overflow-y: auto;
   }
 
@@ -454,26 +439,8 @@
   .cp-tool-done .cp-tool-indicator { color: var(--success); }
   .cp-tool-error { color: var(--error); }
 
-  .cp-tool-details-wrap {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    overflow: hidden;
-  }
-
-  .cp-tool-details-wrap.open {
-    grid-template-rows: 1fr;
-  }
-
-  .cp-tool-details-wrap > .cp-tool-details-inner {
-    min-height: 0;
-    overflow: hidden;
+  .cp-tool-details-inner {
     margin: 0 10px;
-    padding: 0;
-    transition: padding 0.25s;
-  }
-
-  .cp-tool-details-wrap.open > .cp-tool-details-inner {
     padding: 2px 0 4px;
   }
 
@@ -487,7 +454,7 @@
     max-height: 200px;
     overflow-y: auto;
     white-space: pre-wrap;
-    word-break: break-all;
+    word-break: break-word;
     margin: 0;
     border: 1px solid var(--border);
   }
@@ -497,7 +464,7 @@
     margin: 1px 0 2px 24px;
     border-left: 1.5px solid var(--border);
     padding-left: 8px;
-    max-height: 70px;
+    max-height: 150px;
     overflow-y: auto;
   }
 

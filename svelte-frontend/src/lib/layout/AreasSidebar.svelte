@@ -6,12 +6,13 @@
   import { createSession, sessionList as sessions, searchSessions, sessionSearchQuery, sessionSearchResults } from '../../stores/sessions.svelte.js';
   import { projectInfo, clientCount } from '../../stores/chat.svelte.js';
   import { themeMode, getCurrentVariant, setThemeMode } from '../../stores/theme.svelte.js';
-  import { openTab } from '../../stores/tabs.svelte.js';
+  import { openTab, activeTabId } from '../../stores/tabs.svelte.js';
   import { addTabToPane, onTabClosed, findPaneForTab, switchPaneTab, activePaneId } from '../../stores/panes.svelte.js';
 
 
   const AREA_PREFIX = '__area__:';
   const PROJECT_PREFIX = '__project__:';
+  const OPERATION_PREFIX = '__operation__:';
   import SessionBubble from '../board/SessionBubble.svelte';
   import SessionTagger from '../board/SessionTagger.svelte';
   import FileTree from '../files/FileTree.svelte';
@@ -42,8 +43,22 @@
     return 'Theme: Dark';
   });
 
+  // Sidebar section expand state — persisted to localStorage
+  const SIDEBAR_STATE_KEY = 'claude-relay-sidebar-sections';
+  function loadSidebarSections() {
+    try { return JSON.parse(localStorage.getItem(SIDEBAR_STATE_KEY) || '{}'); } catch { return {}; }
+  }
+  function saveSidebarSections() {
+    try {
+      localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify({
+        sessions: sessionsExpanded, agents: agentsExpanded, git: gitExpanded, files: filesExpanded,
+      }));
+    } catch {}
+  }
+  const _ss = loadSidebarSections();
+
   // Sessions section
-  let sessionsExpanded = $state(false);
+  let sessionsExpanded = $state(_ss.sessions || false);
   let sessionQuery = $state('');
 
   function handleSessionSearch(e) {
@@ -83,9 +98,16 @@
   }
 
   // Git section collapsed state
-  let gitExpanded = $state(false);
+  let gitExpanded = $state(_ss.git || false);
   let gitCount = $derived(getGitCount());
   let gitContextMenu = $state(null); // { x, y, path, section }
+
+  // Auto-refresh git status every 10s when the section is open
+  $effect(() => {
+    if (!gitExpanded) return;
+    const iv = setInterval(() => refreshGit(), 10000);
+    return () => clearInterval(iv);
+  });
 
   function gitFileName(p) {
     const parts = p.split('/');
@@ -131,7 +153,7 @@
   }
 
   // Agents section collapsed state
-  let agentsExpanded = $state(false);
+  let agentsExpanded = $state(_ss.agents || false);
 
   let agentList = $derived(getAgentList());
   let runningAgentCount = $derived(getRunningCount());
@@ -183,7 +205,7 @@
   }
 
   // Files section collapsed state
-  let filesExpanded = $state(false);
+  let filesExpanded = $state(_ss.files || false);
 
   // Tagger
   let taggerSessionId = $state(null);
@@ -367,6 +389,9 @@
     const maxTop = window.innerHeight - 400; // rough panel height
     return Math.min(rect.top, Math.max(0, maxTop));
   });
+
+  // Hover panel: detail item for bottom section
+  let hoverDetailItem = $state(null); // { type: 'project'|'operation', data: ..., sessions: [] }
 
   // Hover panel: expanded projects
   let expandedHoverProjects = $state(new Set());
@@ -565,6 +590,38 @@
       ? getOperationRelatedSessions(hoveredOperation, hoveredOperationArea)
       : []
   );
+
+  // Active session area indicator (Task 9.12)
+  let activeSessionArea = $derived.by(() => {
+    const activeId = activeTabId.value;
+    if (!activeId || activeId.startsWith('__')) return null;
+    const session = sessions.find(s => s.id === activeId);
+    return session?.projectPath?.split('/')[0] || null;
+  });
+
+  // Session count badges by area (Task 9.13)
+  let sessionCountByArea = $derived.by(() => {
+    const counts = {};
+    for (const s of sessions) {
+      if (s.projectPath) {
+        const area = s.projectPath.split('/')[0];
+        counts[area] = (counts[area] || 0) + 1;
+      }
+    }
+    return counts;
+  });
+
+  // Open operation detail tab (Task 9.9)
+  function openOperationTab(opPath) {
+    const tabId = OPERATION_PREFIX + opPath;
+    const existing = findPaneForTab(tabId);
+    if (existing) {
+      switchPaneTab(existing, tabId);
+      activePaneId.value = existing;
+    } else {
+      addTabToPane(tabId);
+    }
+  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -630,6 +687,9 @@
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <span class="area-name clickable" onclick={(e) => { e.stopPropagation(); openAreaTab(area.name); }}>{formatAreaName(area.name)}</span>
             <div class="area-meta" onclick={() => toggleAreaCollapse(area.name)} role="button" tabindex="0">
+              {#if sessionCountByArea[area.name]}
+                <span class="area-session-count">{sessionCountByArea[area.name]}</span>
+              {/if}
               <span class="meta-count">{sessionCount}</span>
             </div>
           </div>
@@ -655,7 +715,7 @@
 
   <!-- Agents section (collapsible) -->
   <div class="collapse-section" class:expanded={agentsExpanded}>
-    <button class="collapse-header" onclick={() => agentsExpanded = !agentsExpanded}>
+    <button class="collapse-header" onclick={() => { agentsExpanded = !agentsExpanded; saveSidebarSections(); }}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={agentsExpanded}>
         <polyline points="9 18 15 12 9 6"/>
       </svg>
@@ -706,7 +766,7 @@
 
   <!-- Git section (collapsible) -->
   <div class="collapse-section" class:expanded={gitExpanded}>
-    <button class="collapse-header" onclick={() => { gitExpanded = !gitExpanded; if (gitExpanded) refreshGit(); }}>
+    <button class="collapse-header" onclick={() => { gitExpanded = !gitExpanded; if (gitExpanded) refreshGit(); saveSidebarSections(); }}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={gitExpanded}>
         <polyline points="9 18 15 12 9 6"/>
       </svg>
@@ -816,7 +876,7 @@
 
   <!-- Sessions section (collapsible) -->
   <div class="collapse-section" class:expanded={sessionsExpanded}>
-    <button class="collapse-header" onclick={() => sessionsExpanded = !sessionsExpanded}>
+    <button class="collapse-header" onclick={() => { sessionsExpanded = !sessionsExpanded; saveSidebarSections(); }}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={sessionsExpanded}>
         <polyline points="9 18 15 12 9 6"/>
       </svg>
@@ -915,7 +975,7 @@
 
   <!-- Files section (collapsible) -->
   <div class="collapse-section" class:expanded={filesExpanded}>
-    <button class="collapse-header" onclick={() => filesExpanded = !filesExpanded}>
+    <button class="collapse-header" onclick={() => { filesExpanded = !filesExpanded; saveSidebarSections(); }}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={filesExpanded}>
         <polyline points="9 18 15 12 9 6"/>
       </svg>
@@ -1028,166 +1088,148 @@
   {/if}
 </aside>
 
-<!-- Hover panel -->
+<!-- Hover panel — 3-column layout -->
 {#if hoverPanelVisible && hoveredArea}
+  {@const hpAllSessions = getAreaSessions(hoveredArea)}
+  {@const hpSessionCount = hpAllSessions.length}
+  {@const hpProcessingCount = hpAllSessions.filter(s => s.isProcessing).length}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="hover-panel"
-    style="top: {panelTop}px; left: {sidebarOpen.value ? 288 : 52}px"
+    style="top: 50px; left: {sidebarOpen.value ? 288 : 52}px"
     onmouseenter={onPanelMouseEnter}
-    onmouseleave={onPanelMouseLeave}
+    onmouseleave={() => { onPanelMouseLeave(); hoverDetailItem = null; }}
   >
-    <div class="hp-header">
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <span class="hp-area-name clickable" onclick={() => openAreaTab(hoveredArea.name)}>{formatAreaName(hoveredArea.name)}</span>
-      <span class="hp-count">{getAreaSessionCount(hoveredArea)} sessions</span>
-    </div>
-
-    <!-- TOTE bar -->
-    {#if hoveredArea.presentState || hoveredArea.desiredState}
-      {@const hpSessions = getAreaSessions(hoveredArea)}
-      {@const hpTotal = hpSessions.length || 1}
-      {@const hpProcessing = hpSessions.filter(s => s.isProcessing).length}
-      <div class="hp-tote">
-        <div class="hp-tote-bar">
-          <div class="hp-tote-fill" style="width: {Math.min(100, Math.round((hpProcessing / hpTotal) * 100 + (hoveredArea.presentState ? 30 : 0)))}%"></div>
-        </div>
-      </div>
-
-      {#if hoveredArea.presentState}
-        <div class="hp-state">
-          <span class="hp-state-label">Present:</span>
-          <span class="hp-state-text">{hoveredArea.presentState}</span>
-        </div>
-      {/if}
-      {#if hoveredArea.desiredState}
-        <div class="hp-state">
-          <span class="hp-state-label">Desired:</span>
-          <span class="hp-state-text">{hoveredArea.desiredState}</span>
-        </div>
-      {/if}
-    {/if}
-
-    <!-- Projects -->
-    <div class="hp-section-label">Projects</div>
-    {#each hoveredArea.projects as proj (proj.path)}
-      {@const projSessions = [...proj.sessions, ...proj.subProjects.flatMap(s => s.sessions || [])]}
-      {@const isExpanded = expandedHoverProjects.has(proj.path)}
-      <div class="hp-project">
-        {#if projSessions.length > 0}
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="hp-project-row" onclick={() => toggleHoverProject(proj.path)} onmouseenter={() => expandHoverProject(proj.path)}>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="hp-chevron" class:open={isExpanded}>
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-            <span class="hp-project-name clickable" onclick={(e) => { e.stopPropagation(); openProjectTab(proj.path); }}>{proj.name}</span>
-            <span class="hp-project-count">{projSessions.length}</span>
-          </div>
-          {#if isExpanded}
-            <div class="hp-sessions">
-              {#each projSessions.slice(0, 4) as session (session.id)}
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div
-                  class="hp-session"
-                  onclick={(e) => {
-                    openTab(session.id, session.title || 'Session');
-                    hoverPanelVisible = false;
-                  }}
-                  oncontextmenu={(e) => handleContextMenu(e, session.id)}
-                  onmouseenter={(e) => onSessionMouseEnter(e, session)}
-                  onmousemove={onSessionMouseMove}
-                  onmouseleave={onSessionMouseLeave}
-                >
-                  <span class="hp-session-dot" class:processing={session.isProcessing}></span>
-                  <span class="hp-session-title">{session.title || 'Untitled'}</span>
-                  <span class="hp-session-time">{session.isProcessing ? 'working' : (session.lastActivity ? formatAgentTime(session.lastActivity) + ' ago' : '')}</span>
-                </div>
-              {/each}
-              {#if projSessions.length > 4}
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div class="hp-more" onclick={() => openAreaTab(hoveredArea.name)}>+{projSessions.length - 4} more</div>
-              {/if}
-            </div>
-          {/if}
-        {:else}
-          <div class="hp-project-row dimmed" onclick={() => openProjectTab(proj.path)}>
-            <span class="hp-project-name">{proj.name}</span>
-            <span class="hp-project-count">0</span>
+    <!-- 3-column grid -->
+    <div class="hp-columns">
+      <!-- Left column: Overview -->
+      <div class="hp-col">
+        <div class="hp-col-header">Overview</div>
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="hp-area-name clickable" onclick={() => openAreaTab(hoveredArea.name)}>{formatAreaName(hoveredArea.name)}</div>
+        {#if hoveredArea.presentState}
+          <div class="hp-state">
+            <span class="hp-state-label">Present:</span>
+            <span class="hp-state-text">{hoveredArea.presentState}</span>
           </div>
         {/if}
-      </div>
-    {/each}
-
-    <!-- Operations -->
-    {#if hoveredArea.operations?.length > 0}
-      <div class="hp-section-label">Operations ({hoveredArea.operations.length})</div>
-      {#each hoveredArea.operations as op (op.path)}
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-          class="hp-operation"
-          onmouseenter={(e) => onOperationMouseEnter(e, op, hoveredArea)}
-          onmouseleave={onOperationMouseLeave}
-        >
-          <span class="hp-op-icon">{'\u27F3'}</span>
-          <span class="hp-op-name">{op.name}</span>
-          {#if op.description}
-            <span class="hp-op-desc">{op.description.length > 60 ? op.description.substring(0, 60) + '\u2026' : op.description}</span>
+        {#if hoveredArea.desiredState}
+          <div class="hp-state">
+            <span class="hp-state-label">Desired:</span>
+            <span class="hp-state-text">{hoveredArea.desiredState}</span>
+          </div>
+        {/if}
+        <div class="hp-overview-stats">
+          <span>{hpSessionCount} session{hpSessionCount !== 1 ? 's' : ''}</span>
+          {#if hpProcessingCount > 0}
+            <span class="hp-stat-active">{hpProcessingCount} processing</span>
           {/if}
         </div>
-      {/each}
-    {/if}
+      </div>
 
-    <!-- Area-level sessions (capped at 4) -->
-    {#if hoveredArea.areaSessions?.length > 0}
-      <div class="hp-section-label">Area Sessions ({hoveredArea.areaSessions.length})</div>
-      {#each hoveredArea.areaSessions.slice(0, 4) as session (session.id)}
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-          class="hp-session"
-          onclick={() => {
-            openTab(session.id, session.title || 'Session');
-            hoverPanelVisible = false;
-          }}
-          oncontextmenu={(e) => handleContextMenu(e, session.id)}
-          onmouseenter={(e) => onSessionMouseEnter(e, session)}
-          onmousemove={onSessionMouseMove}
-          onmouseleave={onSessionMouseLeave}
-        >
-          <span class="hp-session-dot" class:processing={session.isProcessing}></span>
-          <span class="hp-session-title">{session.title || 'Untitled'}</span>
-          <span class="hp-session-time">{session.isProcessing ? 'working' : (session.lastActivity ? formatAgentTime(session.lastActivity) + ' ago' : '')}</span>
-        </div>
-      {/each}
-      {#if hoveredArea.areaSessions.length > 4}
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div class="hp-more" onclick={() => openAreaTab(hoveredArea.name)}>+{hoveredArea.areaSessions.length - 4} more</div>
-      {/if}
-    {/if}
+      <!-- Middle column: Projects -->
+      <div class="hp-col">
+        <div class="hp-col-header">Projects</div>
+        {#each hoveredArea.projects as proj (proj.path)}
+          {@const projSessions = [...proj.sessions, ...proj.subProjects.flatMap(s => s.sessions || [])]}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
+            class="hp-col-row"
+            class:active={hoverDetailItem?.type === 'project' && hoverDetailItem?.data?.path === proj.path}
+            onclick={() => openProjectTab(proj.path)}
+            onmouseenter={() => { hoverDetailItem = { type: 'project', data: proj, sessions: projSessions }; }}
+          >
+            <span class="hp-col-row-name">{proj.name}</span>
+            {#if projSessions.length > 0}
+              <span class="hp-col-row-badge">{projSessions.length}</span>
+            {/if}
+          </div>
+        {/each}
+        {#if hoveredArea.projects.length === 0}
+          <div class="hp-col-empty">No projects</div>
+        {/if}
+      </div>
 
-    <!-- Badges -->
-    <div class="hp-badges">
-      {#if hoveredArea.hasInbox}
-        <span class="hp-badge">Inbox</span>
-      {/if}
-      {#if hoveredArea.operations?.length > 0}
-        <span class="hp-badge">{'\u27F3'} {hoveredArea.operations.length} ops</span>
-      {/if}
+      <!-- Right column: Operations -->
+      <div class="hp-col">
+        <div class="hp-col-header">Operations</div>
+        {#if hoveredArea.operations?.length > 0}
+          {#each hoveredArea.operations as op (op.path)}
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class="hp-col-row"
+              class:active={hoverDetailItem?.type === 'operation' && hoverDetailItem?.data?.path === op.path}
+              onclick={() => { addTabToPane(OPERATION_PREFIX + op.path); hoverPanelVisible = false; }}
+              onmouseenter={() => { hoverDetailItem = { type: 'operation', data: op, sessions: getOperationRelatedSessions(op, hoveredArea) }; }}
+            >
+              <span class="hp-col-row-name">{op.name}</span>
+            </div>
+          {/each}
+        {:else}
+          <div class="hp-col-empty">No operations</div>
+        {/if}
+      </div>
     </div>
 
-    <!-- New session button -->
-    <button class="hp-new-session" onclick={() => { createSession(); hoverPanelVisible = false; }}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-      New Session in {formatAreaName(hoveredArea.name)}
-    </button>
+    <!-- Bottom detail section -->
+    {#if hoverDetailItem}
+      <div class="hp-detail">
+        {#if hoverDetailItem.type === 'project'}
+          <div class="hp-detail-title">{hoverDetailItem.data.name}</div>
+          {#if hoverDetailItem.sessions.length > 0}
+            {#each hoverDetailItem.sessions as session (session.id)}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                class="hp-session"
+                onclick={() => { openTab(session.id, session.title || 'Session'); hoverPanelVisible = false; }}
+                oncontextmenu={(e) => handleContextMenu(e, session.id)}
+              >
+                <span class="hp-session-dot" class:processing={session.isProcessing}></span>
+                <span class="hp-session-title">{session.title || 'Untitled'}</span>
+                <span class="hp-session-time">{session.isProcessing ? 'working' : (session.lastActivity ? formatAgentTime(session.lastActivity) + ' ago' : '')}</span>
+              </div>
+            {/each}
+          {:else}
+            <div class="hp-col-empty">No sessions yet</div>
+          {/if}
+          <button class="hp-detail-action" onclick={() => { createSession(null, true, hoverDetailItem.data.path); hoverPanelVisible = false; }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            New Session
+          </button>
+        {:else if hoverDetailItem.type === 'operation'}
+          <div class="hp-detail-title">{'\u27F3'} {hoverDetailItem.data.name}</div>
+          {#if hoverDetailItem.data.description}
+            <div class="hp-detail-desc">{hoverDetailItem.data.description}</div>
+          {/if}
+          {#if hoverDetailItem.sessions.length > 0}
+            <div class="hp-detail-sub">Related Sessions</div>
+            {#each hoverDetailItem.sessions as session (session.id)}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                class="hp-session"
+                onclick={() => { openTab(session.id, session.title || 'Session'); hoverPanelVisible = false; }}
+              >
+                <span class="hp-session-dot" class:processing={session.isProcessing}></span>
+                <span class="hp-session-title">{session.title || 'Untitled'}</span>
+              </div>
+            {/each}
+          {/if}
+          <button class="hp-detail-action" onclick={() => { createSession(null, true, hoveredArea.name); hoverPanelVisible = false; }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            New Session
+          </button>
+        {/if}
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -1300,65 +1342,7 @@
   </div>
 {/if}
 
-<!-- Operation hover panel -->
-{#if operationPanelVisible && hoveredOperation}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="hover-panel operation-panel"
-    style="top: {operationPanelTop}px; left: {(sidebarOpen.value ? 288 : 52) + 358}px"
-    onmouseenter={onOperationPanelMouseEnter}
-    onmouseleave={onOperationPanelMouseLeave}
-  >
-    <div class="hp-header">
-      <span class="hp-area-name">{'\u27F3'} {hoveredOperation.name}</span>
-      <span class="hp-count">{hoveredOperation.docs?.length || 0} docs</span>
-    </div>
-    <div class="hp-op-label">Standing operation</div>
-
-    {#if hoveredOperation.description}
-      <div class="hp-section-label">Description</div>
-      <div class="hp-op-description">{hoveredOperation.description}</div>
-    {/if}
-
-    {#if hoveredOperation.docs?.length > 0}
-      <div class="hp-section-label">Docs ({hoveredOperation.docs.length})</div>
-      {#each hoveredOperation.docs as doc}
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div class="hp-doc-item" onclick={() => { openFile('gtd/' + hoveredOperation.path + '/' + doc); operationPanelVisible = false; }}>
-          <span class="hp-doc-name">{doc}</span>
-        </div>
-      {/each}
-    {/if}
-
-    {#if operationRelatedSessions.length > 0}
-      <div class="hp-section-label">Related Sessions ({operationRelatedSessions.length})</div>
-      {#each operationRelatedSessions as session (session.id)}
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div class="hp-session" onclick={() => { openTab(session.id, session.title || 'Session'); operationPanelVisible = false; hoverPanelVisible = false; }}>
-          <span class="hp-session-dot" class:processing={session.isProcessing}></span>
-          <span class="hp-session-title">{session.title || 'Untitled'}</span>
-          <span class="hp-session-time">{session.lastActivity ? formatAgentTime(session.lastActivity) + ' ago' : ''}</span>
-        </div>
-      {/each}
-    {/if}
-
-    <div class="hp-footer-actions">
-      <button class="hp-new-session" onclick={() => { createSession(); operationPanelVisible = false; hoverPanelVisible = false; }}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        + Session
-      </button>
-      {#if hoveredOperation.docs?.length > 0}
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <span class="hp-open-detail clickable" onclick={() => { openFile('gtd/' + hoveredOperation.path + '/' + hoveredOperation.docs[0]); operationPanelVisible = false; }}>Open Doc →</span>
-      {/if}
-    </div>
-  </div>
-{/if}
+<!-- Operation hover panel removed — operations now shown in main hover panel -->
 
 <!-- Session tooltip disabled — data was inaccurate and intrusive -->
 
@@ -2339,16 +2323,16 @@
   .hover-panel {
     position: fixed;
     /* left set dynamically via inline style */
-    width: 350px;
-    max-height: 70vh;
-    overflow-y: auto;
+    width: clamp(500px, 50vw, 700px);
+    display: flex;
+    flex-direction: column;
     background: var(--bg-alt);
     border: 1px solid rgba(var(--overlay-rgb), 0.1);
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(var(--shadow-rgb), 0.25);
-    padding: 14px;
     z-index: 200;
     animation: hpSlideIn 0.15s ease-out;
+    overflow: hidden;
   }
 
   .hover-panel::before {
@@ -2362,6 +2346,7 @@
     border-left: 1px solid rgba(var(--overlay-rgb), 0.10);
     border-bottom: 1px solid rgba(var(--overlay-rgb), 0.10);
     transform: rotate(45deg);
+    z-index: 1;
   }
 
   @keyframes hpSlideIn {
@@ -2369,17 +2354,155 @@
     to { opacity: 1; transform: translateX(0); }
   }
 
-  .hp-header {
+  /* 3-column grid */
+  .hp-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1px;
+    background: rgba(var(--overlay-rgb), 0.06);
+  }
+
+  .hp-col {
+    background: var(--bg-alt);
+    padding: 12px;
+    min-width: 0;
+  }
+
+  .hp-col-header {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .hp-col-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 10px;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .hp-col-row:hover {
+    background: rgba(var(--overlay-rgb), 0.08);
+  }
+
+  .hp-col-row.active {
+    background: rgba(var(--overlay-rgb), 0.10);
+  }
+
+  .hp-col-row-name {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .hp-col-row:hover .hp-col-row-name {
+    color: var(--accent);
+  }
+
+  .hp-col-row-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dimmer);
+    background: rgba(var(--overlay-rgb), 0.08);
+    padding: 1px 5px;
+    border-radius: 8px;
+    flex-shrink: 0;
+  }
+
+  .hp-col-empty {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    font-style: italic;
+    padding: 4px 6px;
+  }
+
+  .hp-overview-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .hp-stat-active {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* Bottom detail section */
+  .hp-detail {
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.12);
+    padding: 10px 14px;
+    max-height: 50vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  .hp-detail-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .hp-detail-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 6px;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .hp-detail-sub {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dimmer);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin: 6px 0 4px;
+  }
+
+  .hp-detail-action {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 8px;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--accent-30);
+    background: var(--accent-8);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .hp-detail-action:hover {
+    background: var(--accent-15);
+    border-color: var(--accent-50);
   }
 
   .hp-area-name {
     font-size: 14px;
     font-weight: 700;
     color: var(--text);
+    margin-bottom: 6px;
   }
 
   .hp-count {
@@ -2856,5 +2979,31 @@
   .rail-new:hover {
     background: rgba(var(--accent-rgb), 0.1);
     color: var(--accent);
+  }
+
+  /* Task 9.12: Active session area indicator */
+  .area-card.active-area {
+    border-left: 2px solid var(--accent);
+    padding-left: 8px;
+  }
+
+  /* Task 9.13: Session count badges */
+  .area-session-count {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-12, rgba(var(--accent-rgb, 91, 159, 214), 0.12));
+    padding: 1px 5px;
+    border-radius: 8px;
+    line-height: 1.4;
+  }
+
+  /* Task 9.9: Clickable operations in hover panel */
+  .hp-operation.clickable {
+    cursor: pointer;
+  }
+
+  .hp-operation.clickable:hover {
+    background: rgba(var(--overlay-rgb), 0.06);
   }
 </style>

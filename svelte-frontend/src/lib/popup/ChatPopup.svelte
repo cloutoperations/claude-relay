@@ -4,6 +4,7 @@
   import { sessionList as sessions } from '../../stores/sessions.svelte.js';
   import { sessions as sessionStates } from '../../stores/session-state.svelte.js';
   import { projectInfo } from '../../stores/chat.svelte.js';
+  import { send } from '../../stores/ws.svelte.js';
   import MessageList from '../chat/MessageList.svelte';
   import InputArea from '../chat/InputArea.svelte';
 
@@ -42,8 +43,15 @@
     toggleMinimize(popup.sessionId);
   }
 
-  function handleSend(text) {
-    sendPopupMessage(popup.sessionId, text);
+  function handleSend(text, attachmentData) {
+    const images = attachmentData?.images?.length > 0 ? attachmentData.images : undefined;
+    const documents = attachmentData?.documents?.length > 0 ? attachmentData.documents : undefined;
+    const pastes = attachmentData?.pastes?.length > 0 ? attachmentData.pastes : undefined;
+    sendPopupMessage(popup.sessionId, text, images, pastes, documents);
+  }
+
+  function handleStopAgent(toolUseId) {
+    send({ type: 'stop_task', toolUseId });
   }
 
   function handleStop() {
@@ -58,14 +66,32 @@
     return str.length <= len ? str : str.substring(0, len) + '\u2026';
   }
 
-  // Resizable height
-  const POPUP_HEIGHT_KEY = 'claude-relay-popup-height';
-  let savedHeight = null;
-  try { savedHeight = parseInt(localStorage.getItem(POPUP_HEIGHT_KEY)); } catch {}
-  let popupHeight = $state(savedHeight && savedHeight > 200 ? savedHeight : null);
+  function formatProjectPath(pp) {
+    if (!pp) return null;
+    const parts = pp.split('/');
+    return { area: parts[0], project: parts.length > 2 ? parts[parts.length - 1] : null };
+  }
+
+  // Resizable height + width
+  const POPUP_SIZE_KEY = 'claude-relay-popup-size';
+  let savedSize = null;
+  try { savedSize = JSON.parse(localStorage.getItem(POPUP_SIZE_KEY) || '{}'); } catch {}
+  let popupHeight = $state(savedSize?.h > 200 ? savedSize.h : null);
+  let popupWidth = $state(savedSize?.w > 280 ? savedSize.w : null);
   let isResizing = $state(false);
 
-  function startResize(e) {
+  function saveSize() {
+    try {
+      localStorage.setItem(POPUP_SIZE_KEY, JSON.stringify({
+        h: popupHeight ? Math.round(popupHeight) : null,
+        w: popupWidth ? Math.round(popupWidth) : null,
+      }));
+      // Also update legacy key for PaneManager popup bar height calc
+      if (popupHeight) localStorage.setItem('claude-relay-popup-height', String(Math.round(popupHeight)));
+    } catch {}
+  }
+
+  function startResizeTop(e) {
     e.preventDefault();
     e.stopPropagation();
     isResizing = true;
@@ -73,18 +99,36 @@
     const startHeight = popupHeight || 380;
 
     function onMove(e) {
-      const delta = startY - e.clientY;
-      const newH = Math.max(200, Math.min(window.innerHeight * 0.8, startHeight + delta));
-      popupHeight = newH;
+      popupHeight = Math.max(200, Math.min(window.innerHeight * 0.8, startHeight + (startY - e.clientY)));
     }
 
     function onUp() {
       isResizing = false;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-      if (popupHeight) {
-        try { localStorage.setItem(POPUP_HEIGHT_KEY, String(Math.round(popupHeight))); } catch {}
-      }
+      saveSize();
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
+  function startResizeLeft(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    isResizing = true;
+    const startX = e.clientX;
+    const startWidth = popupWidth || 420;
+
+    function onMove(e) {
+      popupWidth = Math.max(280, Math.min(window.innerWidth * 0.6, startWidth + (startX - e.clientX)));
+    }
+
+    function onUp() {
+      isResizing = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      saveSize();
     }
 
     document.addEventListener('mousemove', onMove);
@@ -100,12 +144,13 @@
   class:cp-permission={sessionState?.status === 'permission'}
   class:has-unread={popup.hasUnread}
   class:resizing={isResizing}
-  style={popupHeight && !popup.minimized ? `height: ${popupHeight}px` : ''}
+  style={(!popup.minimized ? (popupHeight ? `height:${popupHeight}px;` : '') + (popupWidth ? `width:${popupWidth}px;` : '') : '')}
 >
-  <!-- Resize handle at top -->
+  <!-- Resize handles -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   {#if !popup.minimized}
-    <div class="cp-resize-handle" onmousedown={startResize}></div>
+    <div class="cp-resize-handle cp-resize-top" onmousedown={startResizeTop}></div>
+    <div class="cp-resize-handle cp-resize-left" onmousedown={startResizeLeft}></div>
   {/if}
 
   <!-- Header -->
@@ -141,17 +186,25 @@
       onLoadEarlier={() => { import('../../stores/tabs.svelte.js').then(m => m.loadEarlierHistory(popup.sessionId)); }}
       compact={true}
       onPermissionRespond={handlePermissionRespond}
+      onStopAgent={handleStopAgent}
       onSend={handleSend}
       taskItems={sessionState?.tasks || []}
       planMode={sessionState?.planMode || false}
       streamingText={sessionState?.currentText || ''}
       isStreaming={sessionState?.isStreaming || false}
     />
+    {@const pp = formatProjectPath(sessions.find(s => s.id === popup.sessionId)?.projectPath)}
+    {#if pp}
+      <div class="cp-breadcrumb">
+        <span>{pp.area}</span>
+        {#if pp.project}<span class="cp-bc-sep">/</span><span>{pp.project}</span>{/if}
+      </div>
+    {/if}
     <InputArea
       sessionId={popup.sessionId}
       processing={sessionState?.processing || false}
       compact={true}
-      onSend={handleSend}
+      onSend={(text, att) => handleSend(text, att)}
       onStop={handleStop}
     />
   {/if}
@@ -160,12 +213,23 @@
 <style>
   .cp-resize-handle {
     position: absolute;
+    z-index: 2;
+  }
+
+  .cp-resize-top {
     top: -3px;
     left: 20px;
     right: 20px;
     height: 6px;
     cursor: ns-resize;
-    z-index: 2;
+  }
+
+  .cp-resize-left {
+    top: 10px;
+    left: -3px;
+    bottom: 10px;
+    width: 6px;
+    cursor: ew-resize;
   }
 
   .cp-resize-handle:hover, .resizing .cp-resize-handle {
@@ -177,7 +241,7 @@
     position: relative;
     width: clamp(380px, 24vw, 500px);
     height: 400px;
-    max-height: 55vh;
+    max-height: 80vh;
     display: flex;
     flex-direction: column;
     background: var(--bg-alt);
@@ -281,6 +345,17 @@
     background: rgba(var(--overlay-rgb), 0.06);
     color: var(--text-muted);
   }
+
+  .cp-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 14px;
+    font-size: 10px;
+    color: var(--text-dimmer);
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.04);
+  }
+  .cp-bc-sep { font-size: 9px; }
 
   /* ─── Responsive ─── */
   @media (max-width: 768px) {

@@ -160,3 +160,33 @@ components        ← import from  → tabs / popups / session-state / chat / ws
 - [ ] **8.13** `MessageList.svelte` `{#each}` key — falls back to index `i` for system messages. DOM churn on window shift.
 - [ ] **8.14** `SearchTimeline.svelte` — stale DOM reference in setTimeout after session switch. Silent failure.
 - [ ] **8.15** `AreaZone.svelte` — unguarded `setTimeout(() => fetchBoard(), 1500)` fires after unmount.
+
+## Phase 9 — GTD ↔ Session linking
+
+### Session context (see where you are)
+
+- [x] **9.1** Session breadcrumb — show area/project tag above the input area in tab view (e.g. "marketing / reddit-system-build"). Clickable to open detail tab.
+- [x] **9.2** Session breadcrumb in popup — compact "area / project" text above popup input area.
+- [x] **9.3** Tab title prefix — `[area]` prefix in muted style before tab title.
+
+### Session tagging (link from within session)
+
+- [x] **9.4** Tag button in session — tag icon button shows picker dropdown of areas/projects when session has no projectPath.
+- [x] **9.5** Untag from session — × button on breadcrumb removes the tag.
+- [x] **9.6** Fix AreaDetailTab "New Session" — pass `area.name` as projectPath so sessions created from an area are linked to it.
+
+### Operation detail view
+
+- [x] **9.7** OperationDetailTab component — shows operation name, description, docs, breadcrumb to area, "New Session" button, area sessions list.
+- [x] **9.8** Wire operation click in AreaDetailTab — clicking an operation in the area detail opens OperationDetailTab. Operations section added with gear icon and description preview.
+- [x] **9.9** Wire operation click in sidebar — operations in hover panel are clickable, open OperationDetailTab.
+
+### Session creation with context
+
+- [x] **9.10** "New Session" in OperationDetailTab — creates session linked to the operation's parent area.
+- [x] **9.11** Session list in OperationDetailTab — shows area-level sessions.
+
+### Sidebar integration
+
+- [x] **9.12** Active session indicator — active session's area gets accent left border in sidebar.
+- [x] **9.13** Session count badges — orange pill badges showing session count per area.

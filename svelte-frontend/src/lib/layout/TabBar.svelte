@@ -344,6 +344,10 @@
               {#if tab.processing || tab.loadingHistory}
                 <span class="tab-spinner" class:loading={tab.loadingHistory && !tab.processing}></span>
               {/if}
+              {@const tabSession = sessionList.find(s => s.id === tab.id)}
+              {#if tabSession?.projectPath}
+                <span class="tab-area-prefix">[{tabSession.projectPath.split('/')[0]}]</span>
+              {/if}
               <span class="tab-title">{tab.title}</span>
               <button class="tab-popout" onclick={(e) => handlePopOut(e, tab.id)} title="Pop out to window">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -537,6 +541,12 @@
 
   .tab.active .area-icon { color: var(--hl-type); }
   .tab.active .project-icon { color: var(--hl-string); }
+
+  .tab-area-prefix {
+    font-size: 10px;
+    color: var(--text-dimmer);
+    flex-shrink: 0;
+  }
 
   .tab-title {
     max-width: clamp(80px, 15vw, 160px);

@@ -17,7 +17,14 @@
   let quickOpenVisible = $state(false);
 
   onMount(() => {
-    connect();
+    // Pass active session ID to WS URL so server starts replaying immediately
+    // (zero-delay history load, same as legacy frontend)
+    let initialSession = null;
+    try {
+      const saved = JSON.parse(localStorage.getItem('claude-relay-tabs') || '{}');
+      if (saved.activeTabId && !saved.activeTabId.startsWith('__')) initialSession = saved.activeTabId;
+    } catch {}
+    connect(initialSession);
 
     function handleKeydown(e) {
       // Cmd+O — quick open

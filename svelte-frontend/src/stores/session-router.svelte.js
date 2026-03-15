@@ -26,12 +26,12 @@ import { handleGitStatusResult, handleGitActionResult, handleGitDiffResult, refr
 
 // staleTabs is imported from session-state.svelte.js to avoid circular deps
 
-// --- Main message router ---
-// This $effect fires on every new incoming message.
+// Track the session passed via ?s= in the WS URL — its history arrives untagged
+// and must be routed to the correct session state (not dropped).
+let initialReplaySession = null;
+let initialReplayDone = false;
 
-// Register as the WS message handler — called directly by ws.svelte.js on every message.
-// This replaces $effect on wsState.incoming which caused effect_update_depth_exceeded
-// (the effect read incoming AND wrote to tabs/sessions/etc, creating an infinite loop).
+// --- Main message router ---
 setOnMessage(handleIncoming);
 
 function handleIncoming(msg) {
@@ -53,38 +53,55 @@ function handleIncoming(msg) {
     }
 
     // --- Global broadcasts (no _popupSessionId) ---
-    // Tabs/popups only receive tagged events (via tab_subscribe/popup_open).
-    // Untagged events come from the server's primary-viewer session assignment
-    // which the Svelte frontend doesn't use — routing them would corrupt tab state
-    // and trigger false toasts on refresh.
     if (!msg._popupSessionId) {
       routeGlobalMessage(msg, t);
+
+      // Route untagged session events ONLY for the initial replay session
+      // (the one passed via ?s= in the WS URL) and only while replay is in progress.
+      if (initialReplaySession && !initialReplayDone && sessionStates[initialReplaySession]) {
+        const SESSION_EVENTS = ['delta', 'assistant_delta', 'user_message', 'tool_start', 'tool_executing', 'tool_result', 'status', 'result', 'done', 'error', 'thinking_start', 'thinking_delta', 'thinking_stop', 'permission_request', 'permission_request_pending', 'permission_resolved', 'permission_cancel', 'ask_user', 'ask_user_answered', 'rate_limit', 'subagent_activity', 'plan_mode', 'task_create', 'task_update', 'task_list', 'prompt_suggestion'];
+        if (SESSION_EVENTS.includes(t)) {
+          routeToSession(initialReplaySession, msg, t);
+        }
+      }
     }
 
-    // --- History start/done (tagged for popups/tabs, drop untagged) ---
+    // --- History start/done ---
     if (t === 'popup_history_start' || t === 'tab_history_start' || t === 'history_meta') {
-      // Only process tagged replays (from tab_subscribe/popup_open).
-      // Untagged replays come from the server's auto-assigned default session
-      // and would corrupt the active tab with wrong session data.
-      if (!msg.sessionId && t === 'history_meta') return;
-      const sessionId = msg.sessionId ? resolveSessionId(msg.sessionId) : activeTabId.value;
+      // Untagged history_meta → route to initialReplaySession (from ?s= URL param)
+      // Tagged → route to msg.sessionId
+      const sessionId = msg.sessionId
+        ? resolveSessionId(msg.sessionId)
+        : initialReplaySession || null;
       if (!sessionId || !sessionStates[sessionId]) {
-        console.warn('[router] history_start dropped — no session state for', msg.sessionId?.substring(0, 12), 'resolved:', sessionId?.substring(0, 12));
+        console.warn('[router] history_start dropped — no session state for', msg.sessionId?.substring(0, 12), 'resolved:', sessionId?.substring?.(0, 12));
         return;
       }
-      startHistoryReplay(sessionId, msg.from, msg.total);
+      // Suppress skeleton for the ?s= URL replay — history arrives instantly
+      const suppress = sessionId === initialReplaySession && !msg.sessionId;
+      startHistoryReplay(sessionId, msg.from, msg.total, suppress);
       return;
     }
 
     if (t === 'popup_history_done' || t === 'tab_history_done' || t === 'history_done') {
-      if (!msg.sessionId && t === 'history_done') return;
-      const sessionId = msg.sessionId ? resolveSessionId(msg.sessionId) : activeTabId.value;
+      const sessionId = msg.sessionId
+        ? resolveSessionId(msg.sessionId)
+        : initialReplaySession || null;
       if (!sessionId || !sessionStates[sessionId]) {
-        console.warn('[router] history_done dropped — no session state for', msg.sessionId?.substring(0, 12), 'resolved:', sessionId?.substring(0, 12));
+        console.warn('[router] history_done dropped — no session state for', msg.sessionId?.substring(0, 12), 'resolved:', sessionId?.substring?.(0, 12));
         return;
       }
       console.log('[router] history_done OK for', sessionId.substring(0, 12));
       finishHistoryReplay(sessionId);
+
+      // Initial replay done — leave primary-viewer mode to prevent future
+      // untagged events (live events arrive tagged via tab_subscribe).
+      // Keep initialReplaySession set so restoreTabsOnFirstConnect can
+      // check it and skip the redundant tab_subscribe.
+      if (sessionId === initialReplaySession && !msg.sessionId) {
+        send({ type: 'leave_session' });
+        initialReplayDone = true;
+      }
       return;
     }
 
@@ -298,6 +315,13 @@ function handleSessionSwitched(msg) {
   // so subsequent history replay has somewhere to route messages.
   // Don't open a tab — tab restore from localStorage handles that.
   if (!msg._requestId) {
+    // If the server gave us a different session than we asked for with ?s=,
+    // abandon the initial replay — the tab_subscribe will load the correct one.
+    if (initialReplaySession && msg.id && msg.id !== initialReplaySession) {
+      send({ type: 'leave_session' });
+      initialReplaySession = null;
+      initialReplayDone = true;
+    }
     if (msg.id) ensureSession(msg.id, null);
     return;
   }
@@ -345,21 +369,40 @@ function handleSessionSwitched(msg) {
 // --- Reconnect handler ---
 
 function handleReconnect() {
-  // Immediately leave the server's default session assignment —
-  // we only want tagged events via tab_subscribe/popup_open, not untagged primary-viewer events.
-  // Without this, the server replays the default session's history untagged, which gets
-  // misrouted to the active tab's session state (wrong data).
-  send({ type: 'leave_session' });
-
   // Clear all replay buffers
   for (const key of Object.keys(replayBuffers)) {
     delete replayBuffers[key];
   }
 
-  // Re-register active tab with full replay
+  // Determine which session the server is replaying via ?s= URL param.
+  // On first connect, the active tab's session was passed in the WS URL,
+  // so the server is already replaying it — no need to send tab_subscribe.
+  // On reconnect (tabs already exist), we need to re-subscribe explicitly.
   const currentActive = activeTabId.value;
-  if (currentActive && currentActive !== HOME_TAB && tabs[currentActive]) {
-    send({ type: 'tab_subscribe', sessionId: currentActive });
+  const hasTabsLoaded = Object.keys(tabs).length > 0;
+
+  if (hasTabsLoaded) {
+    // Reconnect — no ?s= in URL, server assigned default session.
+    // Leave it immediately and re-subscribe to the active tab.
+    send({ type: 'leave_session' });
+    initialReplaySession = null;
+    initialReplayDone = false;
+    if (currentActive && currentActive !== HOME_TAB && tabs[currentActive]) {
+      send({ type: 'tab_subscribe', sessionId: currentActive });
+    }
+  } else {
+    // First connect — server is replaying the session from ?s= URL param.
+    // Read which session we asked for so we can route untagged events to it.
+    try {
+      const saved = JSON.parse(localStorage.getItem('claude-relay-tabs') || '{}');
+      if (saved.activeTabId && !saved.activeTabId.startsWith('__')) {
+        initialReplaySession = saved.activeTabId;
+        initialReplayDone = false;
+        // Ensure session state exists before history events arrive.
+        // Use empty seedState so loadingHistory starts as false (no skeleton flash).
+        ensureSession(initialReplaySession, { messages: [], processing: false });
+      }
+    } catch {}
   }
 
   // Mark all other tabs as stale (lazy-reload on click)
@@ -425,9 +468,12 @@ function restoreTabsOnFirstConnect() {
     activeTabId.value = layout.activeTabId;
   }
 
-  // Step 2: Show cached data as placeholder, then always request full server history
+  // Step 2: Show cached data as placeholder for non-active tabs only.
+  // The active tab loads via ?s= in the WS URL (zero-delay server replay),
+  // so showing a cache placeholder would cause a visible double-load flash.
   (async () => {
     for (const item of layout.tabs) {
+      if (item.sessionId === initialReplaySession) continue; // server is already replaying this one
       const restored = await restoreFromCache(item.sessionId);
       if (restored) {
         console.log('[restore] Cached placeholder:', item.sessionId.substring(0, 12));
@@ -442,27 +488,31 @@ function restoreTabsOnFirstConnect() {
       }
     }
 
-    // Step 4: Always request full server replay for visible tabs, stale-mark the rest
+    // Step 4: Request server replay for visible tabs (skip if already replaying via ?s=)
     {
-      let delay = 0;
       for (const item of layout.tabs) {
         const sessionId = item.sessionId;
+
+        // Skip the session that's already replaying via ?s= URL param
+        if (sessionId === initialReplaySession) {
+          // Just register for tagged live updates (no history replay needed)
+          send({ type: 'tab_subscribe', sessionId, skip_history: true });
+          continue;
+        }
+
         // Check if visible in any pane
         let visible = layout.activeTabId === sessionId;
         try {
           const savedPanes = JSON.parse(localStorage.getItem('claude-relay-panes') || '{}');
-          if (savedPanes.panes) visible = visible || savedPanes.panes.some(p => p.tabIds && p.tabIds.includes(sessionId));
+          if (savedPanes.panes) visible = visible || savedPanes.panes.some(p => p.activeTabId === sessionId);
         } catch {}
 
         if (visible) {
+          send({ type: 'tab_subscribe', sessionId });
           setTimeout(() => {
-            send({ type: 'tab_subscribe', sessionId });
-            setTimeout(() => {
-              const ss = sessionStates[sessionId];
-              if (ss && ss.loadingHistory) ss.loadingHistory = false;
-            }, 15000);
-          }, delay);
-          delay += 2000;
+            const ss = sessionStates[sessionId];
+            if (ss && ss.loadingHistory) ss.loadingHistory = false;
+          }, 15000);
         } else {
           staleTabs.add(sessionId);
           const ss = sessionStates[sessionId];

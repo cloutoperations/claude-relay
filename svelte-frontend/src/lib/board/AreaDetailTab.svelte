@@ -7,6 +7,7 @@
   import { onMount } from 'svelte';
 
   const PROJECT_PREFIX = '__project__:';
+  const OPERATION_PREFIX = '__operation__:';
 
   let { areaName } = $props();
 
@@ -75,8 +76,19 @@
   }
 
   function handleNewSession() {
-    createSession();
+    createSession(null, true, areaName);
     setTimeout(() => fetchBoard(), 1500);
+  }
+
+  function openOperationTab(opPath) {
+    const tabId = OPERATION_PREFIX + opPath;
+    const existing = findPaneForTab(tabId);
+    if (existing) {
+      switchPaneTab(existing, tabId);
+      activePaneId.value = existing;
+    } else {
+      addTabToPane(tabId);
+    }
   }
 </script>
 
@@ -163,6 +175,30 @@
                   {/each}
                 </div>
               {/if}
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Operations -->
+      {#if area.operations?.length > 0}
+        <div class="ad-section">
+          <h3 class="ad-section-title">Operations ({area.operations.length})</h3>
+          <div class="ad-projects">
+            {#each area.operations as op (op.path)}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div class="ad-project-card" onclick={() => openOperationTab(op.path)}>
+                <div class="ad-project-main">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                  </svg>
+                  <span class="ad-project-name">{op.name}</span>
+                </div>
+                {#if op.description}
+                  <div class="ad-op-desc">{op.description.substring(0, 80)}{op.description.length > 80 ? '...' : ''}</div>
+                {/if}
+              </div>
             {/each}
           </div>
         </div>
@@ -354,6 +390,13 @@
     font-size: 13px;
     color: var(--text-secondary);
     font-weight: 500;
+  }
+
+  .ad-op-desc {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    padding: 2px 0 0 22px;
+    line-height: 1.4;
   }
 
   .ad-project-meta {

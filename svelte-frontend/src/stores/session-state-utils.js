@@ -333,18 +333,17 @@ export function processLiveEvent(state, msg, t) {
     if (!state.isStreaming) {
       state.isStreaming = true;
       state.currentText = delta;
-      state.messages = [...state.messages, { type: 'assistant', text: delta, streaming: true, _key: nextMsgKey() }];
+      const newMsg = { type: 'assistant', text: delta, streaming: true, _key: nextMsgKey() };
+      state.messages = [...state.messages, newMsg];
+      // Cache reference for O(1) updates on subsequent deltas
+      state._streamingMsg = newMsg;
     } else {
       state.currentText += delta;
-      // Update the streaming message in-place (last assistant with streaming: true)
-      const msgs = state.messages;
-      for (let i = msgs.length - 1; i >= 0; i--) {
-        if (msgs[i].type === 'assistant' && msgs[i].streaming) {
-          msgs[i] = { ...msgs[i], text: state.currentText };
-          break;
-        }
+      // Mutate in-place — Svelte 5 proxies track property assignment directly.
+      // No array copy, no object spread. This is the streaming hot path.
+      if (state._streamingMsg) {
+        state._streamingMsg.text = state.currentText;
       }
-      state.messages = msgs;
     }
   } else if (t === 'thinking_start') {
     state.thinking = true;
