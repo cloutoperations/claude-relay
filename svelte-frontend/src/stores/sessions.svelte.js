@@ -83,3 +83,7 @@ export function searchSessions(query) {
     send({ type: 'search_sessions', query: query.trim(), _searchSeq: searchSeq.value });
   }, 200);
 }
+
+// Stubs for features referenced in AreasSidebar but not yet implemented
+export function startAutoTag() {}
+export function startAreaAnalysis() {}
