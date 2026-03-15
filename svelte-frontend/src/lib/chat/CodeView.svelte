@@ -141,20 +141,20 @@
   .code-content :global(.hljs-keyword),
   .code-content :global(.hljs-selector-tag) { color: var(--hl-keyword); }
   .code-content :global(.hljs-string),
-  .code-content :global(.hljs-template-variable) { color: #ce9178; }
+  .code-content :global(.hljs-template-variable) { color: var(--hl-string); }
   .code-content :global(.hljs-number),
-  .code-content :global(.hljs-literal) { color: #b5cea8; }
-  .code-content :global(.hljs-comment) { color: #6a9955; font-style: italic; }
+  .code-content :global(.hljs-literal) { color: var(--hl-number); }
+  .code-content :global(.hljs-comment) { color: var(--hl-comment); font-style: italic; }
   .code-content :global(.hljs-function),
-  .code-content :global(.hljs-title) { color: #dcdcaa; }
+  .code-content :global(.hljs-title) { color: var(--hl-function); }
   .code-content :global(.hljs-built_in) { color: var(--hl-regexp); }
   .code-content :global(.hljs-type),
   .code-content :global(.hljs-class) { color: var(--hl-regexp); }
   .code-content :global(.hljs-attr),
-  .code-content :global(.hljs-attribute) { color: #9cdcfe; }
-  .code-content :global(.hljs-variable) { color: #9cdcfe; }
-  .code-content :global(.hljs-params) { color: #9cdcfe; }
+  .code-content :global(.hljs-attribute) { color: var(--hl-attr); }
+  .code-content :global(.hljs-variable) { color: var(--hl-attr); }
+  .code-content :global(.hljs-params) { color: var(--hl-attr); }
   .code-content :global(.hljs-meta) { color: var(--hl-function); }
-  .code-content :global(.hljs-property) { color: #9cdcfe; }
-  .code-content :global(.hljs-punctuation) { color: #d4d4d4; }
+  .code-content :global(.hljs-property) { color: var(--hl-attr); }
+  .code-content :global(.hljs-punctuation) { color: var(--text-muted); }
 </style>

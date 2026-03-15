@@ -23,8 +23,12 @@
     onPermissionRespond = null,
     onLoadEarlier = null,
     onStopAgent = null,
+    onSend = null,
     shouldCollapseTool = null,
     taskItems = null,
+    planMode = false,
+    streamingText = '',
+    isStreaming = false,
   } = $props();
 
   // Hidden tools that should never render
@@ -88,12 +92,48 @@
     }
 
     flushGroup();
-    return items;
+
+    // Only keep the last suggestion block — old ones are just clutter
+    let lastSuggestionIdx = -1;
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (items[i].type === 'suggestions') { lastSuggestionIdx = i; break; }
+    }
+
+    return lastSuggestionIdx >= 0
+      ? items.filter((item, i) => item.type !== 'suggestions' || i === lastSuggestionIdx)
+      : items;
   });
 
   const thinkingVerbs = [
-    'Thinking', 'Reasoning', 'Analyzing', 'Considering', 'Processing',
-    'Evaluating', 'Pondering', 'Exploring', 'Investigating', 'Working'
+    'Accomplishing', 'Actioning', 'Architecting', 'Baking', 'Beaming',
+    "Beboppin'", 'Befuddling', 'Billowing', 'Blanching', 'Bloviating',
+    'Boondoggling', 'Booping', 'Bootstrapping', 'Brewing', 'Burrowing',
+    'Calculating', 'Canoodling', 'Caramelizing', 'Cascading', 'Catapulting',
+    'Cerebrating', 'Channeling', 'Choreographing', 'Churning', 'Clauding',
+    'Coalescing', 'Cogitating', 'Combobulating', 'Composing', 'Computing',
+    'Concocting', 'Considering', 'Contemplating', 'Cooking', 'Crafting',
+    'Crunching', 'Crystallizing', 'Cultivating', 'Deciphering', 'Deliberating',
+    'Dilly-dallying', 'Discombobulating', 'Doodling', 'Drizzling',
+    'Effecting', 'Elucidating', 'Enchanting', 'Envisioning', 'Fermenting',
+    'Fiddle-faddling', 'Finagling', 'Flambéing', 'Flibbertigibbeting',
+    'Flowing', 'Flummoxing', 'Forging', 'Frolicking', 'Frosting',
+    'Gallivanting', 'Garnishing', 'Generating', 'Germinating', 'Grooving',
+    'Harmonizing', 'Hashing', 'Hatching', 'Hullaballooing', 'Hyperspacing',
+    'Ideating', 'Imagining', 'Improvising', 'Incubating', 'Infusing',
+    'Jitterbugging', 'Julienning', 'Kneading', 'Leavening', 'Levitating',
+    'Lollygagging', 'Manifesting', 'Marinating', 'Meandering', 'Metamorphosing',
+    'Moonwalking', 'Moseying', 'Mulling', 'Musing', 'Nebulizing', 'Noodling',
+    'Orchestrating', 'Osmosing', 'Percolating', 'Philosophising',
+    'Photosynthesizing', 'Pondering', 'Pontificating', 'Precipitating',
+    'Prestidigitating', 'Processing', 'Puttering', 'Puzzling', 'Quantumizing',
+    'Razzle-dazzling', 'Recombobulating', 'Reticulating', 'Ruminating',
+    'Sautéing', 'Scampering', 'Schlepping', 'Seasoning', 'Shenaniganing',
+    'Shimmying', 'Simmering', 'Skedaddling', 'Spelunking', 'Sprouting',
+    'Stewing', 'Sublimating', 'Swirling', 'Synthesizing', 'Tempering',
+    'Thinking', 'Tinkering', 'Tomfoolering', 'Transfiguring', 'Transmuting',
+    'Undulating', 'Unfurling', 'Vibing', 'Wandering', 'Warping',
+    'Whatchamacalliting', 'Whirlpooling', 'Whisking', 'Wibbling',
+    'Working', 'Wrangling', 'Zesting', 'Zigzagging',
   ];
   let thinkingVerb = $state(thinkingVerbs[0]);
 
@@ -174,6 +214,20 @@
     lastMsgCount = count;
   });
 
+  // Auto-scroll during streaming — throttled to avoid jank
+  let streamScrollTimer;
+  $effect(() => {
+    if (streamingText && isAtBottom) {
+      if (!streamScrollTimer) {
+        streamScrollTimer = setTimeout(() => {
+          streamScrollTimer = null;
+          scrollToBottom();
+        }, 80);
+      }
+    }
+    return () => { if (streamScrollTimer) { clearTimeout(streamScrollTimer); streamScrollTimer = null; } };
+  });
+
   $effect(() => {
     if (thinking.active && isAtBottom) scrollToBottom();
   });
@@ -182,17 +236,32 @@
 <div class="message-list-wrap" class:compact>
 <div class="message-list" class:compact bind:this={messagesEl} onscroll={handleScroll}>
   {#if loadingHistory}
-    <div class="loading-history">
-      <div class="loading-dots">
-        <span></span><span></span><span></span>
+    <div class="skeleton-loading">
+      <div class="skeleton-row user">
+        <div class="skeleton-block" style="width: 45%; height: 32px"></div>
       </div>
-      <span>Loading history...</span>
+      <div class="skeleton-row assistant">
+        <div class="skeleton-block" style="width: 80%; height: 16px"></div>
+        <div class="skeleton-block" style="width: 65%; height: 16px"></div>
+        <div class="skeleton-block" style="width: 40%; height: 16px"></div>
+      </div>
+      <div class="skeleton-row user">
+        <div class="skeleton-block" style="width: 55%; height: 32px"></div>
+      </div>
+      <div class="skeleton-row assistant">
+        <div class="skeleton-block" style="width: 70%; height: 16px"></div>
+        <div class="skeleton-block" style="width: 90%; height: 16px"></div>
+        <div class="skeleton-block" style="width: 50%; height: 16px"></div>
+      </div>
+      <div class="skeleton-row user">
+        <div class="skeleton-block" style="width: 35%; height: 32px"></div>
+      </div>
     </div>
   {/if}
 
 
   {#each visibleItems as item, i (item._key || item.uuid || item.toolId || item.requestId || 'i' + i)}
-    <div class="msg-item" data-key={item._key || item.toolId || item.requestId || ''}>
+    <div class="msg-item" class:streaming-msg={item.type === 'assistant' && item.streaming} data-key={item._key || item.toolId || item.requestId || ''}>
     {#if item.type === 'user'}
       <UserMessage text={item.text} images={item.images} pastes={item.pastes} documents={item.documents} documentCount={item.documentCount || 0} documentNames={item.documentNames} imageCount={item.imageCount || 0} {compact} />
     {:else if item.type === 'assistant'}
@@ -202,7 +271,7 @@
     {:else if item.type === 'tool_group'}
       <ToolGroup tools={item.tools} {compact} {onStopAgent} />
     {:else if item.type === 'tool'}
-      <ToolItem name={item.name} status={item.status} input={item.input} output={item.output} subtitle={item.subtitle} subTools={item.subTools} toolId={item.toolId} {compact} {onStopAgent} />
+      <ToolItem name={item.name} status={item.status} input={item.input} output={item.output} subtitle={item.subtitle} subTools={item.subTools} toolId={item.toolId} summary={item.summary} usage={item.usage} {compact} {onStopAgent} />
     {:else if item.type === 'task_widget'}
       <TaskWidget {compact} items={taskItems} />
     {:else if item.type === 'thinking'}
@@ -215,36 +284,52 @@
         toolName={item.toolName}
         input={item.input}
         inputSummary={item.inputSummary}
+        decisionReason={item.decisionReason}
         resolved={item.resolved}
         decision={item.decision}
         {compact}
         {onPermissionRespond}
       />
     {:else if item.type === 'ask_user'}
-      <AskUser requestId={item.requestId} question={item.question} answered={item.answered} {compact} />
+      <AskUser requestId={item.requestId} question={item.question} questions={item.questions} answered={item.answered} {compact} />
+    {:else if item.type === 'suggestions' && !item._dismissed}
+      <div class="suggestion-chips" class:compact>
+        {#each item.items as suggestion}
+          <button class="suggestion-chip" onclick={() => onSend && onSend(suggestion)}>{suggestion}</button>
+        {/each}
+        <button class="suggestion-dismiss" onclick={() => { item._dismissed = true; }} title="Dismiss">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
     {/if}
     </div>
   {/each}
 
   {#if processing}
     <div class="msg-item">
+    {#if planMode}
+      <div class="plan-mode-banner" class:compact>
+        <svg class="plan-mode-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+        <span class="plan-mode-label">Plan Mode</span>
+      </div>
+    {/if}
     <div class="live-status" class:compact>
-      {#if thinking.active}
-        <div class="live-status-dots">
-          <span></span><span></span><span></span>
-        </div>
-        <span class="live-status-text">{thinkingVerb}...</span>
-      {:else if activity}
-        <div class="live-status-spinner"></div>
-        {#if runningAgentCount > 1}
-          <span class="live-status-badge">{runningAgentCount} agents</span>
-        {/if}
-        <span class="live-status-text">{activity}</span>
+      {#if planMode}<span class="live-status-badge plan-badge">PLAN</span>{/if}
+      {#if runningAgentCount > 1}
+        <span class="live-status-badge">{runningAgentCount} agents</span>
+      {/if}
+      {#if activity}
+        <span class="live-status-wave">
+          {#each activity.split('') as char, i}
+            <span style="animation-delay: {i * 0.03}s">{char}</span>
+          {/each}
+        </span>
       {:else}
-        <div class="live-status-dots">
-          <span></span><span></span><span></span>
-        </div>
-        <span class="live-status-text">{thinkingVerb}...</span>
+        <span class="live-status-wave">
+          {#each (thinkingVerb + '...').split('') as char, i}
+            <span style="animation-delay: {i * 0.04}s">{char}</span>
+          {/each}
+        </span>
       {/if}
     </div>
     </div>
@@ -337,16 +422,17 @@
     padding: 16px 12px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
 
   .message-list.compact {
     padding: 14px 14px 10px;
-    gap: 6px;
+    gap: 4px;
   }
 
   .msg-item {
-    max-width: min(1100px, 90%);
+    max-width: var(--content-width);
+    animation: msgFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     width: 100%;
     align-self: center;
     box-sizing: border-box;
@@ -413,12 +499,17 @@
     background: var(--accent-15);
   }
 
+  .message-list { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+  .message-list:hover { scrollbar-color: rgba(var(--overlay-rgb), 0.10) transparent; }
   .message-list::-webkit-scrollbar { width: 6px; }
   .message-list::-webkit-scrollbar-track { background: transparent; }
-  .message-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .message-list::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; transition: background 0.3s; }
+  .message-list:hover::-webkit-scrollbar-thumb { background: rgba(var(--overlay-rgb), 0.10); }
+  .message-list::-webkit-scrollbar-thumb:hover { background: rgba(var(--overlay-rgb), 0.18); }
 
   .message-list.compact::-webkit-scrollbar { width: 5px; }
-  .message-list.compact::-webkit-scrollbar-thumb { background: rgba(var(--overlay-rgb),0.08); }
+  .message-list.compact::-webkit-scrollbar-thumb { background: transparent; }
+  .message-list.compact:hover::-webkit-scrollbar-thumb { background: rgba(var(--overlay-rgb),0.08); }
   .message-list.compact::-webkit-scrollbar-thumb:hover { background: rgba(var(--overlay-rgb),0.14); }
 
   .live-status {
@@ -471,7 +562,7 @@
     height: 5px;
     border-radius: 50%;
     background: var(--accent);
-    animation: statusBounce 1.4s ease-in-out infinite;
+    animation: statusPulse 1.6s ease-in-out infinite;
   }
 
   .live-status.compact .live-status-dots span {
@@ -493,42 +584,201 @@
     font-weight: 600;
   }
 
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @keyframes statusBounce {
-    0%, 80%, 100% { transform: translateY(0); }
-    40% { transform: translateY(-3px); }
-  }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-  .loading-history {
+  /* ─── Plan mode banner ─── */
+  .plan-mode-banner {
     display: flex;
-    flex-direction: column;
     align-items: center;
     gap: 8px;
-    padding: 20px;
-    color: var(--text-dimmer);
+    padding: 6px 12px;
+    margin: 4px 0 0;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.10), rgba(139, 92, 246, 0.10));
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 6px;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .plan-mode-banner.compact {
+    padding: 4px 10px;
+    margin: 2px 0 0;
+  }
+
+  .plan-mode-icon {
+    color: rgb(129, 120, 240);
+    flex-shrink: 0;
+  }
+
+  .plan-mode-banner.compact .plan-mode-icon {
+    width: 12px;
+    height: 12px;
+  }
+
+  .plan-mode-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgb(129, 120, 240);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    letter-spacing: 0.3px;
+  }
+
+  .plan-mode-banner.compact .plan-mode-label {
     font-size: 11px;
   }
 
-  .loading-dots {
+  .plan-badge {
+    background: rgba(99, 102, 241, 0.15) !important;
+    color: rgb(129, 120, 240) !important;
+    font-size: 9px !important;
+    letter-spacing: 0.5px;
+  }
+
+  /* ─── Wave animation for live status ─── */
+  .live-status-wave {
+    display: inline-flex;
+    font-size: 12px;
+    color: var(--accent);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  .live-status-wave span {
+    display: inline-block;
+    animation: charWave 2s ease-in-out infinite;
+    white-space: pre;
+  }
+
+  .live-status.compact .live-status-wave {
+    font-size: 11px;
+  }
+
+  @keyframes charWave {
+    0%, 100% { opacity: 0.5; transform: translateY(0); }
+    25% { opacity: 1; transform: translateY(-1.5px); }
+    50% { opacity: 0.7; transform: translateY(0); }
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  /* ─── Streaming message reveal effect ─── */
+  .streaming-msg {
+    animation: none;
+  }
+
+  /* Subtle reveal — avoid flashing on rapid deltas */
+  .streaming-msg :global(.md-content > :last-child) {
+    animation: textReveal 0.15s ease-out;
+  }
+
+  @keyframes textReveal {
+    from { opacity: 0.85; }
+    to { opacity: 1; }
+  }
+
+  @keyframes msgFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .skeleton-loading {
     display: flex;
-    gap: 4px;
-    padding: 6px 12px;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+    max-width: var(--content-width);
+    margin: 0 auto;
+    width: 100%;
   }
 
-  .loading-dots span {
-    width: 6px;
-    height: 6px;
+  .skeleton-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .skeleton-row.user {
+    align-items: flex-end;
+  }
+
+  .skeleton-row.assistant {
+    align-items: flex-start;
+  }
+
+  .skeleton-block {
+    background: linear-gradient(
+      90deg,
+      rgba(var(--overlay-rgb), 0.04) 0%,
+      rgba(var(--overlay-rgb), 0.10) 40%,
+      rgba(var(--overlay-rgb), 0.04) 80%
+    );
+    background-size: 200% 100%;
+    border-radius: 8px;
+    animation: skeletonShimmer 1.8s ease-in-out infinite;
+  }
+
+  @keyframes skeletonShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ─── Suggestion chips ─── */
+  .suggestion-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 0;
+  }
+
+  .suggestion-chips.compact {
+    gap: 6px;
+    padding: 6px 0;
+  }
+
+  .suggestion-chip {
+    font-size: 12px;
+    color: var(--accent);
+    background: var(--accent-8);
+    border: 1px solid var(--accent-20);
+    border-radius: 16px;
+    padding: 5px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    line-height: 1.3;
+  }
+
+  .suggestion-chips.compact .suggestion-chip {
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 14px;
+  }
+
+  .suggestion-chip:hover {
+    background: var(--accent-15);
+    border-color: var(--accent-30);
+  }
+
+  .suggestion-chip:active {
+    transform: scale(0.97);
+  }
+
+  .suggestion-dismiss {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: 1px solid rgba(var(--overlay-rgb), 0.08);
     border-radius: 50%;
-    background: var(--text-dimmer);
-    animation: bounce 1.4s ease-in-out infinite;
+    color: var(--text-dimmer);
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    align-self: center;
   }
 
-  .loading-dots span:nth-child(2) { animation-delay: 0.16s; }
-  .loading-dots span:nth-child(3) { animation-delay: 0.32s; }
-
-  @keyframes bounce {
-    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
-    40% { transform: scale(1); opacity: 1; }
+  .suggestion-dismiss:hover {
+    color: var(--text-muted);
+    background: rgba(var(--overlay-rgb), 0.06);
+    border-color: rgba(var(--overlay-rgb), 0.12);
   }
 </style>

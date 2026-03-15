@@ -58,6 +58,18 @@ export function leaveSession() {
   activeSessionId.value = null;
 }
 
+export function archiveSession(sessionId) {
+  send({ type: 'archive_session', sessionId });
+}
+
+export function unarchiveSession(sessionId) {
+  send({ type: 'unarchive_session', sessionId });
+}
+
+export function bulkArchive(olderThanMs) {
+  send({ type: 'bulk_archive', olderThan: olderThanMs });
+}
+
 export function searchSessions(query) {
   sessionSearchQuery.value = query;
   if (searchDebounce) clearTimeout(searchDebounce);

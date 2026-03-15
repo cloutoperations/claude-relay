@@ -14,9 +14,9 @@
       <span class="thinking-preview">{text.substring(0, 80)}{text.length > 80 ? '...' : ''}</span>
     {/if}
   </div>
-  {#if expanded}
+  <div class="thinking-content-wrap" class:open={expanded}>
     <pre class="thinking-text">{text}</pre>
-  {/if}
+  </div>
 </div>
 
 <style>
@@ -72,7 +72,20 @@
     min-width: 0;
   }
 
+  .thinking-content-wrap {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+  }
+
+  .thinking-content-wrap.open {
+    grid-template-rows: 1fr;
+  }
+
   .thinking-text {
+    min-height: 0;
+    overflow: hidden;
     margin: 0 8px 8px;
     font-size: 12px;
     color: var(--text-muted);
@@ -80,11 +93,14 @@
     padding: 10px 12px;
     border-radius: 6px;
     max-height: 300px;
-    overflow-y: auto;
     white-space: pre-wrap;
     word-break: break-word;
     line-height: 1.5;
     font-family: 'SF Mono', 'Fira Code', Menlo, monospace;
+  }
+
+  .thinking-content-wrap.open .thinking-text {
+    overflow-y: auto;
   }
 
   .thinking-text::-webkit-scrollbar { width: 5px; }

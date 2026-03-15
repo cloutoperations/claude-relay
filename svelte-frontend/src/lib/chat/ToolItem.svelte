@@ -1,13 +1,64 @@
 <script>
+  import { onMount } from 'svelte';
   import DiffView from './DiffView.svelte';
   import CodeView from './CodeView.svelte';
 
-  let { name = '', status = 'running', input = null, output = null, subtitle = '', subTools = null, toolId = null, compact = false, onStopAgent = null } = $props();
+  let { name = '', status = 'running', input = null, output = null, subtitle = '', subTools = null, toolId = null, compact = false, onStopAgent = null, summary = '', usage = null } = $props();
 
   let isAgent = $derived(name === 'Task' || name === 'Agent');
   let canStop = $derived(isAgent && status === 'running' && onStopAgent);
 
   let expanded = $state(false);
+
+  // ─── Elapsed timer for running Agent tools ───
+  let startedAt = $state(null);
+  let elapsedSeconds = $state(0);
+
+  onMount(() => {
+    if (isAgent) startedAt = Date.now();
+  });
+
+  $effect(() => {
+    if (!isAgent || status !== 'running' || !startedAt) return;
+    const iv = setInterval(() => {
+      elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+    }, 1000);
+    return () => clearInterval(iv);
+  });
+
+  let elapsedLabel = $derived.by(() => {
+    if (!isAgent || status !== 'running') return '';
+    const s = elapsedSeconds;
+    if (s < 60) return s + 's';
+    return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
+  });
+
+  // ─── Agent usage display when done ───
+  let agentMeta = $derived.by(() => {
+    if (!isAgent || status !== 'done') return '';
+    const parts = [];
+    if (summary) parts.push(summary);
+    if (usage) {
+      if (usage.cost != null) parts.push('$' + usage.cost.toFixed(4));
+      if (usage.duration != null) parts.push((usage.duration / 1000).toFixed(1) + 's');
+      const inTok = usage.input_tokens || usage.inputTokens || 0;
+      const outTok = usage.output_tokens || usage.outputTokens || 0;
+      const cacheRead = usage.cache_read_input_tokens || usage.cacheReadInputTokens || 0;
+      const cacheWrite = usage.cache_creation_input_tokens || usage.cacheCreationInputTokens || 0;
+      const totalIn = inTok + cacheRead + cacheWrite;
+      if (totalIn || outTok) {
+        let tokenStr = fmtTok(totalIn) + ' in / ' + fmtTok(outTok) + ' out';
+        if (cacheRead > 0 && totalIn > 0) tokenStr += ' (' + Math.round(cacheRead / totalIn * 100) + '% cached)';
+        parts.push(tokenStr);
+      }
+    }
+    return parts.join(' \u00b7 ');
+  });
+
+  function fmtTok(n) {
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return String(n);
+  }
 
   const hiddenTools = new Set(['EnterPlanMode', 'ExitPlanMode', 'TodoWrite', 'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet', 'TaskOutput', 'TaskStop']);
   let isHidden = $derived(hiddenTools.has(name));
@@ -65,6 +116,9 @@
       {#if subtitle}
         <span class="cp-tool-subtitle">{subtitle}</span>
       {/if}
+      {#if isAgent && status === 'running' && elapsedLabel}
+        <span class="cp-tool-elapsed">{elapsedLabel}</span>
+      {/if}
       {#if canStop}
         <button class="cp-tool-stop" onclick={(e) => { e.stopPropagation(); onStopAgent(toolId); }} title="Stop">
           <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
@@ -74,17 +128,22 @@
         <span class="cp-tool-chevron">{expanded ? '▾' : '▸'}</span>
       {/if}
     </div>
-    {#if expanded && status !== 'running'}
+    {#if isAgent && status === 'done' && agentMeta}
+      <div class="cp-agent-meta">{agentMeta}</div>
+    {/if}
+    {#if status !== 'running'}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="cp-tool-details" onclick={e => e.stopPropagation()}>
-        {#if hasEditDiff}
-          <DiffView oldStr={input.old_string} newStr={input.new_string} filePath={input.file_path} />
-        {:else if hasReadOutput}
-          <CodeView content={cleanOutput(output)} filePath={input.file_path} />
-        {:else if output}
-          <pre class="cp-tool-output">{typeof output === 'string' ? cleanOutput(output) : JSON.stringify(output, null, 2)}</pre>
-        {/if}
+      <div class="cp-tool-details-wrap" class:open={expanded} onclick={e => e.stopPropagation()}>
+        <div class="cp-tool-details-inner">
+          {#if hasEditDiff}
+            <DiffView oldStr={input.old_string} newStr={input.new_string} filePath={input.file_path} />
+          {:else if hasReadOutput}
+            <CodeView content={cleanOutput(output)} filePath={input.file_path} />
+          {:else if output}
+            <pre class="cp-tool-output">{typeof output === 'string' ? cleanOutput(output) : JSON.stringify(output, null, 2)}</pre>
+          {/if}
+        </div>
       </div>
     {/if}
     {#if subTools && subTools.length > 0}
@@ -123,7 +182,7 @@
           <span class="tool-subtitle">{subtitle}</span>
         {/if}
         {#if status === 'running'}
-          <span class="tool-running">running</span>
+          <span class="tool-running">running{#if isAgent && elapsedLabel} · {elapsedLabel}{/if}</span>
         {/if}
         {#if canStop}
           <button class="tool-stop-btn" onclick={(e) => { e.stopPropagation(); onStopAgent(toolId); }} title="Stop this agent">
@@ -147,7 +206,11 @@
         </div>
       {/if}
 
-      {#if expanded}
+      {#if isAgent && status === 'done' && agentMeta}
+        <div class="agent-meta">{agentMeta}</div>
+      {/if}
+
+      <div class="tool-details-wrap" class:open={expanded}>
         <div class="tool-details" onclick={e => e.stopPropagation()}>
           {#if hasEditDiff}
             <DiffView oldStr={input.old_string} newStr={input.new_string} filePath={input.file_path} />
@@ -168,7 +231,7 @@
             {/if}
           {/if}
         </div>
-      {/if}
+      </div>
     </div>
   {/if}
 {/if}
@@ -179,8 +242,17 @@
     margin: 4px 0;
     background: var(--bg-alt);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .tool-item:hover {
+    border-color: rgba(var(--overlay-rgb), 0.12);
+  }
+
+  .tool-item.expanded {
+    box-shadow: 0 2px 12px rgba(var(--shadow-rgb, 0, 0, 0), 0.08);
   }
 
   .tool-header {
@@ -216,14 +288,13 @@
   .tool-name {
     color: var(--text);
     font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 12px;
+    font-size: 13px;
     flex-shrink: 0;
   }
 
   .tool-subtitle {
     color: var(--text-muted);
-    font-size: 12px;
-    font-style: italic;
+    font-size: 13px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -243,6 +314,21 @@
     color: var(--text-dimmer);
     font-size: 11px;
     flex-shrink: 0;
+  }
+
+  .tool-details-wrap {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+  }
+
+  .tool-details-wrap.open {
+    grid-template-rows: 1fr;
+  }
+
+  .tool-details-wrap > .tool-details {
+    min-height: 0;
   }
 
   .tool-details {
@@ -267,7 +353,7 @@
     padding: 8px;
     border-radius: 4px;
     overflow-x: auto;
-    max-height: 200px;
+    max-height: 350px;
     overflow-y: auto;
     white-space: pre-wrap;
     word-break: break-all;
@@ -368,8 +454,27 @@
   .cp-tool-done .cp-tool-indicator { color: var(--success); }
   .cp-tool-error { color: var(--error); }
 
-  .cp-tool-details {
-    margin: 2px 10px 4px 10px;
+  .cp-tool-details-wrap {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+  }
+
+  .cp-tool-details-wrap.open {
+    grid-template-rows: 1fr;
+  }
+
+  .cp-tool-details-wrap > .cp-tool-details-inner {
+    min-height: 0;
+    overflow: hidden;
+    margin: 0 10px;
+    padding: 0;
+    transition: padding 0.25s;
+  }
+
+  .cp-tool-details-wrap.open > .cp-tool-details-inner {
+    padding: 2px 0 4px;
   }
 
   .cp-tool-output {
@@ -470,6 +575,29 @@
   }
 
   .cp-tool-stop:hover { background: rgba(var(--error-rgb, 220, 50, 50), 0.2); }
+
+  /* ─── Agent meta (full mode) ─── */
+  .agent-meta {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    padding: 4px 12px 6px 34px;
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.06);
+  }
+
+  /* ─── Agent meta (compact mode) ─── */
+  .cp-agent-meta {
+    font-size: 10px;
+    color: var(--text-dimmer);
+    padding: 1px 10px 3px 24px;
+  }
+
+  /* ─── Elapsed label (compact mode) ─── */
+  .cp-tool-elapsed {
+    font-size: 10px;
+    color: var(--warning);
+    flex-shrink: 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
 
   /* ─── Shared animations ─── */
   @keyframes spin { to { transform: rotate(360deg); } }

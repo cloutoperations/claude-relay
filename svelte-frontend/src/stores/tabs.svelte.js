@@ -3,7 +3,7 @@
 
 import { send } from './ws.svelte.js';
 import { ensureSession, removeSessionState, sessions as sessionStates, staleTabs } from './session-state.svelte.js';
-import { finishAssistantInArray } from './session-state-utils.js';
+import { finishAssistantInArray, nextMsgKey } from './session-state-utils.js';
 import { closePopup, isPopupOpen, popups, popupOrder, saveLayout as savePopupLayout } from './popups.svelte.js';
 import { addTabToPane, setPaneTab, onTabClosed, renameTabInPanes, findPaneForTab, pruneStaleTabsFromPanes, setOnPaneTabSwitch } from './panes.svelte.js';
 import { showToast } from './toasts.svelte.js';
@@ -168,7 +168,7 @@ export function sendTabMessage(sessionId, text, images, pastes, documents) {
     state.currentText = '';
   }
 
-  state.messages.push({ type: 'user', text: text || '', images: images || null, pastes: pastes || null, documents: documents || null });
+  state.messages = [...state.messages, { type: 'user', text: text || '', images: images || null, pastes: pastes || null, documents: documents || null, _key: nextMsgKey(), _local: true }];
   state.processing = true;
   state.thinking = true;
 

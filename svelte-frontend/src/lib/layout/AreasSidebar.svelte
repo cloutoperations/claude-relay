@@ -53,8 +53,12 @@
   }
 
   // Filtered session list: search results or all sessions sorted by recent
+  let activeSessions = $derived((sessions || []).filter(s => !s.archived));
+  let archivedSessions = $derived((sessions || []).filter(s => s.archived));
+  let archivedExpanded = $state(false);
+
   let displayedSessions = $derived.by(() => {
-    const all = sessions || [];
+    const all = activeSessions;
     if (!sessionQuery.trim()) {
       return [...all].sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
     }
@@ -342,7 +346,7 @@
     hideTimer = setTimeout(() => {
       hoverPanelVisible = false;
       hoveredArea = null;
-    }, 400);
+    }, 300);
   }
 
   function onPanelMouseEnter() {
@@ -353,7 +357,7 @@
     hideTimer = setTimeout(() => {
       hoverPanelVisible = false;
       hoveredArea = null;
-    }, 400);
+    }, 300);
   }
 
   // Hover panel position
@@ -419,7 +423,7 @@
       projectPanelVisible = false;
       hoveredProject = null;
       hoveredProjectArea = null;
-    }, 400);
+    }, 300);
     // If mouse moved back into the area card (not into the project panel),
     // restart the area hover so the area panel can reappear
     const related = e.relatedTarget;
@@ -444,7 +448,7 @@
       projectPanelVisible = false;
       hoveredProject = null;
       hoveredProjectArea = null;
-    }, 400);
+    }, 300);
   }
 
   let projectPanelTop = $derived.by(() => {
@@ -463,6 +467,104 @@
   }
 
   let hoveredProjectSessions = $derived(hoveredProject ? getProjectSessions(hoveredProject) : []);
+
+  // --- Operation hover panel state ---
+  let hoveredOperation = $state(null);
+  let hoveredOperationArea = $state(null);
+  let operationPanelVisible = $state(false);
+  let operationShowTimer = $state(null);
+  let operationHideTimer = $state(null);
+  let hoveredOperationEl = $state(null);
+
+  function onOperationMouseEnter(e, op, area) {
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } // keep area panel open
+    if (operationHideTimer) { clearTimeout(operationHideTimer); operationHideTimer = null; }
+    hoveredOperation = op;
+    hoveredOperationArea = area;
+    hoveredOperationEl = e.currentTarget;
+    if (operationShowTimer) clearTimeout(operationShowTimer);
+    operationShowTimer = setTimeout(() => {
+      operationPanelVisible = true;
+    }, 200);
+  }
+
+  function onOperationMouseLeave() {
+    if (operationShowTimer) { clearTimeout(operationShowTimer); operationShowTimer = null; }
+    operationHideTimer = setTimeout(() => {
+      operationPanelVisible = false;
+      hoveredOperation = null;
+      hoveredOperationArea = null;
+    }, 300);
+  }
+
+  function onOperationPanelMouseEnter() {
+    if (operationHideTimer) { clearTimeout(operationHideTimer); operationHideTimer = null; }
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } // keep area panel open too
+  }
+
+  function onOperationPanelMouseLeave() {
+    operationHideTimer = setTimeout(() => {
+      operationPanelVisible = false;
+      hoveredOperation = null;
+      hoveredOperationArea = null;
+    }, 300);
+  }
+
+  let operationPanelTop = $derived.by(() => {
+    if (!hoveredOperationEl || !operationPanelVisible) return 0;
+    const rect = hoveredOperationEl.getBoundingClientRect();
+    const maxTop = window.innerHeight - 350;
+    return Math.min(rect.top, Math.max(0, maxTop));
+  });
+
+  function getOperationRelatedSessions(op, area) {
+    if (!op || !area) return [];
+    const keywords = op.name.split(/[-_]/).filter(w => w.length > 2);
+    const allSessions = getAreaSessions(area);
+    return allSessions.filter(s => {
+      const title = (s.title || '').toLowerCase();
+      return keywords.some(k => title.includes(k.toLowerCase()));
+    }).sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0)).slice(0, 5);
+  }
+
+  // --- Session tooltip state ---
+  let tooltipSession = $state(null);
+  let tooltipX = $state(0);
+  let tooltipY = $state(0);
+  let tooltipVisible = $state(false);
+  let tooltipShowTimer = $state(null);
+
+  function onSessionMouseEnter(e, session) {
+    if (tooltipShowTimer) clearTimeout(tooltipShowTimer);
+    tooltipSession = session;
+    tooltipX = e.clientX + 12;
+    tooltipY = e.clientY - 8;
+    tooltipShowTimer = setTimeout(() => {
+      tooltipVisible = true;
+    }, 300);
+  }
+
+  function onSessionMouseMove(e) {
+    tooltipX = e.clientX + 12;
+    tooltipY = e.clientY - 8;
+  }
+
+  function onSessionMouseLeave() {
+    if (tooltipShowTimer) { clearTimeout(tooltipShowTimer); tooltipShowTimer = null; }
+    tooltipVisible = false;
+    tooltipSession = null;
+  }
+
+  function formatCost(cost) {
+    if (!cost) return '$0';
+    return '$' + cost.toFixed(2);
+  }
+
+  let operationRelatedSessions = $derived(
+    hoveredOperation && hoveredOperationArea
+      ? getOperationRelatedSessions(hoveredOperation, hoveredOperationArea)
+      : []
+  );
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -470,6 +572,7 @@
 <aside class="sidebar" class:open={sidebarOpen.value}>
   <!-- Sidebar header with collapse button -->
   <div class="sidebar-header">
+    <span class="sidebar-project-name">{projectInfo.name || 'Claude Relay'}</span>
     <button class="collapse-btn" onclick={() => sidebarOpen.value = false} title="Collapse sidebar">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -553,7 +656,7 @@
   <!-- Agents section (collapsible) -->
   <div class="collapse-section" class:expanded={agentsExpanded}>
     <button class="collapse-header" onclick={() => agentsExpanded = !agentsExpanded}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={agentsExpanded}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={agentsExpanded}>
         <polyline points="9 18 15 12 9 6"/>
       </svg>
       <span>AGENTS</span>
@@ -604,7 +707,7 @@
   <!-- Git section (collapsible) -->
   <div class="collapse-section" class:expanded={gitExpanded}>
     <button class="collapse-header" onclick={() => { gitExpanded = !gitExpanded; if (gitExpanded) refreshGit(); }}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={gitExpanded}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={gitExpanded}>
         <polyline points="9 18 15 12 9 6"/>
       </svg>
       <span>GIT</span>
@@ -714,11 +817,11 @@
   <!-- Sessions section (collapsible) -->
   <div class="collapse-section" class:expanded={sessionsExpanded}>
     <button class="collapse-header" onclick={() => sessionsExpanded = !sessionsExpanded}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={sessionsExpanded}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={sessionsExpanded}>
         <polyline points="9 18 15 12 9 6"/>
       </svg>
       <span>SESSIONS</span>
-      <span class="collapse-count">{sessions?.length || 0}</span>
+      <span class="collapse-count">{activeSessions.length}</span>
     </button>
     {#if sessionsExpanded}
       <div class="collapse-body">
@@ -747,7 +850,7 @@
           <div class="section-status">No sessions found</div>
         {:else}
           <div class="sessions-list">
-            {#each displayedSessions.slice(0, 50) as session (session.id)}
+            {#each displayedSessions.slice(0, 100) as session (session.id)}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div
@@ -772,10 +875,39 @@
                 {/if}
               </div>
             {/each}
-            {#if displayedSessions.length > 50}
-              <div class="section-status">{displayedSessions.length - 50} more...</div>
+            {#if displayedSessions.length > 100}
+              <div class="section-status">{displayedSessions.length - 100} more...</div>
             {/if}
           </div>
+        {/if}
+
+        <!-- Archived sessions -->
+        {#if archivedSessions.length > 0}
+          <button class="archived-toggle" onclick={() => archivedExpanded = !archivedExpanded}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="collapse-chevron" class:open={archivedExpanded}>
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+            Archived ({archivedSessions.length})
+          </button>
+          {#if archivedExpanded}
+            <div class="sessions-list archived-list">
+              {#each archivedSessions.sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0)).slice(0, 50) as session (session.id)}
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div
+                  class="session-item archived"
+                  onclick={() => openTab(session.id, session.title || 'Session')}
+                  oncontextmenu={(e) => handleContextMenu(e, session.id)}
+                >
+                  <span class="session-dot archived"></span>
+                  <span class="session-title">{session.title || 'Untitled'}</span>
+                </div>
+              {/each}
+              {#if archivedSessions.length > 50}
+                <div class="section-status">{archivedSessions.length - 50} more...</div>
+              {/if}
+            </div>
+          {/if}
         {/if}
       </div>
     {/if}
@@ -784,7 +916,7 @@
   <!-- Files section (collapsible) -->
   <div class="collapse-section" class:expanded={filesExpanded}>
     <button class="collapse-header" onclick={() => filesExpanded = !filesExpanded}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={filesExpanded}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={filesExpanded}>
         <polyline points="9 18 15 12 9 6"/>
       </svg>
       <span>FILES</span>
@@ -901,7 +1033,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="hover-panel"
-    style="top: {panelTop}px; left: {sidebarOpen.value ? 328 : 56}px"
+    style="top: {panelTop}px; left: {sidebarOpen.value ? 288 : 52}px"
     onmouseenter={onPanelMouseEnter}
     onmouseleave={onPanelMouseLeave}
   >
@@ -961,18 +1093,17 @@
                 <div
                   class="hp-session"
                   onclick={(e) => {
-                    if (e.shiftKey) {
-                      openTab(session.id, session.title || 'Session');
-                    } else {
-                      openTab(session.id, session.title || 'Session');
-                    }
+                    openTab(session.id, session.title || 'Session');
                     hoverPanelVisible = false;
                   }}
                   oncontextmenu={(e) => handleContextMenu(e, session.id)}
+                  onmouseenter={(e) => onSessionMouseEnter(e, session)}
+                  onmousemove={onSessionMouseMove}
+                  onmouseleave={onSessionMouseLeave}
                 >
                   <span class="hp-session-dot" class:processing={session.isProcessing}></span>
                   <span class="hp-session-title">{session.title || 'Untitled'}</span>
-                  <span class="hp-session-status">{session.isProcessing ? 'processing' : 'idle'}</span>
+                  <span class="hp-session-time">{session.isProcessing ? 'working' : (session.lastActivity ? formatAgentTime(session.lastActivity) + ' ago' : '')}</span>
                 </div>
               {/each}
               {#if projSessions.length > 4}
@@ -991,30 +1122,64 @@
       </div>
     {/each}
 
-    <!-- Area-level sessions -->
+    <!-- Operations -->
+    {#if hoveredArea.operations?.length > 0}
+      <div class="hp-section-label">Operations ({hoveredArea.operations.length})</div>
+      {#each hoveredArea.operations as op (op.path)}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="hp-operation"
+          onmouseenter={(e) => onOperationMouseEnter(e, op, hoveredArea)}
+          onmouseleave={onOperationMouseLeave}
+        >
+          <span class="hp-op-icon">{'\u27F3'}</span>
+          <span class="hp-op-name">{op.name}</span>
+          {#if op.description}
+            <span class="hp-op-desc">{op.description.length > 60 ? op.description.substring(0, 60) + '\u2026' : op.description}</span>
+          {/if}
+        </div>
+      {/each}
+    {/if}
+
+    <!-- Area-level sessions (capped at 4) -->
     {#if hoveredArea.areaSessions?.length > 0}
-      <div class="hp-section-label">Area Sessions</div>
-      {#each hoveredArea.areaSessions as session (session.id)}
+      <div class="hp-section-label">Area Sessions ({hoveredArea.areaSessions.length})</div>
+      {#each hoveredArea.areaSessions.slice(0, 4) as session (session.id)}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           class="hp-session"
-          onclick={(e) => {
-            if (e.shiftKey) {
-              openTab(session.id, session.title || 'Session');
-            } else {
-              openTab(session.id, session.title || 'Session');
-            }
+          onclick={() => {
+            openTab(session.id, session.title || 'Session');
             hoverPanelVisible = false;
           }}
           oncontextmenu={(e) => handleContextMenu(e, session.id)}
+          onmouseenter={(e) => onSessionMouseEnter(e, session)}
+          onmousemove={onSessionMouseMove}
+          onmouseleave={onSessionMouseLeave}
         >
           <span class="hp-session-dot" class:processing={session.isProcessing}></span>
           <span class="hp-session-title">{session.title || 'Untitled'}</span>
-          <span class="hp-session-status">{session.isProcessing ? 'processing' : 'idle'}</span>
+          <span class="hp-session-time">{session.isProcessing ? 'working' : (session.lastActivity ? formatAgentTime(session.lastActivity) + ' ago' : '')}</span>
         </div>
       {/each}
+      {#if hoveredArea.areaSessions.length > 4}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="hp-more" onclick={() => openAreaTab(hoveredArea.name)}>+{hoveredArea.areaSessions.length - 4} more</div>
+      {/if}
     {/if}
+
+    <!-- Badges -->
+    <div class="hp-badges">
+      {#if hoveredArea.hasInbox}
+        <span class="hp-badge">Inbox</span>
+      {/if}
+      {#if hoveredArea.operations?.length > 0}
+        <span class="hp-badge">{'\u27F3'} {hoveredArea.operations.length} ops</span>
+      {/if}
+    </div>
 
     <!-- New session button -->
     <button class="hp-new-session" onclick={() => { createSession(); hoverPanelVisible = false; }}>
@@ -1031,7 +1196,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="hover-panel"
-    style="top: {projectPanelTop}px; left: {sidebarOpen.value ? 328 : 56}px"
+    style="top: {projectPanelTop}px; left: {sidebarOpen.value ? 288 : 52}px"
     onmouseenter={onProjectPanelMouseEnter}
     onmouseleave={onProjectPanelMouseLeave}
   >
@@ -1071,16 +1236,18 @@
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div
                   class="hp-session"
-                  onclick={(e) => {
-                    if (e.shiftKey) { openTab(session.id, session.title || 'Session'); }
-                    else { openTab(session.id, session.title || 'Session'); }
+                  onclick={() => {
+                    openTab(session.id, session.title || 'Session');
                     projectPanelVisible = false;
                   }}
                   oncontextmenu={(e) => handleContextMenu(e, session.id)}
+                  onmouseenter={(e) => onSessionMouseEnter(e, session)}
+                  onmousemove={onSessionMouseMove}
+                  onmouseleave={onSessionMouseLeave}
                 >
                   <span class="hp-session-dot" class:processing={session.isProcessing}></span>
                   <span class="hp-session-title">{session.title || 'Untitled'}</span>
-                  <span class="hp-session-status">{session.isProcessing ? 'processing' : 'idle'}</span>
+                  <span class="hp-session-time">{session.isProcessing ? 'working' : (session.lastActivity ? formatAgentTime(session.lastActivity) + ' ago' : '')}</span>
                 </div>
               {/each}
             </div>
@@ -1097,16 +1264,18 @@
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           class="hp-session"
-          onclick={(e) => {
-            if (e.shiftKey) { openTab(session.id, session.title || 'Session'); }
-            else { openTab(session.id, session.title || 'Session'); }
+          onclick={() => {
+            openTab(session.id, session.title || 'Session');
             projectPanelVisible = false;
           }}
           oncontextmenu={(e) => handleContextMenu(e, session.id)}
+          onmouseenter={(e) => onSessionMouseEnter(e, session)}
+          onmousemove={onSessionMouseMove}
+          onmouseleave={onSessionMouseLeave}
         >
           <span class="hp-session-dot" class:processing={session.isProcessing}></span>
           <span class="hp-session-title">{session.title || 'Untitled'}</span>
-          <span class="hp-session-status">{session.isProcessing ? 'processing' : 'idle'}</span>
+          <span class="hp-session-time">{session.isProcessing ? 'working' : (session.lastActivity ? formatAgentTime(session.lastActivity) + ' ago' : '')}</span>
         </div>
       {/each}
       {#if hoveredProject.sessions.length > 6}
@@ -1130,6 +1299,68 @@
     </div>
   </div>
 {/if}
+
+<!-- Operation hover panel -->
+{#if operationPanelVisible && hoveredOperation}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="hover-panel operation-panel"
+    style="top: {operationPanelTop}px; left: {(sidebarOpen.value ? 288 : 52) + 358}px"
+    onmouseenter={onOperationPanelMouseEnter}
+    onmouseleave={onOperationPanelMouseLeave}
+  >
+    <div class="hp-header">
+      <span class="hp-area-name">{'\u27F3'} {hoveredOperation.name}</span>
+      <span class="hp-count">{hoveredOperation.docs?.length || 0} docs</span>
+    </div>
+    <div class="hp-op-label">Standing operation</div>
+
+    {#if hoveredOperation.description}
+      <div class="hp-section-label">Description</div>
+      <div class="hp-op-description">{hoveredOperation.description}</div>
+    {/if}
+
+    {#if hoveredOperation.docs?.length > 0}
+      <div class="hp-section-label">Docs ({hoveredOperation.docs.length})</div>
+      {#each hoveredOperation.docs as doc}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="hp-doc-item" onclick={() => { openFile('gtd/' + hoveredOperation.path + '/' + doc); operationPanelVisible = false; }}>
+          <span class="hp-doc-name">{doc}</span>
+        </div>
+      {/each}
+    {/if}
+
+    {#if operationRelatedSessions.length > 0}
+      <div class="hp-section-label">Related Sessions ({operationRelatedSessions.length})</div>
+      {#each operationRelatedSessions as session (session.id)}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div class="hp-session" onclick={() => { openTab(session.id, session.title || 'Session'); operationPanelVisible = false; hoverPanelVisible = false; }}>
+          <span class="hp-session-dot" class:processing={session.isProcessing}></span>
+          <span class="hp-session-title">{session.title || 'Untitled'}</span>
+          <span class="hp-session-time">{session.lastActivity ? formatAgentTime(session.lastActivity) + ' ago' : ''}</span>
+        </div>
+      {/each}
+    {/if}
+
+    <div class="hp-footer-actions">
+      <button class="hp-new-session" onclick={() => { createSession(); operationPanelVisible = false; hoverPanelVisible = false; }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        + Session
+      </button>
+      {#if hoveredOperation.docs?.length > 0}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <span class="hp-open-detail clickable" onclick={() => { openFile('gtd/' + hoveredOperation.path + '/' + hoveredOperation.docs[0]); operationPanelVisible = false; }}>Open Doc →</span>
+      {/if}
+    </div>
+  </div>
+{/if}
+
+<!-- Session tooltip disabled — data was inaccurate and intrusive -->
 
 <!-- Collapsed rail (desktop only, when sidebar closed) -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -1191,9 +1422,20 @@
   .sidebar-header {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: space-between;
     padding: 4px 6px 0;
     flex-shrink: 0;
+  }
+
+  .sidebar-project-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 8px;
   }
 
   .collapse-btn {
@@ -1247,6 +1489,12 @@
     }
   }
 
+  @media (min-width: 1024px) and (max-width: 1440px) {
+    .sidebar.open {
+      width: 240px;
+    }
+  }
+
   .sidebar-overlay {
     position: fixed;
     inset: 0;
@@ -1291,7 +1539,7 @@
     padding: 8px 10px;
     border-radius: 8px;
     transition: background 0.12s;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
   }
 
   .area-card:hover {
@@ -1307,7 +1555,7 @@
   }
 
   .area-name {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
@@ -1345,7 +1593,7 @@
   }
 
   .meta-count {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-dimmer);
     font-weight: 500;
   }
@@ -1387,7 +1635,7 @@
   }
 
   .project-name {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -1482,7 +1730,7 @@
     border: none;
     outline: none;
     font-family: inherit;
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text);
     padding: 4px 0;
     min-width: 0;
@@ -1541,8 +1789,8 @@
   }
 
   .session-dot {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: #5b9fd6;
     flex-shrink: 0;
@@ -1579,6 +1827,40 @@
     font-size: 9px;
     color: var(--accent);
     flex-shrink: 0;
+  }
+
+  /* Archived sessions */
+  .archived-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--text-dimmer);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.12s;
+  }
+
+  .archived-toggle:hover {
+    color: var(--text-muted);
+  }
+
+  .archived-list {
+    opacity: 0.6;
+  }
+
+  .session-item.archived {
+    opacity: 0.7;
+  }
+
+  .session-dot.archived {
+    background: var(--text-dimmer);
+    opacity: 0.4;
   }
 
   /* Git section */
@@ -1966,13 +2248,13 @@
     justify-content: center;
     gap: 8px;
     width: 100%;
-    padding: 9px 12px;
+    padding: 10px 14px;
     border-radius: 8px;
     border: 1px solid var(--accent-30);
     background: var(--accent-8);
     color: var(--accent);
     font-family: inherit;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
@@ -2067,6 +2349,19 @@
     padding: 14px;
     z-index: 200;
     animation: hpSlideIn 0.15s ease-out;
+  }
+
+  .hover-panel::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 16px;
+    width: 12px;
+    height: 12px;
+    background: var(--bg-raised);
+    border-left: 1px solid rgba(var(--overlay-rgb), 0.10);
+    border-bottom: 1px solid rgba(var(--overlay-rgb), 0.10);
+    transform: rotate(45deg);
   }
 
   @keyframes hpSlideIn {
@@ -2235,7 +2530,7 @@
     text-overflow: ellipsis;
   }
 
-  .hp-session-status {
+  .hp-session-time {
     font-size: 9px;
     color: var(--text-dimmer);
     flex-shrink: 0;
@@ -2317,6 +2612,138 @@
     flex-shrink: 0;
   }
 
+  /* Operation rows in area hover panel */
+  .hp-operation {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .hp-operation:hover {
+    background: rgba(var(--overlay-rgb), 0.06);
+  }
+
+  .hp-op-icon {
+    font-size: 12px;
+    flex-shrink: 0;
+    color: var(--text-dimmer);
+  }
+
+  .hp-op-name {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .hp-op-desc {
+    font-size: 10px;
+    color: var(--text-dimmer);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
+  }
+
+  /* Operation sub-hover panel */
+  .operation-panel {
+    width: 380px;
+  }
+
+  .operation-panel::before {
+    display: none;
+  }
+
+  .hp-op-label {
+    font-size: 10px;
+    color: var(--text-dimmer);
+    font-style: italic;
+    margin-bottom: 4px;
+  }
+
+  .hp-op-description {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .hp-doc-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .hp-doc-item:hover {
+    background: rgba(var(--overlay-rgb), 0.06);
+  }
+
+  .hp-doc-name {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Badges */
+  .hp-badges {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .hp-badge {
+    font-size: 10px;
+    color: var(--text-dimmer);
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(var(--overlay-rgb), 0.06);
+  }
+
+  /* Session tooltip */
+  .session-tooltip {
+    position: fixed;
+    z-index: 300;
+    background: var(--bg-raised);
+    border: 1px solid rgba(var(--overlay-rgb), 0.15);
+    border-radius: 8px;
+    padding: 8px 10px;
+    box-shadow: 0 4px 12px rgba(var(--shadow-rgb), 0.2);
+    pointer-events: none;
+    max-width: 260px;
+    animation: hpSlideIn 0.1s ease-out;
+  }
+
+  .st-stats {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .st-message {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-style: italic;
+  }
+
   .clickable {
     cursor: pointer;
     transition: color 0.12s;
@@ -2375,9 +2802,10 @@
     align-items: center;
     justify-content: center;
     border-radius: 8px;
+    background: rgba(var(--overlay-rgb), 0.04);
     cursor: pointer;
     position: relative;
-    transition: background 0.12s;
+    transition: all 0.15s;
   }
 
   .rail-area:hover {
@@ -2385,7 +2813,7 @@
   }
 
   .rail-area.has-processing {
-    background: rgba(var(--accent-rgb), 0.08);
+    background: var(--accent-8);
   }
 
   .rail-initial {

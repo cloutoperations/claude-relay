@@ -66,6 +66,8 @@
     subtitle={tools[0].subtitle}
     subTools={tools[0].subTools}
     toolId={tools[0].toolId}
+    summary={tools[0].summary}
+    usage={tools[0].usage}
     {compact}
     {onStopAgent}
   />
@@ -87,13 +89,13 @@
         <span class="cp-group-label">{summary}</span>
         <span class="cp-group-chevron">{expanded ? '▾' : '▸'}</span>
       </div>
-      {#if expanded}
+      <div class="cp-group-items-wrap" class:open={expanded}>
         <div class="cp-group-items">
           {#each tools as tool (tool.toolId)}
-            <ToolItem name={tool.name} status={tool.status} input={tool.input} output={tool.output} subtitle={tool.subtitle} subTools={tool.subTools} toolId={tool.toolId} compact={true} {onStopAgent} />
+            <ToolItem name={tool.name} status={tool.status} input={tool.input} output={tool.output} subtitle={tool.subtitle} subTools={tool.subTools} toolId={tool.toolId} summary={tool.summary} usage={tool.usage} compact={true} {onStopAgent} />
           {/each}
         </div>
-      {/if}
+      </div>
     </div>
   {:else}
     <div class="tool-group" class:done={allDone}>
@@ -105,19 +107,19 @@
           {#if anyRunning}
             <div class="tool-group-spinner"></div>
           {:else if hasError}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e5534b" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           {:else}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5cb85c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           {/if}
         </span>
       </div>
-      {#if expanded}
+      <div class="tool-group-items-wrap" class:open={expanded}>
         <div class="tool-group-items">
           {#each tools as tool (tool.toolId)}
-            <ToolItem name={tool.name} status={tool.status} input={tool.input} output={tool.output} subtitle={tool.subtitle} subTools={tool.subTools} toolId={tool.toolId} {compact} {onStopAgent} />
+            <ToolItem name={tool.name} status={tool.status} input={tool.input} output={tool.output} subtitle={tool.subtitle} subTools={tool.subTools} toolId={tool.toolId} summary={tool.summary} usage={tool.usage} {compact} {onStopAgent} />
           {/each}
         </div>
-      {/if}
+      </div>
     </div>
   {/if}
 {/if}
@@ -128,7 +130,14 @@
     margin: 4px 0;
     background: var(--bg-alt);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 20px;
+    transition: border-radius 0.25s, box-shadow 0.2s;
+    overflow: hidden;
+  }
+
+  .tool-group:has(.tool-group-items-wrap.open) {
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(var(--shadow-rgb, 0, 0, 0), 0.06);
   }
 
   .tool-group-header {
@@ -143,7 +152,6 @@
 
   .tool-group-header:hover {
     background: rgba(var(--overlay-rgb), 0.02);
-    border-radius: 8px;
   }
 
   .tool-group-chevron {
@@ -177,10 +185,13 @@
     animation: none;
   }
 
+  .tool-group.done .tool-group-status { color: var(--success); }
+  .tool-group:not(.done) .tool-group-status { color: var(--warning); }
+
   .tool-group-label {
     flex: 1;
     font-size: 12px;
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: inherit;
   }
 
   .tool-group.done .tool-group-label {
@@ -202,7 +213,20 @@
     animation: spin 0.7s linear infinite;
   }
 
+  .tool-group-items-wrap {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+  }
+
+  .tool-group-items-wrap.open {
+    grid-template-rows: 1fr;
+  }
+
   .tool-group-items {
+    min-height: 0;
+    overflow: hidden;
     border-top: 1px solid var(--border);
     padding: 4px 8px;
   }
@@ -260,7 +284,20 @@
     font-size: 10px;
   }
 
+  .cp-group-items-wrap {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+  }
+
+  .cp-group-items-wrap.open {
+    grid-template-rows: 1fr;
+  }
+
   .cp-group-items {
+    min-height: 0;
+    overflow: hidden;
     padding-left: 20px;
   }
 

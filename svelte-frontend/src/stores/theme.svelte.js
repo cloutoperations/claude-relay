@@ -40,7 +40,7 @@ const claudeFallback = {
 
 const claudeLightFallback = {
   name: 'Claude Light', variant: 'light',
-  base00: 'F7F5F0', base01: 'EDEAE3', base02: 'D8D4CB', base03: '9E998F',
+  base00: 'F5F3ED', base01: 'EBE8E0', base02: 'D0CCBF', base03: '9E998F',
   base04: '78736A', base05: '504C46', base06: '35332F', base07: '1A1918',
   base08: 'D63D35', base09: 'C4613A', base0A: 'B88B20', base0B: '3D8B40',
   base0C: '2E9E8E', base0D: '3A7ABF', base0E: 'A560A5', base0F: 'A8893A',

@@ -141,7 +141,11 @@
       onLoadEarlier={() => { import('../../stores/tabs.svelte.js').then(m => m.loadEarlierHistory(popup.sessionId)); }}
       compact={true}
       onPermissionRespond={handlePermissionRespond}
+      onSend={handleSend}
       taskItems={sessionState?.tasks || []}
+      planMode={sessionState?.planMode || false}
+      streamingText={sessionState?.currentText || ''}
+      isStreaming={sessionState?.isStreaming || false}
     />
     <InputArea
       sessionId={popup.sessionId}
@@ -171,9 +175,9 @@
 
   .chat-popup {
     position: relative;
-    width: clamp(380px, 25vw, 500px);
-    height: 380px;
-    max-height: 80vh;
+    width: clamp(380px, 24vw, 500px);
+    height: 400px;
+    max-height: 55vh;
     display: flex;
     flex-direction: column;
     background: var(--bg-alt);
@@ -280,7 +284,7 @@
 
   /* ─── Responsive ─── */
   @media (max-width: 768px) {
-    .chat-popup { width: 300px; height: 420px; }
+    .chat-popup { width: clamp(300px, 80vw, 420px); height: 380px; }
   }
 
   @media (max-width: 500px) {

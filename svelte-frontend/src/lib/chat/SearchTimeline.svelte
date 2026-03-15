@@ -133,7 +133,7 @@
 {#if query && hits.length > 0 && containerRect}
   <div
     class="search-timeline"
-    style="position:fixed; top:{containerRect.top}px; left:{containerRect.right - 24}px; height:{containerRect.height}px; width:24px; z-index:9999;"
+    style="position:fixed; top:{containerRect.top}px; left:{containerRect.right - 28}px; height:{containerRect.height}px; width:28px; z-index:9999;"
   >
     <div class="st-count">{hits.length} hit{hits.length !== 1 ? 's' : ''}</div>
 

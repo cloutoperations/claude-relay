@@ -9,7 +9,7 @@
 <style>
   .sys-msg {
     padding: 6px 12px;
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-muted);
     text-align: center;
   }

@@ -160,7 +160,7 @@
     min-width: 32px;
     padding: 0 6px;
     text-align: right;
-    color: var(--border);
+    color: var(--text-dimmer);
     user-select: none;
     vertical-align: top;
     white-space: nowrap;
@@ -189,25 +189,25 @@
   .diff-code :global(.hljs-keyword),
   .diff-code :global(.hljs-selector-tag) { color: var(--hl-keyword); }
   .diff-code :global(.hljs-string),
-  .diff-code :global(.hljs-template-variable) { color: #ce9178; }
+  .diff-code :global(.hljs-template-variable) { color: var(--hl-string); }
   .diff-code :global(.hljs-number),
-  .diff-code :global(.hljs-literal) { color: #b5cea8; }
-  .diff-code :global(.hljs-comment) { color: #6a9955; font-style: italic; }
+  .diff-code :global(.hljs-literal) { color: var(--hl-number); }
+  .diff-code :global(.hljs-comment) { color: var(--hl-comment); font-style: italic; }
   .diff-code :global(.hljs-function),
-  .diff-code :global(.hljs-title) { color: #dcdcaa; }
+  .diff-code :global(.hljs-title) { color: var(--hl-function); }
   .diff-code :global(.hljs-built_in) { color: var(--hl-regexp); }
   .diff-code :global(.hljs-type),
   .diff-code :global(.hljs-class) { color: var(--hl-regexp); }
   .diff-code :global(.hljs-attr),
-  .diff-code :global(.hljs-attribute) { color: #9cdcfe; }
-  .diff-code :global(.hljs-variable) { color: #9cdcfe; }
-  .diff-code :global(.hljs-params) { color: #9cdcfe; }
+  .diff-code :global(.hljs-attribute) { color: var(--hl-attr); }
+  .diff-code :global(.hljs-variable) { color: var(--hl-attr); }
+  .diff-code :global(.hljs-params) { color: var(--hl-attr); }
   .diff-code :global(.hljs-meta) { color: var(--hl-function); }
   .diff-code :global(.hljs-regexp) { color: var(--hl-regexp); }
   .diff-code :global(.hljs-tag) { color: var(--hl-function); }
   .diff-code :global(.hljs-name) { color: var(--hl-function); }
   .diff-code :global(.hljs-selector-class) { color: var(--hl-meta); }
   .diff-code :global(.hljs-selector-id) { color: var(--hl-meta); }
-  .diff-code :global(.hljs-property) { color: #9cdcfe; }
-  .diff-code :global(.hljs-punctuation) { color: #d4d4d4; }
+  .diff-code :global(.hljs-property) { color: var(--hl-attr); }
+  .diff-code :global(.hljs-punctuation) { color: var(--text-muted); }
 </style>

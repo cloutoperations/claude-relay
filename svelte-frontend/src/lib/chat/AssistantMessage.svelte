@@ -39,17 +39,11 @@
     if (e.target.closest('a, pre, code, button')) return;
     const sel = window.getSelection();
     if (sel && sel.toString().length > 0) return;
-    if (copyState === 'idle') {
-      copyState = 'primed';
-      clearTimeout(resetTimer);
-      resetTimer = setTimeout(() => { copyState = 'idle'; }, 3000);
-    } else if (copyState === 'primed') {
-      clearTimeout(resetTimer);
-      navigator.clipboard.writeText(text).then(() => {
-        copyState = 'done';
-        resetTimer = setTimeout(() => { copyState = 'idle'; }, 1500);
-      });
-    }
+    clearTimeout(resetTimer);
+    navigator.clipboard.writeText(text).then(() => {
+      copyState = 'done';
+      resetTimer = setTimeout(() => { copyState = 'idle'; }, 1500);
+    });
   }
 </script>
 
@@ -60,16 +54,14 @@
     <div class="md-content compact" dir="auto" bind:this={contentEl}>{@html renderedHtml}</div>
   </div>
 {:else}
-  <div class="msg-assistant" class:copy-primed={copyState === 'primed'} class:copy-done={copyState === 'done'} onclick={handleClick}>
+  <div class="msg-assistant" class:copy-done={copyState === 'done'} onclick={handleClick}>
     <div class="md-content" dir="auto" bind:this={contentEl}>{@html renderedHtml}</div>
     {#if finalized || copyState !== 'idle'}
       <div class="msg-copy-hint">
         {#if copyState === 'idle'}
-          Click to grab this
-        {:else if copyState === 'primed'}
-          Click again to grab
+          Copy
         {:else}
-          Grabbed!
+          Copied!
         {/if}
       </div>
     {/if}
@@ -83,6 +75,15 @@
     padding: 4px 0;
     position: relative;
     cursor: default;
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.04);
+    padding-top: 12px;
+    margin-top: 8px;
+    animation: assistMsgIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes assistMsgIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
   }
 
   /* ─── Compact mode ─── */
@@ -128,12 +129,12 @@
 
   .md-content :global(code) {
     font-family: 'SF Mono', 'Fira Code', Menlo, monospace;
-    font-size: 13px;
+    font-size: 12.5px;
   }
 
   .md-content :global(:not(pre) > code) {
     background: var(--accent-12);
-    color: #e0a889;
+    color: var(--hl-constant);
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 0.88em;
@@ -207,11 +208,6 @@
 
   .msg-assistant:hover .msg-copy-hint { opacity: 1; }
 
-  .msg-assistant.copy-primed {
-    background: rgba(var(--overlay-rgb), 0.02);
-    border-radius: 8px;
-  }
-
   .msg-assistant.copy-done .msg-copy-hint {
     opacity: 1;
     color: var(--success);
@@ -228,9 +224,9 @@
     cursor: pointer;
     color: var(--text-muted);
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.15s;
   }
 
-  :global(pre:hover .code-copy-btn) { opacity: 1; }
-  :global(.code-copy-btn:hover) { color: var(--text); }
+  :global(pre:hover .code-copy-btn) { opacity: 0.7; }
+  :global(.code-copy-btn:hover) { opacity: 1; color: var(--text); }
 </style>

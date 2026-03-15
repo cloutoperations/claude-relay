@@ -156,7 +156,7 @@
     transition: width 0.3s;
   }
 
-  .sb-context.warn .context-fill { background: #c5a13e; }
+  .sb-context.warn .context-fill { background: var(--warning); }
   .sb-context.danger .context-fill { background: var(--error); }
 
   .context-label {
@@ -224,7 +224,7 @@
 
   /* Rate limit */
   .sb-rate-limit {
-    color: #c5a13e;
+    color: var(--warning);
     font-family: 'SF Mono', Menlo, monospace;
     font-size: 10px;
     font-weight: 600;

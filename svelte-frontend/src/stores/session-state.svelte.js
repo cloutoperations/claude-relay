@@ -38,6 +38,7 @@ export function createSessionState(sessionId, seedState) {
     historyFrom: 0,      // first history index loaded (0 = from beginning)
     historyTotal: 0,     // total history entries on server
     loadingEarlier: false,
+    planMode: false,
   };
 }
 
@@ -88,6 +89,10 @@ export async function restoreFromCache(sessionId) {
   const state = sessions[sessionId];
   if (!state) return false;
 
+  // Don't overwrite if server history replay already loaded messages
+  // (the async cache restore can race with the synchronous replay)
+  if (state.messages.length > 0 && !state.loadingHistory) return true;
+
   state.messages = cached.messages;
   state.tasks = cached.tasks || [];
   state.historyFrom = cached.historyFrom || 0;
@@ -128,14 +133,32 @@ export function finishHistoryReplay(sessionId) {
     if (buf.isStreaming && buf.currentText) {
       buf.msgs = finishAssistantInArray(buf.msgs, buf.currentText);
     }
+    // Finalize any stale "running" tools — if the session isn't actively processing,
+    // they must have finished (their done/result event was lost or never recorded)
+    if (!state.processing) {
+      buf.msgs = buf.msgs.map(m =>
+        m.type === 'tool' && m.status === 'running' ? { ...m, status: 'done' } : m
+      );
+    }
     state.messages = buf.msgs;
     state.tasks = buf.tasks;
+    state.planMode = !!buf._planMode;
     state.loadingHistory = false;
     state.isStreaming = false;
     state.currentText = '';
-    // Don't reset processing/thinking — server sends status:processing after
-    // history_done if session is still active. Resetting here causes a flicker
-    // where the processing indicator disappears then reappears.
+    // Don't reset processing/thinking immediately — server sends status:processing
+    // after history_done if session is still active. But if no status arrives within
+    // 3s, force-clear to avoid stuck indicators after daemon restart.
+    const sid = sessionId;
+    setTimeout(() => {
+      const s = sessions[sid];
+      if (s && s.processing && s.status !== 'processing') {
+        s.processing = false;
+        s.thinking = false;
+        s.activity = null;
+        s.status = 'idle';
+      }
+    }, 3000);
   } else if (state) {
     state.loadingHistory = false;
   }
@@ -198,4 +221,5 @@ export function routeToSession(sessionId, msg, msgType) {
 
   // Live event — mutate state directly (Svelte 5 tracks it)
   processLiveEvent(state, msg, msgType);
+
 }

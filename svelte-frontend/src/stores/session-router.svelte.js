@@ -7,6 +7,7 @@ import {
   ensureSession, removeSessionState, replayBuffers, staleTabs,
   startHistoryReplay, finishHistoryReplay, routeToSession, prependHistory, restoreFromCache,
 } from './session-state.svelte.js';
+import { clearCache } from './message-cache.js';
 import {
   tabs, activeTabId, tabOrder, getTabSessionIds, onTabRekey,
   saveLayout as saveTabLayout, HOME_TAB, pendingForkRequests, sendTabMessage,
@@ -17,7 +18,7 @@ import {
 } from './popups.svelte.js';
 import { renameTabInPanes, panes as paneList, addTabToPane } from './panes.svelte.js';
 import { sessionList, pendingNewSessionRequests, searchSeq, sessionSearchQuery, sessionSearchResults } from './sessions.svelte.js';
-import { contextData, sessionCost, projectInfo, clientCount, slashCommands, modelInfo, rateLimitState, configState } from './chat.svelte.js';
+import { contextData, sessionCost, projectInfo, clientCount, slashCommands, modelInfo, rateLimitState, configState, accountUsage } from './chat.svelte.js';
 import { ambientState } from './ambient.svelte.js';
 import { routeFileMessage } from './files.svelte.js';
 import { handleAgentList, handleAgentStatus, handleAgentCreated, handleAgentDeleted } from './agents.svelte.js';
@@ -52,13 +53,21 @@ function handleIncoming(msg) {
     }
 
     // --- Global broadcasts (no _popupSessionId) ---
+    // Tabs/popups only receive tagged events (via tab_subscribe/popup_open).
+    // Untagged events come from the server's primary-viewer session assignment
+    // which the Svelte frontend doesn't use — routing them would corrupt tab state
+    // and trigger false toasts on refresh.
     if (!msg._popupSessionId) {
       routeGlobalMessage(msg, t);
     }
 
-    // --- History start/done ---
-    if (t === 'popup_history_start' || t === 'tab_history_start') {
-      const sessionId = resolveSessionId(msg.sessionId);
+    // --- History start/done (tagged for popups/tabs, drop untagged) ---
+    if (t === 'popup_history_start' || t === 'tab_history_start' || t === 'history_meta') {
+      // Only process tagged replays (from tab_subscribe/popup_open).
+      // Untagged replays come from the server's auto-assigned default session
+      // and would corrupt the active tab with wrong session data.
+      if (!msg.sessionId && t === 'history_meta') return;
+      const sessionId = msg.sessionId ? resolveSessionId(msg.sessionId) : activeTabId.value;
       if (!sessionId || !sessionStates[sessionId]) {
         console.warn('[router] history_start dropped — no session state for', msg.sessionId?.substring(0, 12), 'resolved:', sessionId?.substring(0, 12));
         return;
@@ -67,8 +76,9 @@ function handleIncoming(msg) {
       return;
     }
 
-    if (t === 'popup_history_done' || t === 'tab_history_done') {
-      const sessionId = resolveSessionId(msg.sessionId);
+    if (t === 'popup_history_done' || t === 'tab_history_done' || t === 'history_done') {
+      if (!msg.sessionId && t === 'history_done') return;
+      const sessionId = msg.sessionId ? resolveSessionId(msg.sessionId) : activeTabId.value;
       if (!sessionId || !sessionStates[sessionId]) {
         console.warn('[router] history_done dropped — no session state for', msg.sessionId?.substring(0, 12), 'resolved:', sessionId?.substring(0, 12));
         return;
@@ -229,6 +239,12 @@ function routeGlobalMessage(msg, t) {
     case 'agent_deleted':
       handleAgentDeleted(msg);
       break;
+    // --- Account usage ---
+    case 'usage_data':
+      accountUsage.accounts = msg.accounts || [];
+      accountUsage.timestamp = msg.timestamp || Date.now();
+      accountUsage.loading = false;
+      break;
     // --- Git messages ---
     case 'git_status_result':
       handleGitStatusResult(msg);
@@ -329,6 +345,12 @@ function handleSessionSwitched(msg) {
 // --- Reconnect handler ---
 
 function handleReconnect() {
+  // Immediately leave the server's default session assignment —
+  // we only want tagged events via tab_subscribe/popup_open, not untagged primary-viewer events.
+  // Without this, the server replays the default session's history untagged, which gets
+  // misrouted to the active tab's session state (wrong data).
+  send({ type: 'leave_session' });
+
   // Clear all replay buffers
   for (const key of Object.keys(replayBuffers)) {
     delete replayBuffers[key];
@@ -358,6 +380,19 @@ function handleReconnect() {
 
   // Fetch git status on connect
   refreshGitStatus();
+}
+
+// --- One-time stale cache purge ---
+// v1: Clear stale IndexedDB cache that may have partial data from a bug.
+// After first load, fresh caches are written correctly. Safe to remove this
+// block once all clients have loaded at least once after this deploy.
+const CACHE_VERSION_KEY = 'claude-relay-cache-v';
+const CACHE_VERSION = 4;
+if (parseInt(localStorage.getItem(CACHE_VERSION_KEY) || '0') < CACHE_VERSION) {
+  clearCache().then(() => {
+    localStorage.setItem(CACHE_VERSION_KEY, String(CACHE_VERSION));
+    console.log('[cache] Purged stale IndexedDB cache (v' + CACHE_VERSION + ')');
+  });
 }
 
 // --- First-connect restore ---
@@ -390,18 +425,12 @@ function restoreTabsOnFirstConnect() {
     activeTabId.value = layout.activeTabId;
   }
 
-  // Step 2: Try IndexedDB cache immediately (async but fast — no server round-trip)
+  // Step 2: Show cached data as placeholder, then always request full server history
   (async () => {
-    const uncached = [];
-
     for (const item of layout.tabs) {
       const restored = await restoreFromCache(item.sessionId);
       if (restored) {
-        console.log('[restore] Cached:', item.sessionId.substring(0, 12));
-        // Register with server for live updates only (skip history replay)
-        send({ type: 'tab_subscribe', sessionId: item.sessionId, skip_history: true });
-      } else {
-        uncached.push(item.sessionId);
+        console.log('[restore] Cached placeholder:', item.sessionId.substring(0, 12));
       }
     }
 
@@ -413,10 +442,11 @@ function restoreTabsOnFirstConnect() {
       }
     }
 
-    // Step 4: Server replay for uncached tabs only
-    if (uncached.length > 0) {
+    // Step 4: Always request full server replay for visible tabs, stale-mark the rest
+    {
       let delay = 0;
-      for (const sessionId of uncached) {
+      for (const item of layout.tabs) {
+        const sessionId = item.sessionId;
         // Check if visible in any pane
         let visible = layout.activeTabId === sessionId;
         try {

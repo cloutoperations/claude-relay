@@ -4,6 +4,7 @@
   import './stores/session-router.svelte.js'; // Must import to activate the $effect message router
   import { popups, updatePopupTitle } from './stores/popups.svelte.js';
   import { tabs, activeTabId, closeTab } from './stores/tabs.svelte.js';
+  import { createSession } from './stores/sessions.svelte.js';
   import { activeFilePath, closeFileTab } from './stores/files.svelte.js';
   import { panes, activePaneId, splitPane } from './stores/panes.svelte.js';
   import TabBar from './lib/layout/TabBar.svelte';
@@ -43,6 +44,10 @@
         }
       }
       // Cmd+1/2/3 — focus pane 1/2/3
+      if (e.key === 'n' && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        createSession();
+      }
       if ((e.key === '1' || e.key === '2' || e.key === '3') && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
         const idx = parseInt(e.key) - 1;
         if (panes[idx]) {

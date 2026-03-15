@@ -1,6 +1,8 @@
 <script>
   import { tabs, activeTabId, switchTab, closeTab, demoteTabToPopup, moveTab, forkTab, promotePopupToTab } from '../../stores/tabs.svelte.js';
   import { tabOrder } from '../../stores/tabs.svelte.js';
+  import { sessions as sessionStates } from '../../stores/session-state.svelte.js';
+  import { archiveSession, unarchiveSession, sessionList } from '../../stores/sessions.svelte.js';
   import { isPopupOpen } from '../../stores/popups.svelte.js';
   import { openFiles, activeFilePath, closeFileTab, switchTab as switchFileTab } from '../../stores/files.svelte.js';
   import { panes, paneLayout, findPaneForTab, switchPaneTab, addTabToPane, moveTabToPane, activePaneId, splitPane, closePane } from '../../stores/panes.svelte.js';
@@ -53,10 +55,12 @@
     }
     const tab = tabs[id];
     if (!tab) return null;
+    const ss = sessionStates[id];
     return {
       id,
       title: tab.title || 'Session',
       processing: tab.processing,
+      loadingHistory: ss?.loadingHistory || false,
       hasUnread: tab.hasUnread,
       isHome: false,
       type: 'session',
@@ -227,6 +231,17 @@
     closeCtxMenu();
   }
 
+  function ctxArchive() {
+    if (!ctxMenu || ctxMenu.type !== 'session') return;
+    const s = sessionList.find(s => s.id === ctxMenu.tabId);
+    if (s?.archived) {
+      unarchiveSession(ctxMenu.tabId);
+    } else {
+      archiveSession(ctxMenu.tabId);
+    }
+    closeCtxMenu();
+  }
+
   function ctxFork() {
     if (!ctxMenu || ctxMenu.type !== 'session') return;
     forkTab(ctxMenu.tabId);
@@ -290,12 +305,13 @@
             title={tab.title}
           >
             {#if tab.isHome}
-              <svg class="tab-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                 <polyline points="9 22 9 12 15 12 15 22"/>
               </svg>
+              <span class="tab-title">Home</span>
             {:else if tab.type === 'area'}
-              <svg class="tab-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="tab-icon area-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
               </svg>
               <span class="tab-title">{tab.title}</span>
@@ -305,7 +321,7 @@
                 </svg>
               </button>
             {:else if tab.type === 'project'}
-              <svg class="tab-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="tab-icon project-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
               </svg>
               <span class="tab-title">{tab.title}</span>
@@ -325,14 +341,13 @@
                 </svg>
               </button>
             {:else}
-              {#if tab.processing}
-                <span class="tab-spinner"></span>
+              {#if tab.processing || tab.loadingHistory}
+                <span class="tab-spinner" class:loading={tab.loadingHistory && !tab.processing}></span>
               {/if}
               <span class="tab-title">{tab.title}</span>
               <button class="tab-popout" onclick={(e) => handlePopOut(e, tab.id)} title="Pop out to window">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="15 3 21 3 21 9"/><line x1="21" y1="3" x2="10" y2="14"/>
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <rect x="2" y="2" width="20" height="20" rx="2"/><rect x="10" y="10" width="12" height="12" rx="1" fill="var(--bg-raised)"/>
                 </svg>
               </button>
               <button class="tab-close" onclick={(e) => handleCloseClick(e, tab.id)} title="Close tab">
@@ -363,6 +378,7 @@
     {#if ctxMenu.type === 'session'}
       <button onclick={ctxPopOut}>Pop Out</button>
       <button onclick={ctxFork}>Fork Session</button>
+      <button onclick={ctxArchive}>{sessionList.find(s => s.id === ctxMenu.tabId)?.archived ? 'Unarchive' : 'Archive'}</button>
     {/if}
     <button onclick={ctxSplitRight}>Split Right</button>
     <button onclick={ctxSplitDown}>Split Down</button>
@@ -380,7 +396,7 @@
     border-bottom: 1px solid rgba(var(--overlay-rgb), 0.06);
     flex-shrink: 0;
     min-width: 0;
-    height: 42px;
+    height: 40px;
   }
 
   /* Pane sections */
@@ -437,6 +453,8 @@
     min-width: 0;
     scrollbar-width: none;
     height: 100%;
+    mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
   }
 
   .tab-list::-webkit-scrollbar { display: none; }
@@ -484,10 +502,14 @@
 
   .tab.dragging {
     opacity: 0.5;
+    transform: scale(0.95);
+    transition: background 0.12s, color 0.12s, opacity 0.15s, transform 0.15s;
   }
 
   .tab.drop-target {
     border-left: 2px solid var(--accent);
+    transform: translateX(2px);
+    transition: background 0.12s, color 0.12s, transform 0.15s ease-out, border-left 0.1s;
   }
 
   .tab.home {
@@ -510,10 +532,14 @@
 
   .tab.active .file-icon {
     opacity: 0.9;
+    color: var(--hl-function);
   }
 
+  .tab.active .area-icon { color: var(--hl-type); }
+  .tab.active .project-icon { color: var(--hl-string); }
+
   .tab-title {
-    max-width: 160px;
+    max-width: clamp(80px, 15vw, 160px);
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -531,7 +557,7 @@
     cursor: pointer;
     border-radius: 3px;
     padding: 0;
-    opacity: 0;
+    opacity: 0.3;
     transition: opacity 0.12s, background 0.12s, color 0.12s;
     flex-shrink: 0;
   }
@@ -557,6 +583,12 @@
     border-radius: 50%;
     animation: tabSpin 0.7s linear infinite;
     flex-shrink: 0;
+  }
+
+  .tab-spinner.loading {
+    border-color: var(--border);
+    border-top-color: var(--text-dimmer);
+    animation-duration: 1s;
   }
 
   @keyframes tabSpin { to { transform: rotate(360deg); } }

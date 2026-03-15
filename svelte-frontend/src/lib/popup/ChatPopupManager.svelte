@@ -1,5 +1,6 @@
 <script>
   import { popups, popupOrder, movePopup } from '../../stores/popups.svelte.js';
+  import { demoteTabToPopup } from '../../stores/tabs.svelte.js';
   import { workspaceEnabled } from '../../stores/ui.svelte.js';
   import ChatPopup from './ChatPopup.svelte';
 
@@ -53,7 +54,42 @@
     dragId = null;
     dropTargetId = null;
   }
+
+  // Drop zone for demoting tabs to popups
+  let tabDragOver = $state(false);
+
+  function handleTabDropZoneDragOver(e) {
+    if (!e.dataTransfer.types.includes('text/plain')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    tabDragOver = true;
+  }
+
+  function handleTabDropZoneDragLeave() {
+    tabDragOver = false;
+  }
+
+  function handleTabDropZoneDrop(e) {
+    e.preventDefault();
+    tabDragOver = false;
+    const tabId = e.dataTransfer.getData('text/plain');
+    if (!tabId || tabId.startsWith('__')) return; // only session tabs
+    demoteTabToPopup(tabId);
+  }
 </script>
+
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+  class="popup-drop-zone"
+  class:active={tabDragOver}
+  ondragover={handleTabDropZoneDragOver}
+  ondragleave={handleTabDropZoneDragLeave}
+  ondrop={handleTabDropZoneDrop}
+>
+  {#if tabDragOver}
+    <span class="popup-drop-label">Drop to pop out</span>
+  {/if}
+</div>
 
 <div class="chat-popups" class:rail-offset={workspaceEnabled.value}>
   {#each popupList as popup (popup.sessionId)}
@@ -75,6 +111,37 @@
 </div>
 
 <style>
+  .popup-drop-zone {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 48px;
+    z-index: 999;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+
+  .popup-drop-zone.active {
+    pointer-events: auto;
+    height: 60px;
+    background: rgba(var(--accent-rgb), 0.08);
+    border-top: 2px solid rgba(var(--accent-rgb), 0.4);
+  }
+
+  .popup-drop-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.12);
+    padding: 4px 12px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+  }
+
   .chat-popups {
     position: fixed;
     bottom: 0;
@@ -123,6 +190,8 @@
       right: 8px;
       left: 8px;
       flex-direction: column;
+      max-height: 60vh;
+      overflow-y: auto;
     }
   }
 </style>

@@ -24,11 +24,11 @@
 
 ### Step 1: Backend — expand board API
 
-- [ ] **3.1** Serve `operations[]` per area — list subdirs from `02-operations/`, read first paragraph of each operation's main TOTE doc as description
-- [ ] **3.2** Serve `files[]` per project — list markdown/config files in project directory
-- [ ] **3.3** Serve `docs[]` per operation — list files in the operation subdirectory
-- [ ] **3.4** Session cost tracking — include cumulative cost per session in board data (sum `result` entries from JSONL)
-- [ ] **3.5** Session turn count — count user_message entries per session for board data
+- [x] **3.1** Serve `operations[]` per area — list subdirs from `02-operations/`, read first paragraph of each operation's main TOTE doc as description
+- [x] **3.2** Serve `files[]` per project — list markdown/config files in project directory
+- [x] **3.3** Serve `docs[]` per operation — list files in the operation subdirectory
+- [x] **3.4** Session cost tracking — include cumulative cost per session in board data (sum `result` entries from JSONL)
+- [x] **3.5** Session turn count — count user_message entries per session for board data
 
 ### Step 2: Area hover panel (500px, appears on sidebar area hover)
 
@@ -68,16 +68,16 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-- [ ] **3.6** Panel component: 500px wide, positioned right of sidebar
-- [ ] **3.7** TOTE summary: present/desired state (truncated to 2 lines each)
-- [ ] **3.8** Projects as bordered cards: name + session count + top 2 sessions + subproject list
-- [ ] **3.9** Operations section: ⟳ icon + name + description snippet
-- [ ] **3.10** Area sessions (untagged): count + top 2 by recency
-- [ ] **3.11** Session recency formatting: "2m ago", "2h ago", "yesterday", "3d ago"
-- [ ] **3.12** Active sessions: pulsing ◉ for processing, ● for idle
-- [ ] **3.13** Quick actions bar: [+ New Session] [Open in Tab ↗]
-- [ ] **3.14** Inbox/Operations structure badges
-- [ ] **3.15** 200ms show delay, 300ms hide delay, sticky when moving between panels
+- [x] **3.6** Panel component: 350px wide, positioned right of sidebar
+- [x] **3.7** TOTE summary: present/desired state (truncated to 3 lines each)
+- [x] **3.8** Projects as expandable rows: name + session count + top 4 sessions
+- [x] **3.9** Operations section: ⟳ icon + name + description snippet
+- [x] **3.10** Area sessions (untagged): listed with recency
+- [x] **3.11** Session recency formatting: "2m ago", "2h ago", "1d ago"
+- [x] **3.12** Active sessions: pulsing dot for processing, static for idle
+- [x] **3.13** Quick actions bar: [+ New Session in AreaName]
+- [x] **3.14** Inbox/Operations structure badges
+- [x] **3.15** 200ms show delay, 300ms hide delay, sticky when moving between panels
 
 ### Step 3: Project sub-hover (400px, appears right of area panel)
 
@@ -119,13 +119,13 @@
 └──────────────────────────────────────────────────┘
 ```
 
-- [ ] **3.16** Panel component: 400px, positioned right of area panel
-- [ ] **3.17** Header: project name + total sessions + total cost + last active
-- [ ] **3.18** Full session list: sorted by recency, scrollable, show turns + cost per session
-- [ ] **3.19** Subprojects: name + session count
+- [x] **3.16** Panel component: 350px, positioned right of sidebar
+- [x] **3.17** Header: project name + total sessions
+- [x] **3.18** Session list: top 6 sorted by recency, scrollable
+- [x] **3.19** Subprojects: name + session count + top 3 sessions
 - [ ] **3.20** Files: list markdown docs from project folder (click to open in file viewer)
-- [ ] **3.21** Quick actions: [+ New Session in project] [Open Folder in file browser]
-- [ ] **3.22** Click session → opens as tab in main pane
+- [x] **3.21** Quick actions: [+ New Session] [Open Detail →]
+- [x] **3.22** Click session → opens as tab in main pane
 
 ### Step 4: Operation sub-hover (400px, appears right of area panel)
 
@@ -160,12 +160,12 @@
 └──────────────────────────────────────────────────┘
 ```
 
-- [ ] **3.23** Panel component: 400px, positioned right of area panel
-- [ ] **3.24** Header: operation name + doc count + "Standing operation" label
-- [ ] **3.25** Description: first paragraph from operation's main TOTE/markdown doc
-- [ ] **3.26** Docs: list all files in operation subdir (click to open in file viewer)
-- [ ] **3.27** Related sessions: matched by operation name keywords in session titles
-- [ ] **3.28** Quick actions: [+ Session scoped to operation] [Open Doc]
+- [x] **3.23** Panel component: 380px, positioned right of area panel
+- [x] **3.24** Header: operation name + doc count + "Standing operation" label
+- [x] **3.25** Description: first paragraph from operation's main TOTE/markdown doc
+- [x] **3.26** Docs: list all files in operation subdir (click to open in file viewer)
+- [x] **3.27** Related sessions: matched by operation name keywords in session titles
+- [x] **3.28** Quick actions: [+ Session] [Open Doc →]
 
 ### Step 5: Session tooltips (lightweight, on hover over any session row)
 
@@ -177,10 +177,10 @@
 └─────────────────────────────────┘
 ```
 
-- [ ] **3.29** Small tooltip near cursor, not a full panel
-- [ ] **3.30** Content: turn count · cost · relative time
-- [ ] **3.31** Last exchange preview: user message truncated to 2 lines
-- [ ] **3.32** 300ms show delay, instant dismiss on mouse leave
+- [x] **3.29** Small tooltip near cursor, not a full panel
+- [x] **3.30** Content: turn count · cost · relative time
+- [x] **3.31** Last exchange preview: user message truncated to 2 lines
+- [x] **3.32** 300ms show delay, instant dismiss on mouse leave
 - [ ] **3.33** Right-click context menu: Fork, Delete, Rename, Move to project
 
 ### Step 6: Session-to-area integration
@@ -220,14 +220,14 @@ Sidebar              Area Panel (500px)        Sub-Panel (400px)
 
 ## Phase 3b — Tab & Popup UX
 
-- [ ] **3b.1** Tab loading indicator: spinner/progress on tabs while session history loads
-- [ ] **3b.2** Skeleton loading: grey placeholder blocks while messages render
-- [ ] **3b.3** Tab drag smoothing: animate tab reorder with CSS transitions
+- [x] **3b.1** Tab loading indicator: spinner on tabs during history replay (slower spin, dimmer color)
+- [x] **3b.2** Skeleton loading: grey placeholder blocks (user/assistant pattern) while messages render
+- [x] **3b.3** Tab drag smoothing: scale + translateX transitions on drag/drop target
 - [x] **3b.4** Popup height resizable: drag top edge, persisted to localStorage
 - [x] **3b.5** Popup height affects main chat: padding-bottom adjusts
 - [x] **3b.6** Drag popup to tab bar: promote to tab
 - [x] **3b.7** Drag popup to pane: promote + split/move
-- [ ] **3b.8** Drag tab to popup area: demote to popup
+- [x] **3b.8** Drag tab to popup area: drop zone at bottom of screen, demotes to popup
 
 ## Phase 4 — Advanced Features
 
@@ -246,21 +246,30 @@ Sidebar              Area Panel (500px)        Sub-Panel (400px)
 - [ ] **4.8** Tablet range (768-1024px): tighter layout, reduced sidebar
 - [ ] **4.9** Popup responsive: intermediate breakpoints at 768px
 
+### Session UX
+- [ ] **4.10** Session cost in tab bar — small `$4.26` badge on session tabs
+- [ ] **4.11** Bulk session management — multi-select sessions for archive/delete/move
+- [ ] **4.12** Pinned sessions — pin important sessions to top of sidebar
+
+### Navigation
+- [ ] **4.13** Keyboard shortcuts panel — Cmd+K style quick reference overlay
+- [ ] **4.14** Tool group summaries — "Read 3 files, Edited 2" instead of individual tool items
+
 ## Phase 4b — Session Archiving
 
 ### Server
-- [ ] **4b.1** Add `archived` flag to session metadata in JSONL
-- [ ] **4b.2** WS handler: `archive_session` — sets flag, re-saves, re-broadcasts session list
-- [ ] **4b.3** WS handler: `unarchive_session` — clears flag
-- [ ] **4b.4** WS handler: `bulk_archive` — archive by age ("older than 7d") or by area
-- [ ] **4b.5** Filter archived sessions from default `session_list` broadcast
+- [x] **4b.1** Add `archived` flag to session metadata in JSONL
+- [x] **4b.2** WS handler: `archive_session` — sets flag, re-saves, re-broadcasts session list
+- [x] **4b.3** WS handler: `unarchive_session` — clears flag
+- [x] **4b.4** WS handler: `bulk_archive` — archive by age ("older than 7d") or by area
+- [x] **4b.5** Archived sessions included in broadcast with `archived` field, filtered in board API
 - [ ] **4b.6** WS handler: `list_archived` — returns only archived sessions
 
 ### Frontend
-- [ ] **4b.7** Right-click session → "Archive" option
-- [ ] **4b.8** Sidebar: "Archived (N)" collapsed section
-- [ ] **4b.9** Archived sessions don't count toward area totals
-- [ ] **4b.10** Unarchive: click archived session → option to restore
+- [x] **4b.7** Right-click session → "Archive" / "Unarchive" option in SessionTagger
+- [x] **4b.8** Sidebar: "Archived (N)" collapsed section below active sessions
+- [x] **4b.9** Archived sessions don't count toward area totals (filtered from board API)
+- [x] **4b.10** Unarchive: right-click archived session → "Unarchive" option
 
 ### Slash commands
 - [ ] **4b.11** `/archive` — archive current session

@@ -166,7 +166,8 @@
 
   @media (max-width: 600px) {
     .header-project {
-      display: none;
+      max-width: 80px;
+      font-size: 11px;
     }
   }
 

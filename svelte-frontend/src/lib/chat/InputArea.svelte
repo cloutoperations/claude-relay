@@ -406,7 +406,7 @@
           onclick={handleSend}
           disabled={!wsState.connected}
         >
-          {processing ? (inputText.trim() || attachments.length > 0 ? 'Send ↵' : 'Stop') : 'Send ↵'}
+          {processing ? (inputText.trim() || attachments.length > 0 ? 'Send ↵' : 'Stop') : 'Send ⏎'}
         </button>
       </div>
     </div>
@@ -521,7 +521,8 @@
     transition: all 0.15s;
   }
 
-  .attach-btn:hover { color: var(--text-muted); background: rgba(var(--overlay-rgb), 0.04); }
+  .attach-btn:hover { color: var(--text-muted); background: rgba(var(--overlay-rgb), 0.06); transform: scale(1.08); }
+  .attach-btn:active { transform: scale(0.95); }
 
   /* ─── Effort picker ─── */
   .effort-popup {
@@ -571,6 +572,7 @@
 
   /* ─── Effort toggle button ─── */
   .effort-toggle {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -585,7 +587,8 @@
     transition: all 0.15s;
   }
 
-  .effort-toggle:hover { color: var(--text-muted); background: rgba(var(--overlay-rgb), 0.04); }
+  .effort-toggle:hover { color: var(--text-muted); background: rgba(var(--overlay-rgb), 0.06); transform: scale(1.08); }
+  .effort-toggle:active { transform: scale(0.95); }
   .effort-toggle.has-effort { color: var(--accent); }
 
   .effort-badge {
@@ -603,8 +606,11 @@
   .slash-menu {
     position: absolute;
     bottom: 100%;
-    left: 20px;
-    right: 20px;
+    left: 12px;
+    right: 12px;
+    max-width: var(--content-width);
+    margin-left: auto;
+    margin-right: auto;
     background: var(--bg-alt);
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -638,31 +644,31 @@
   }
 
   .slash-desc {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-muted);
   }
 
   /* ─── Full mode ─── */
   .input-area:not(.compact) {
-    padding: 12px 20px 16px;
-    border-top: 1px solid var(--bg-alt);
-    max-width: min(1100px, 90%);
-    margin-left: auto;
-    margin-right: auto;
+    padding: 8px 12px 12px;
     width: 100%;
     box-sizing: border-box;
   }
 
   .input-wrapper {
+    max-width: var(--content-width);
+    width: 100%;
+    margin: 0 auto;
     background: var(--bg-alt);
     border-radius: 12px;
     border: 1px solid var(--border);
     overflow: hidden;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.25s;
   }
 
   .input-wrapper:focus-within {
-    border-color: var(--text-dimmer);
+    border-color: var(--accent-40);
+    box-shadow: 0 0 0 3px var(--accent-8), 0 4px 16px rgba(var(--shadow-rgb, 0, 0, 0), 0.10);
   }
 
   .input-wrapper textarea {
@@ -701,18 +707,19 @@
     padding: 6px 16px;
     background: var(--accent);
     border: none;
-    border-radius: 8px;
-    color: #fff;
+    border-radius: var(--radius-md);
+    color: var(--text-on-accent);
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background var(--duration-fast) var(--ease-in-out), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s;
   }
 
-  .send-btn:hover { background: #c5673e; }
-  .send-btn:disabled { opacity: 0.5; cursor: default; }
+  .send-btn:hover { background: var(--accent-hover); transform: scale(1.04); box-shadow: 0 2px 8px rgba(var(--accent-rgb, 197, 103, 62), 0.25); }
+  .send-btn:active { transform: scale(0.96); box-shadow: none; }
+  .send-btn:disabled { opacity: 0.4; filter: saturate(0.5); cursor: default; transform: none; box-shadow: none; }
   .send-btn.stop { background: var(--error); }
-  .send-btn.stop:hover { background: #d04440; }
+  .send-btn.stop:hover { background: color-mix(in srgb, var(--error) 85%, white); }
 
   /* ─── Compact mode ─── */
   .input-area.compact {
@@ -763,16 +770,16 @@
     background: var(--accent);
     border: none;
     border-radius: 50%;
-    color: white;
+    color: var(--text-on-accent);
     cursor: pointer;
     flex-shrink: 0;
-    transition: all 0.15s;
+    transition: background var(--duration-fast) var(--ease-in-out), transform var(--duration-fast);
     padding: 0;
   }
 
   .send-round:hover { background: var(--accent-hover); transform: scale(1.05); }
   .send-round:active { transform: scale(0.95); }
-  .send-round:disabled { opacity: 0.5; cursor: default; }
+  .send-round:disabled { opacity: 0.4; filter: saturate(0.5); cursor: default; transform: none; }
   .send-round.stop { background: var(--error); }
-  .send-round.stop:hover { background: #f06058; }
+  .send-round.stop:hover { background: color-mix(in srgb, var(--error) 85%, white); }
 </style>

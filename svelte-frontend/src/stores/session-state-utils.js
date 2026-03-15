@@ -1,6 +1,16 @@
 // Shared session state utilities — used by both tabs.js and popups.js
 // Extracts duplicated message-processing logic.
 
+import { showToast } from './toasts.svelte.js';
+
+const doneMessages = [
+  'Cooked', 'Served', 'Nailed it', 'Done and dusted',
+  'Finito', 'Wrapped up', 'All yours', 'Boom, done',
+  'Delivered', 'Fresh out the oven', 'Off the press',
+  'Mic drop', "That's a wrap", 'Ship it', 'Baked to perfection',
+  'Locked in', 'Good to go', 'Sorted', 'Crushed it', 'Voilà',
+];
+
 let _msgKeyCounter = 0;
 export function nextMsgKey() { return 'mk-' + (++_msgKeyCounter); }
 
@@ -94,9 +104,17 @@ export function finishAssistantInArray(msgs, currentText) {
   for (let i = result.length - 1; i >= 0; i--) {
     if (result[i].type === 'assistant' && result[i].streaming) {
       result[i] = { ...result[i], text: currentText, streaming: false, finalized: true };
-      break;
+      return result;
     }
   }
+  // No streaming message found — check if already finalized with same text (avoid duplicates)
+  for (let i = result.length - 1; i >= 0; i--) {
+    if (result[i].type === 'assistant' && result[i].finalized && result[i].text === currentText) {
+      return result; // already finalized — skip duplicate
+    }
+    if (result[i].type === 'user' || result[i].type === 'turn_meta') break; // stop at turn boundary
+  }
+  result.push({ type: 'assistant', text: currentText, streaming: false, finalized: true, _key: nextMsgKey() });
   return result;
 }
 
@@ -161,6 +179,13 @@ export function processBufferedEvent(buf, msg, t) {
     if (TASK_TOOLS.has(toolName)) {
       buf.tasks = handleTaskInput(buf.tasks, toolName, msg.input);
     }
+    if (toolName === 'EnterPlanMode') {
+      buf._planMode = true;
+      buf.msgs.push({ type: 'system', text: 'Entered plan mode \u2014 Claude is thinking through the approach before making changes', _key: nextMsgKey() });
+    } else if (toolName === 'ExitPlanMode') {
+      buf._planMode = false;
+      buf.msgs.push({ type: 'system', text: 'Exited plan mode \u2014 resuming normal execution', _key: nextMsgKey() });
+    }
   } else if (t === 'tool_result') {
     for (let i = buf.msgs.length - 1; i >= 0; i--) {
       if (buf.msgs[i].type === 'tool' && buf.msgs[i].toolId === msg.id) {
@@ -205,10 +230,15 @@ export function processBufferedEvent(buf, msg, t) {
     if (pid) {
       for (let i = buf.msgs.length - 1; i >= 0; i--) {
         if (buf.msgs[i].type === 'tool' && buf.msgs[i].toolId === pid) {
-          buf.msgs[i] = { ...buf.msgs[i], status: 'done' };
+          buf.msgs[i] = { ...buf.msgs[i], status: 'done', summary: msg.summary || '', usage: msg.usage || null };
           break;
         }
       }
+    }
+  } else if (t === 'prompt_suggestion') {
+    const items = msg.suggestions || [];
+    if (items.length > 0) {
+      buf.msgs.push({ type: 'suggestions', items, _key: nextMsgKey() });
     }
   } else if (t === 'permission_request' || t === 'permission_request_pending') {
     const inputSummary = msg.toolInput
@@ -216,7 +246,8 @@ export function processBufferedEvent(buf, msg, t) {
       : '';
     buf.msgs.push({
       type: 'permission', requestId: msg.requestId,
-      toolName: msg.toolName || 'tool', input: msg.input || msg.toolInput, inputSummary, resolved: false,
+      toolName: msg.toolName || 'tool', input: msg.input || msg.toolInput, inputSummary,
+      decisionReason: msg.decisionReason || '', resolved: false,
     });
   } else if (t === 'permission_resolved' || t === 'permission_cancel') {
     const decision = msg.decision || 'cancel';
@@ -229,11 +260,12 @@ export function processBufferedEvent(buf, msg, t) {
   } else if (t === 'ask_user') {
     buf.msgs.push({
       type: 'ask_user', requestId: msg.requestId,
-      question: msg.question, answered: false,
+      question: msg.question, questions: msg.questions || null, answered: false,
     });
   } else if (t === 'ask_user_answered') {
+    const rid = msg.requestId || msg.toolId;
     for (let i = buf.msgs.length - 1; i >= 0; i--) {
-      if (buf.msgs[i].type === 'ask_user' && buf.msgs[i].requestId === msg.requestId) {
+      if (buf.msgs[i].type === 'ask_user' && buf.msgs[i].requestId === rid) {
         buf.msgs[i] = { ...buf.msgs[i], answered: true };
         break;
       }
@@ -276,6 +308,18 @@ export function processLiveEvent(state, msg, t) {
       state.isStreaming = false;
       state.currentText = '';
     }
+    // Skip if this user message was already added locally (from sendTabMessage).
+    // Search backwards — assistant deltas or tool events may have arrived between
+    // the local push and the server echo.
+    for (let i = state.messages.length - 1; i >= 0; i--) {
+      const m = state.messages[i];
+      if (m.type === 'user' && m._local && m.text === (msg.text || '')) {
+        delete m._local;
+        return state;
+      }
+      // Stop searching at the previous turn boundary (non-local user or turn_meta)
+      if ((m.type === 'user' && !m._local) || m.type === 'turn_meta') break;
+    }
     // Convert imagePaths from history to displayable image objects
     let liveImages = msg.images || null;
     if (!liveImages && msg.imagePaths && msg.imagePaths.length > 0) {
@@ -289,10 +333,11 @@ export function processLiveEvent(state, msg, t) {
     if (!state.isStreaming) {
       state.isStreaming = true;
       state.currentText = delta;
-      state.messages = [...state.messages, { type: 'assistant', text: delta, streaming: true }];
+      state.messages = [...state.messages, { type: 'assistant', text: delta, streaming: true, _key: nextMsgKey() }];
     } else {
       state.currentText += delta;
-      const msgs = [...state.messages];
+      // Update the streaming message in-place (last assistant with streaming: true)
+      const msgs = state.messages;
       for (let i = msgs.length - 1; i >= 0; i--) {
         if (msgs[i].type === 'assistant' && msgs[i].streaming) {
           msgs[i] = { ...msgs[i], text: state.currentText };
@@ -344,6 +389,13 @@ export function processLiveEvent(state, msg, t) {
     if (TASK_TOOLS.has(toolName)) {
       state.tasks = handleTaskInput(state.tasks || [], toolName, msg.input);
     }
+    if (toolName === 'EnterPlanMode') {
+      state.planMode = true;
+      state.messages = [...state.messages, { type: 'system', text: 'Entered plan mode \u2014 Claude is thinking through the approach before making changes', _key: nextMsgKey() }];
+    } else if (toolName === 'ExitPlanMode') {
+      state.planMode = false;
+      state.messages = [...state.messages, { type: 'system', text: 'Exited plan mode \u2014 resuming normal execution', _key: nextMsgKey() }];
+    }
   } else if (t === 'tool_result') {
     state.messages = state.messages.map(m =>
       m.type === 'tool' && m.toolId === msg.id
@@ -356,9 +408,9 @@ export function processLiveEvent(state, msg, t) {
   } else if (t === 'result') {
     if (state.isStreaming && state.currentText) {
       state.messages = finishAssistantInArray(state.messages, state.currentText);
-      state.isStreaming = false;
-      state.currentText = '';
     }
+    state.isStreaming = false;
+    state.currentText = '';
     state.processing = false;
     if (msg.cost != null || msg.duration != null) {
       state.messages = [...state.messages, { type: 'turn_meta', _key: nextMsgKey(), cost: msg.cost, duration: msg.duration, usage: msg.usage || null }];
@@ -366,16 +418,20 @@ export function processLiveEvent(state, msg, t) {
     if (msg.cost != null) {
       state.sessionCost = (state.sessionCost || 0) + (msg.cost || 0);
     }
+    showToast(doneMessages[Math.floor(Math.random() * doneMessages.length)]);
   } else if (t === 'done') {
     if (state.isStreaming && state.currentText) {
       state.messages = finishAssistantInArray(state.messages, state.currentText);
-      state.isStreaming = false;
-      state.currentText = '';
     }
+    // Always clear streaming state on done
+    state.isStreaming = false;
+    state.currentText = '';
     state.processing = false;
     state.thinking = false;
+    state.thinkingText = '';
     state.activity = null;
     state.status = 'idle';
+    state.planMode = false;
   } else if (t === 'permission_request' || t === 'permission_request_pending') {
     if (state.isStreaming && state.currentText) {
       state.messages = finishAssistantInArray(state.messages, state.currentText);
@@ -388,7 +444,8 @@ export function processLiveEvent(state, msg, t) {
       : '';
     state.messages = [...state.messages, {
       type: 'permission', requestId: msg.requestId,
-      toolName: msg.toolName || 'tool', input: msg.input || msg.toolInput, inputSummary, resolved: false,
+      toolName: msg.toolName || 'tool', input: msg.input || msg.toolInput, inputSummary,
+      decisionReason: msg.decisionReason || '', resolved: false,
     }];
   } else if (t === 'permission_resolved' || t === 'permission_cancel') {
     const decision = msg.decision || 'cancel';
@@ -406,11 +463,12 @@ export function processLiveEvent(state, msg, t) {
     }
     state.messages = [...state.messages, {
       type: 'ask_user', requestId: msg.requestId,
-      question: msg.question, answered: false,
+      question: msg.question, questions: msg.questions || null, answered: false,
     }];
   } else if (t === 'ask_user_answered') {
+    const rid = msg.requestId || msg.toolId;
     state.messages = state.messages.map(m =>
-      m.type === 'ask_user' && m.requestId === msg.requestId
+      m.type === 'ask_user' && m.requestId === rid
         ? { ...m, answered: true }
         : m
     );
@@ -457,8 +515,13 @@ export function processLiveEvent(state, msg, t) {
     const pid = msg.parentToolId || msg.agentId;
     if (pid) {
       state.messages = state.messages.map(m =>
-        m.type === 'tool' && m.toolId === pid ? { ...m, status: 'done' } : m
+        m.type === 'tool' && m.toolId === pid ? { ...m, status: 'done', summary: msg.summary || '', usage: msg.usage || null } : m
       );
+    }
+  } else if (t === 'prompt_suggestion') {
+    const items = msg.suggestions || [];
+    if (items.length > 0) {
+      state.messages = [...state.messages, { type: 'suggestions', items, _key: nextMsgKey() }];
     }
   } else if (t === 'tool_progress') {
     const elapsed = msg.elapsed ? Math.round(msg.elapsed) : 0;

@@ -223,12 +223,7 @@
       <!-- Pane content -->
       <div class="pane-content" style:padding-bottom="{idx === paneList.length - 1 && pane.activeTabId && !pane.activeTabId.startsWith('__') ? popupBarHeight : 0}px">
         {#if pane.activeTabId === '__home__'}
-          <div class="pane-welcome">
-            <div class="welcome-icon">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            </div>
-            <span class="welcome-text">Open a session from the sidebar to get started</span>
-          </div>
+          <CommandPost />
         {:else if pane.activeTabId?.startsWith(AREA_PREFIX)}
           <AreaDetailTab areaName={pane.activeTabId.slice(AREA_PREFIX.length)} />
         {:else if pane.activeTabId?.startsWith(PROJECT_PREFIX)}
@@ -256,6 +251,9 @@
               onStopAgent={handleStopAgent}
               onSend={(text) => handleSend(pane.id, pane.activeTabId, text, {})}
               taskItems={sessionStates[pane.activeTabId]?.tasks}
+              planMode={sessionStates[pane.activeTabId]?.planMode}
+              streamingText={sessionStates[pane.activeTabId]?.currentText || ''}
+              isStreaming={sessionStates[pane.activeTabId]?.isStreaming || false}
             />
           {/key}
           <InputArea
@@ -328,7 +326,7 @@
 
   .split-h .pane.active,
   .split-v .pane.active {
-    border-color: rgba(var(--accent-rgb), 0.15);
+    border-color: rgba(var(--accent-rgb), 0.3);
   }
 
   .pane-content {
@@ -448,4 +446,5 @@
     inset: 4px;
   }
 
+  @keyframes pSpin { to { transform: rotate(360deg); } }
 </style>

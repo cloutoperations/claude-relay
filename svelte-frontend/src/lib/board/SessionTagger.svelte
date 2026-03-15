@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { boardData, fetchBoard, tagSession } from '../../stores/board.svelte.js';
+  import { archiveSession, unarchiveSession, sessionList } from '../../stores/sessions.svelte.js';
 
   let {
     sessionId = '',
@@ -50,6 +51,18 @@
     await tagSession(sessionId, null);
     onClose();
   }
+
+  function handleArchive() {
+    archiveSession(sessionId);
+    onClose();
+  }
+
+  function handleUnarchive() {
+    unarchiveSession(sessionId);
+    onClose();
+  }
+
+  let isArchived = $derived(sessionList.find(s => s.id === sessionId)?.archived);
 
   // Position: clamp to viewport
   let style = $derived.by(() => {
@@ -110,6 +123,22 @@
       </svg>
       Remove tag
     </button>
+    <div class="tagger-divider"></div>
+    {#if isArchived}
+      <button class="tagger-option archive-btn" onclick={handleUnarchive}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+        </svg>
+        Unarchive
+      </button>
+    {:else}
+      <button class="tagger-option archive-btn" onclick={handleArchive}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+        </svg>
+        Archive
+      </button>
+    {/if}
   {:else}
     <div class="tagger-loading">Loading...</div>
   {/if}
@@ -206,6 +235,11 @@
 
   .tagger-option.untag:hover {
     color: var(--error);
+  }
+
+  .tagger-option.archive-btn {
+    padding-left: 12px;
+    color: var(--text-muted);
   }
 
   .tagger-divider {

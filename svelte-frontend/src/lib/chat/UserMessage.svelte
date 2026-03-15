@@ -76,6 +76,12 @@
     display: flex;
     justify-content: flex-end;
     margin: 8px 0;
+    animation: userMsgIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes userMsgIn {
+    from { opacity: 0; transform: translateX(12px); }
+    to { opacity: 1; transform: translateX(0); }
   }
 
   .msg-user.compact {
@@ -86,8 +92,8 @@
   .bubble {
     max-width: 70%;
     padding: 10px 14px;
-    background: var(--bg-alt);
-    border-radius: 18px 18px 4px 18px;
+    background: var(--user-bubble);
+    border-radius: 16px 16px 6px 16px;
     font-size: 14px;
     line-height: 1.5;
     color: var(--text);
@@ -98,8 +104,8 @@
     max-width: 82%;
     padding: 8px 12px;
     background: var(--accent);
-    color: white;
-    border-radius: 14px 14px 4px 14px;
+    color: var(--text-on-accent);
+    border-radius: 14px 14px 6px 14px;
     font-size: 13px;
     line-height: 1.45;
     font-weight: 400;
