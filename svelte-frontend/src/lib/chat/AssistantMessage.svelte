@@ -339,12 +339,6 @@
     100% { background-position: -200% 0; }
   }
 
-  /* ─── Trailing edge gradient mask while streaming ─── */
-  .is-streaming .md-content {
-    mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 30px), transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 30px), transparent 100%);
-  }
-
   /* ─── Fade-in on streaming content updates ─── */
   .is-streaming .md-content :global(> :last-child) {
     animation: chunkFadeIn 0.2s ease-out;
