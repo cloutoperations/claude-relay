@@ -72,18 +72,21 @@
   let archivedSessions = $derived((sessions || []).filter(s => s.archived));
   let archivedExpanded = $state(false);
 
+  // Cache the sorted list — only re-sort when activeSessions changes, not on every keystroke
+  let sortedActiveSessions = $derived(
+    [...activeSessions].sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0))
+  );
+
   let displayedSessions = $derived.by(() => {
-    const all = activeSessions;
     if (!sessionQuery.trim()) {
-      return [...all].sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+      return sortedActiveSessions;
     }
     const results = sessionSearchResults.value;
     if (!results) return []; // searching...
     const matchIds = new Set(results.map(r => r.id));
     const matchTypes = new Map(results.map(r => [r.id, r.matchType]));
-    return all
+    return sortedActiveSessions
       .filter(s => matchIds.has(s.id))
-      .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0))
       .map(s => ({ ...s, matchType: matchTypes.get(s.id) }));
   });
 
@@ -102,10 +105,12 @@
   let gitCount = $derived(getGitCount());
   let gitContextMenu = $state(null); // { x, y, path, section }
 
-  // Auto-refresh git status every 10s when the section is open
+  // Auto-refresh git status every 30s when the section is open and tab is visible
   $effect(() => {
     if (!gitExpanded) return;
-    const iv = setInterval(() => refreshGit(), 10000);
+    const iv = setInterval(() => {
+      if (!document.hidden) refreshGit();
+    }, 30000);
     return () => clearInterval(iv);
   });
 
