@@ -374,6 +374,11 @@ function handleReconnect() {
     delete replayBuffers[key];
   }
 
+  // Reset replay state so stale values from the previous connection
+  // don't cause messages to route to the wrong session (bug 2.11).
+  initialReplaySession = null;
+  initialReplayDone = false;
+
   // Determine which session the server is replaying via ?s= URL param.
   // On first connect, the active tab's session was passed in the WS URL,
   // so the server is already replaying it — no need to send tab_subscribe.
@@ -385,8 +390,6 @@ function handleReconnect() {
     // Reconnect — no ?s= in URL, server assigned default session.
     // Leave it immediately and re-subscribe to the active tab.
     send({ type: 'leave_session' });
-    initialReplaySession = null;
-    initialReplayDone = false;
     if (currentActive && currentActive !== HOME_TAB && tabs[currentActive]) {
       send({ type: 'tab_subscribe', sessionId: currentActive });
     }
@@ -474,9 +477,13 @@ function restoreTabsOnFirstConnect() {
   (async () => {
     for (const item of layout.tabs) {
       if (item.sessionId === initialReplaySession) continue; // server is already replaying this one
-      const restored = await restoreFromCache(item.sessionId);
-      if (restored) {
-        console.log('[restore] Cached placeholder:', item.sessionId.substring(0, 12));
+      try {
+        const restored = await restoreFromCache(item.sessionId);
+        if (restored) {
+          console.log('[restore] Cached placeholder:', item.sessionId.substring(0, 12));
+        }
+      } catch (err) {
+        console.warn('[restore] Failed to restore cache for', item.sessionId.substring(0, 12), err);
       }
     }
 

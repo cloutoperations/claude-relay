@@ -55,6 +55,13 @@ $effect.root(() => {
 });
 
 function handleWsOpen() {
+  // Clear stale timeouts from any previous connection so they don't
+  // fire and interfere with new file reads after reconnect (bug 2.10).
+  for (const [path, timer] of pendingReads) {
+    clearTimeout(timer);
+  }
+  pendingReads.clear();
+
   if (hasRestored) return;
   hasRestored = true;
 
