@@ -17,7 +17,7 @@ import {
   saveLayout as savePopupLayout,
 } from './popups.svelte.js';
 import { renameTabInPanes, panes as paneList, addTabToPane } from './panes.svelte.js';
-import { sessionList, pendingNewSessionRequests, searchSeq, sessionSearchQuery, sessionSearchResults } from './sessions.svelte.js';
+import { sessionList, pendingNewSessionRequests, searchSeq, sessionSearchQuery, sessionSearchResults, pendingAutoTag, buildAutoTagPrompt, pendingAreaAnalysis } from './sessions.svelte.js';
 import { contextData, sessionCost, projectInfo, clientCount, slashCommands, modelInfo, rateLimitState, configState, accountUsage } from './chat.svelte.js';
 import { ambientState } from './ambient.svelte.js';
 import { routeFileMessage } from './files.svelte.js';
@@ -359,10 +359,30 @@ function handleSessionSwitched(msg) {
   if (pendingGitChat.active) {
     pendingGitChat.active = false;
     const summary = buildGitSummary();
-    // Small delay to let the session initialize
     setTimeout(() => {
       sendTabMessage(sessionId, summary);
     }, 500);
+  }
+
+  // If this was triggered by auto-tag, send the tagging prompt
+  if (pendingAutoTag.active) {
+    const prompt = pendingAutoTag.customPrompt || buildAutoTagPrompt();
+    pendingAutoTag.active = false;
+    pendingAutoTag.customPrompt = null;
+    setTimeout(() => {
+      sendTabMessage(sessionId, prompt);
+    }, 800);
+  }
+
+  // If this was triggered by area analysis, send the analysis prompt
+  if (pendingAreaAnalysis.active) {
+    const prompt = pendingAreaAnalysis.prompt;
+    pendingAreaAnalysis.active = false;
+    pendingAreaAnalysis.areaName = null;
+    pendingAreaAnalysis.prompt = null;
+    setTimeout(() => {
+      sendTabMessage(sessionId, prompt);
+    }, 800);
   }
 }
 
