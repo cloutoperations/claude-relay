@@ -335,12 +335,14 @@ export function processLiveEvent(state, msg, t) {
       state.currentText = delta;
       const newMsg = { type: 'assistant', text: delta, streaming: true, _key: nextMsgKey() };
       state.messages = [...state.messages, newMsg];
-      // Cache reference for O(1) updates on subsequent deltas
-      state._streamingMsg = newMsg;
+      // Cache the proxied reference (last element of the reactive array),
+      // NOT the plain newMsg object. Svelte 5 only tracks mutations through proxies.
+      state._streamingMsg = state.messages[state.messages.length - 1];
     } else {
       state.currentText += delta;
-      // Mutate in-place — Svelte 5 proxies track property assignment directly.
-      // No array copy, no object spread. This is the streaming hot path.
+      // Mutate the proxied message reference in-place — Svelte 5 tracks this
+      // because _streamingMsg points to the proxy inside state.messages (not a plain object).
+      // No array copy needed. This is the streaming hot path.
       if (state._streamingMsg) {
         state._streamingMsg.text = state.currentText;
       }
