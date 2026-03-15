@@ -71,6 +71,12 @@ export function openPopup(sessionId, title, initialState = null) {
 }
 
 export function closePopup(sessionId) {
+  // Clear any pending popup-message-in-flight timer to prevent leak
+  if (popupFlightTimer) {
+    clearTimeout(popupFlightTimer);
+    popupFlightTimer = null;
+    popupMessageInFlight.value = false;
+  }
   delete popups[sessionId];
   popupOrder.splice(0, popupOrder.length, ...popupOrder.filter(id => id !== sessionId));
   removeSessionState(sessionId);

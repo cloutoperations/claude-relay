@@ -142,6 +142,14 @@
 
   /* Text on accent (for buttons) */
   --text-on-accent: #fff;
+
+  /* Z-index scale */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-popover: 500;
+  --z-toast: 600;
 }
 
 /* --- Base typography --- */
@@ -278,4 +286,15 @@ pre {
 
 .icon-spin .lucide {
   animation: spin 1s linear infinite;
+}
+
+/* --- Reduced motion --- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
