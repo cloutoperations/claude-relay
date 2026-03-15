@@ -1,13 +1,13 @@
 <script>
   import { onDestroy } from 'svelte';
-  import { panes, paneLayout, activePaneId, updateRatios, splitPane, addTabToPane, moveTabToPane } from '../../stores/panes.svelte.js';
+  import { panes, paneLayout, activePaneId, updateRatios, splitPane, addTabToPane, moveTabToPane, closePane } from '../../stores/panes.svelte.js';
   import { tabs } from '../../stores/tabs.svelte.js';
-  import { sendTabMessage, stopTab, sendTabPermissionResponse, loadEarlierHistory } from '../../stores/tabs.svelte.js';
+  import { sendTabMessage, stopTab, sendTabPermissionResponse, loadEarlierHistory, openTab } from '../../stores/tabs.svelte.js';
   import { send } from '../../stores/ws.svelte.js';
   import { popups, isPopupOpen } from '../../stores/popups.svelte.js';
   import { promotePopupToTab } from '../../stores/tabs.svelte.js';
   import { sessions as sessionStates } from '../../stores/session-state.svelte.js';
-  import { sessionList } from '../../stores/sessions.svelte.js';
+  import { sessionList, createSession, pendingAutoTag } from '../../stores/sessions.svelte.js';
   import { tagSession, boardData, fetchBoard } from '../../stores/board.svelte.js';
   import MessageList from '../chat/MessageList.svelte';
   import InputArea from '../chat/InputArea.svelte';
@@ -58,6 +58,50 @@
 
   // --- Tag picker state ---
   let tagPickerPane = $state(null); // pane ID where picker is open
+  let tagPickerSessionId = $state(null); // the exact session being tagged
+
+  function suggestTag(sessionIdToTag) {
+    if (!boardData.value || !sessionIdToTag) return;
+    tagPickerPane = null;
+
+    // Build a prompt specific to this session
+    const sessionTitle = tabs[sessionIdToTag]?.title || sessionList.find(s => s.id === sessionIdToTag)?.title || 'Untitled';
+    const lines = [];
+    for (const area of boardData.value.areas) {
+      const projects = area.projects.map(p => p.name).join(', ');
+      const ops = (area.operations || []).map(o => o.name).join(', ');
+      let line = area.name;
+      if (projects) line += ' — projects: ' + projects;
+      if (ops) line += ' — ops: ' + ops;
+      lines.push(line);
+    }
+
+    // Override the auto-tag prompt with a session-specific one
+    pendingAutoTag.active = true;
+    pendingAutoTag.customPrompt = `Tag this session to the right area/project.\n\nSession: "${sessionTitle}" (id: ${sessionIdToTag})\n\nAvailable areas and projects:\n${lines.join('\n')}\n\nUse this command to tag it:\ncurl -X POST http://localhost:2633/p/clout-operations/api/board/tag-session -H 'Content-Type: application/json' -d '{"sessionId":"${sessionIdToTag}","projectPath":"<area-or-project-path>"}'\n\nPick the best match and tag it now.`;
+
+    // Create a new session for the tagging work
+    createSession(undefined, true, 'strategy');
+  }
+
+  // Auto-reset stale tabs: if a tab shows "Loading session..." for 3s, reset to __home__
+  function autoResetStaleTab(node, pane) {
+    const timer = setTimeout(() => {
+      if (pane.activeTabId && pane.activeTabId !== '__home__' && !tabs[pane.activeTabId]) {
+        // Stale tab — remove it and reset
+        pane.tabIds = pane.tabIds.filter(id => id === '__home__' || tabs[id] || id.startsWith('__'));
+        pane.activeTabId = '__home__';
+        // If this pane has no real tabs left in a split, auto-close
+        if (paneList.length > 1) {
+          const realTabs = pane.tabIds.filter(id => id !== '__home__');
+          if (realTabs.length === 0) {
+            closePane(pane.id);
+          }
+        }
+      }
+    }, 3000);
+    return { destroy() { clearTimeout(timer); } };
+  }
 
   // --- Resize state ---
   let isResizing = $state(false);
@@ -129,6 +173,7 @@
   let dropPaneId = $state(null);
 
   function handlePaneDragOver(e, paneId) {
+    if (editorDragging.value) return; // block editor drag — ignore
     if (!e.dataTransfer.types.includes('text/plain')) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -160,6 +205,7 @@
   }
 
   function handlePaneDrop(e, paneId) {
+    if (editorDragging.value) { editorDragging.value = false; return; }
     e.preventDefault();
     const tabId = e.dataTransfer.getData('text/plain');
     if (!tabId) { dropZone = null; dropPaneId = null; return; }
@@ -270,7 +316,7 @@
         {:else if pane.activeTabId === '__git_diff__'}
           <DiffViewer />
         {:else if pane.activeTabId === '__file__' || pane.activeTabId?.startsWith(FILE_PREFIX)}
-          <FileViewer />
+          <FileViewer filePath={pane.activeTabId?.startsWith(FILE_PREFIX) ? pane.activeTabId.slice(FILE_PREFIX.length) : null} />
         {:else if tabs[pane.activeTabId] && sessionStates[pane.activeTabId]}
           {#key pane.activeTabId}
             <MessageList
@@ -311,25 +357,33 @@
             </div>
           {:else}
             <div class="session-breadcrumb">
-              <button class="tag-btn" onclick={() => { tagPickerPane = tagPickerPane === pane.id ? null : pane.id; fetchBoard(); }} title="Tag to area/project">
+              <button class="tag-btn" onclick={() => { tagPickerPane = tagPickerPane === pane.id ? null : pane.id; tagPickerSessionId = pane.activeTabId; fetchBoard(); }} title="Tag to area/project">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
               </button>
             </div>
           {/if}
           {#if tagPickerPane === pane.id && boardData.value}
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div class="tag-picker-backdrop" onclick={() => tagPickerPane = null}></div>
             <div class="tag-picker">
+              <button class="tag-picker-suggest" onclick={() => suggestTag(tagPickerSessionId)}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Ask Claude to suggest
+              </button>
+              <div class="tag-picker-divider"></div>
               {#each boardData.value.areas as area}
-                <button class="tag-picker-area" onclick={() => { tagSession(pane.activeTabId, area.name); tagPickerPane = null; }}>
+                <button class="tag-picker-area" onclick={() => { tagSession(tagPickerSessionId, area.name); tagPickerPane = null; }}>
                   {area.name}
                 </button>
                 {#each area.projects as proj}
-                  <button class="tag-picker-project" onclick={() => { tagSession(pane.activeTabId, proj.path); tagPickerPane = null; }}>
+                  <button class="tag-picker-project" onclick={() => { tagSession(tagPickerSessionId, proj.path); tagPickerPane = null; }}>
                     └ {proj.name}
                   </button>
                 {/each}
                 {#if area.operations?.length > 0}
                   {#each area.operations as op}
-                    <button class="tag-picker-operation" onclick={() => { tagSession(pane.activeTabId, op.path); tagPickerPane = null; }}>
+                    <button class="tag-picker-operation" onclick={() => { tagSession(tagPickerSessionId, op.path); tagPickerPane = null; }}>
                       ⚙ {op.name}
                     </button>
                   {/each}
@@ -343,9 +397,9 @@
             onSend={(text, att) => handleSend(pane.id, pane.activeTabId, text, att)}
             onStop={() => handleStop(pane.activeTabId)}
           />
-        {:else if pane.activeTabId && pane.activeTabId !== '__home__'}
-          <!-- Tab data not yet loaded (restoring) -->
-          <div class="pane-empty">
+        {:else if pane.activeTabId && pane.activeTabId !== '__home__' && !pane.activeTabId.startsWith('__')}
+          <!-- Tab data not yet loaded — auto-reset stale tabs after 5s -->
+          <div class="pane-empty" use:autoResetStaleTab={pane}>
             <div class="pane-loading-spinner"></div>
             <span>Loading session...</span>
           </div>
@@ -564,6 +618,9 @@
   }
   .tag-btn:hover { color: var(--accent); border-color: var(--accent-20); }
 
+  .tag-picker-backdrop {
+    position: fixed; inset: 0; z-index: 99;
+  }
   .tag-picker {
     position: fixed; bottom: 120px; left: 50%;
     transform: translateX(-50%);
@@ -589,6 +646,19 @@
     transition: background 0.1s; font-style: italic;
   }
   .tag-picker-operation:hover { background: var(--accent-12); color: var(--text-muted); }
+
+  .tag-picker-suggest {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; text-align: left; padding: 8px 10px;
+    background: var(--accent-8); border: none; border-radius: 6px;
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    color: var(--accent); transition: background 0.1s;
+  }
+  .tag-picker-suggest:hover { background: var(--accent-15); }
+  .tag-picker-divider {
+    height: 1px; background: rgba(var(--overlay-rgb), 0.08);
+    margin: 4px 0;
+  }
 
   .breadcrumb-op { color: var(--text-dimmer); font-style: italic; }
 
