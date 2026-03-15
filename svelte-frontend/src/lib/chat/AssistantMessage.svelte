@@ -4,52 +4,64 @@
 
   let { text = '', finalized = false, compact = false } = $props();
 
-  // ── Smooth streaming with markdown ──
-  // Tokens arrive in uneven bursts from the network. We buffer them and reveal
-  // at a steady rate via rAF. Markdown is rendered from the smoothed buffer,
-  // so re-renders are evenly paced (no burst → DOM churn). On finalize, the
-  // buffer is already caught up, so there's no visual jump.
+  // ── Smooth chunk-based streaming with markdown ──
+  // Tokens arrive in uneven bursts. We buffer them and reveal in natural chunks
+  // (words, punctuation boundaries) at a steady cadence via setInterval.
+  // This reads more naturally than char-by-char — text appears in phrases
+  // your eye can actually track, like how Claude.ai renders.
 
-  let visibleLen = $state(0);     // how many chars of targetText are "revealed"
   let targetText = '';            // raw buffer (non-reactive, updated by $effect)
-  let rafId = null;
-  let lastFrameTime = 0;
-  let mdText = $state('');        // text fed to markdown renderer (throttled from visibleLen)
-  let mdTimer = null;
+  let mdText = $state('');        // text fed to markdown renderer
+  let revealTimer = null;
+  let visibleLen = 0;
 
-  const CHARS_PER_SECOND = 2000;
-  const MD_INTERVAL = 80;         // re-render markdown every 80ms (~12fps)
+  // Reveal cadence: every 50ms, advance to the next word/chunk boundary.
+  // Target ~30-60 chars per tick (≈600-1200 chars/sec) — fast enough to
+  // never lag behind the model, slow enough to read as flowing phrases.
+  const REVEAL_INTERVAL = 60;
+  const MIN_CHARS_PER_TICK = 60;
+  const TARGET_CHARS_PER_TICK = 120;
 
-  function animateReveal(now) {
-    if (!lastFrameTime) lastFrameTime = now;
-    const elapsed = now - lastFrameTime;
-    lastFrameTime = now;
+  function findNextChunkEnd(text, from, minChars) {
+    // Advance at least minChars, then find the next natural break:
+    // whitespace, punctuation followed by space, or end of string.
+    const minEnd = Math.min(from + minChars, text.length);
+    // Look for a word boundary within the target range
+    const searchEnd = Math.min(from + TARGET_CHARS_PER_TICK * 2, text.length);
+    // Start from minEnd and find the next space or punctuation break
+    for (let i = minEnd; i < searchEnd; i++) {
+      const ch = text[i];
+      if (ch === ' ' || ch === '\n' || ch === '\t') return i + 1;
+      // Break after punctuation followed by space
+      if ((ch === '.' || ch === ',' || ch === ';' || ch === ':' || ch === '!' || ch === '?') && i + 1 < text.length && text[i + 1] === ' ') return i + 2;
+      // Break after closing markdown: `) `, `] `, `** `
+      if (ch === ')' || ch === ']' || ch === '`' || ch === '*') {
+        if (i + 1 < text.length && text[i + 1] === ' ') return i + 2;
+      }
+    }
+    // No break found in range — just use the search end
+    return Math.min(searchEnd, text.length);
+  }
 
+  function revealTick() {
     const targetLen = targetText.length;
-    if (visibleLen < targetLen) {
-      const charsThisFrame = Math.max(1, Math.round(CHARS_PER_SECOND * (elapsed / 1000)));
-      visibleLen = Math.min(visibleLen + charsThisFrame, targetLen);
-    }
+    if (visibleLen >= targetLen) return; // caught up, wait for more
 
-    rafId = requestAnimationFrame(animateReveal);
+    const newLen = findNextChunkEnd(targetText, visibleLen, MIN_CHARS_PER_TICK);
+    visibleLen = newLen;
+
+    const slice = targetText.slice(0, visibleLen);
+    if (slice !== mdText) mdText = slice;
   }
 
-  function startAnimation() {
-    if (!rafId) {
-      lastFrameTime = 0;
-      rafId = requestAnimationFrame(animateReveal);
-    }
-    if (!mdTimer) {
-      mdTimer = setInterval(() => {
-        const slice = targetText.slice(0, visibleLen);
-        if (slice !== mdText) mdText = slice;
-      }, MD_INTERVAL);
+  function startReveal() {
+    if (!revealTimer) {
+      revealTimer = setInterval(revealTick, REVEAL_INTERVAL);
     }
   }
 
-  function stopAnimation() {
-    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-    if (mdTimer) { clearInterval(mdTimer); mdTimer = null; }
+  function stopReveal() {
+    if (revealTimer) { clearInterval(revealTimer); revealTimer = null; }
   }
 
   $effect(() => {
@@ -57,7 +69,7 @@
     const fin = finalized;
 
     if (fin) {
-      stopAnimation();
+      stopReveal();
       targetText = t;
       visibleLen = t.length;
       mdText = t;
@@ -66,16 +78,16 @@
 
     if (t) {
       targetText = t;
-      startAnimation();
+      startReveal();
     } else {
-      stopAnimation();
+      stopReveal();
       targetText = '';
       visibleLen = 0;
       mdText = '';
     }
   });
 
-  onDestroy(stopAnimation);
+  onDestroy(stopReveal);
 
   // ── Markdown rendering — always on, fed from the smooth buffer ──
   let renderedHtml = $derived(mdText ? renderMarkdown(mdText) : '');
@@ -130,6 +142,13 @@
 {:else}
   <div class="msg-assistant" class:copy-done={copyState === 'done'} class:is-streaming={isStreaming} onclick={handleClick}>
     <div class="md-content" dir="auto" bind:this={contentEl}>{@html renderedHtml}</div>
+    {#if isStreaming}
+      <div class="stream-skeleton">
+        <div class="skel-line" style="width: 92%"></div>
+        <div class="skel-line" style="width: 75%"></div>
+        <div class="skel-line short" style="width: 40%"></div>
+      </div>
+    {/if}
     {#if finalized || copyState !== 'idle'}
       <div class="msg-copy-hint">
         {#if copyState === 'idle'}
@@ -160,12 +179,6 @@
     to { opacity: 1; transform: translateX(0); }
   }
 
-  /* Subtle left accent while streaming */
-  .is-streaming {
-    border-left: 2px solid var(--accent-40);
-    padding-left: 12px;
-    border-top-color: transparent;
-  }
 
   /* ─── Compact mode ─── */
   .msg-assistant-compact {
@@ -292,6 +305,54 @@
   .msg-assistant.copy-done .msg-copy-hint {
     opacity: 1;
     color: var(--success);
+  }
+
+  /* ─── Streaming skeleton placeholder ─── */
+  .stream-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 6px 0 4px;
+    opacity: 0.4;
+    transition: opacity 0.3s ease;
+  }
+
+  .skel-line {
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(
+      90deg,
+      rgba(var(--overlay-rgb), 0.06) 0%,
+      rgba(var(--overlay-rgb), 0.12) 40%,
+      rgba(var(--overlay-rgb), 0.06) 80%
+    );
+    background-size: 200% 100%;
+    animation: skelShimmer 1.8s ease-in-out infinite;
+  }
+
+  .skel-line.short {
+    height: 12px;
+  }
+
+  @keyframes skelShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ─── Trailing edge gradient mask while streaming ─── */
+  .is-streaming .md-content {
+    mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 30px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 30px), transparent 100%);
+  }
+
+  /* ─── Fade-in on streaming content updates ─── */
+  .is-streaming .md-content :global(> :last-child) {
+    animation: chunkFadeIn 0.2s ease-out;
+  }
+
+  @keyframes chunkFadeIn {
+    from { opacity: 0.6; }
+    to { opacity: 1; }
   }
 
   :global(.code-copy-btn) {
