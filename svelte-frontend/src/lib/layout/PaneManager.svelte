@@ -7,7 +7,7 @@
   import { popups, isPopupOpen } from '../../stores/popups.svelte.js';
   import { promotePopupToTab } from '../../stores/tabs.svelte.js';
   import { sessions as sessionStates } from '../../stores/session-state.svelte.js';
-  import { sessionList, createSession, pendingAutoTag } from '../../stores/sessions.svelte.js';
+  import { sessionList, createSession, pendingAutoTag, setSessionStatus } from '../../stores/sessions.svelte.js';
   import { tagSession, boardData, fetchBoard } from '../../stores/board.svelte.js';
   import MessageList from '../chat/MessageList.svelte';
   import InputArea from '../chat/InputArea.svelte';
@@ -59,6 +59,18 @@
   // --- Tag picker state ---
   let tagPickerPane = $state(null); // pane ID where picker is open
   let tagPickerSessionId = $state(null); // the exact session being tagged
+
+  function cycleSessionStatus(sessionId) {
+    const s = sessionList.find(s => s.id === sessionId);
+    const current = s?.status || 'open';
+    const next = current === 'open' ? 'done' : current === 'done' ? 'waiting' : 'open';
+    setSessionStatus(sessionId, next);
+  }
+
+  function getStatusLabel(sessionId) {
+    const s = sessionList.find(s => s.id === sessionId);
+    return s?.status || 'open';
+  }
 
   function suggestTag(sessionIdToTag) {
     if (!boardData.value || !sessionIdToTag) return;
@@ -352,12 +364,14 @@
               <button class="breadcrumb-untag" onclick={() => { tagSession(pane.activeTabId, null); }} title="Remove tag">
                 <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
+              <button class="status-pill {getStatusLabel(pane.activeTabId)}" onclick={() => cycleSessionStatus(pane.activeTabId)} title="Click to cycle status">{getStatusLabel(pane.activeTabId)}</button>
             </div>
           {:else}
             <div class="session-breadcrumb">
               <button class="tag-btn" onclick={() => { tagPickerPane = tagPickerPane === pane.id ? null : pane.id; tagPickerSessionId = pane.activeTabId; fetchBoard(); }} title="Tag to area/project">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
               </button>
+              <button class="status-pill {getStatusLabel(pane.activeTabId)}" onclick={() => cycleSessionStatus(pane.activeTabId)} title="Click to cycle status">{getStatusLabel(pane.activeTabId)}</button>
             </div>
           {/if}
           {#if tagPickerPane === pane.id && boardData.value}
@@ -607,6 +621,23 @@
     color: var(--text-dimmer);
     font-size: 10px;
   }
+
+  .status-pill {
+    font-size: 9px;
+    padding: 1px 7px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    margin-left: auto;
+    transition: all 0.12s;
+  }
+  .status-pill.open { background: rgba(91, 159, 214, 0.12); color: #5b9fd6; }
+  .status-pill.done { background: rgba(87, 171, 90, 0.12); color: #57ab5a; }
+  .status-pill.waiting { background: rgba(212, 167, 44, 0.12); color: #d4a72c; }
+  .status-pill:hover { filter: brightness(1.2); }
 
   .tag-btn {
     display: flex; align-items: center; justify-content: center;
