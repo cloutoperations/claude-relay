@@ -21,8 +21,12 @@ export const currentView = $state({ value: 'home' }); // 'home' | 'board' | 'ses
 export const chatSearchQuery = $state({ value: '' });
 export const filePanelVisible = $state({ value: loadBool(FILE_PANEL_KEY, true) });
 export const activeSidebarTab = $state({ value: loadStr(SIDEBAR_TAB_KEY, 'sessions') });
+export const editorDragging = $state({ value: false });
 
 // --- Persist on change ---
+
+// Editor drag flag — used by NotionEditor to signal PaneManager during drags
+export const editorDragging = $state({ value: false });
 
 $effect.root(() => {
   $effect(() => { try { localStorage.setItem(SIDEBAR_KEY, sidebarOpen.value ? '1' : '0'); } catch {} });
