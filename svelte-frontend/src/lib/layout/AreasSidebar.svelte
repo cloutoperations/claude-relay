@@ -697,10 +697,12 @@
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <span class="area-name clickable" onclick={(e) => { e.stopPropagation(); openAreaTab(area.name); }}>{formatAreaName(area.name)}</span>
             <div class="area-meta" onclick={() => toggleAreaCollapse(area.name)} role="button" tabindex="0">
-              {#if sessionCountByArea[area.name]}
-                <span class="area-session-count">{sessionCountByArea[area.name]}</span>
+              {#if processingCount > 0}
+                <span class="area-session-count">{processingCount}</span>
               {/if}
-              <span class="meta-count">{sessionCount}</span>
+              {#if area.projects.length > 0}
+                <span class="meta-count">{area.projects.length}</span>
+              {/if}
             </div>
           </div>
 
