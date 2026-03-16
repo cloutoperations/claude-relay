@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { boardData, fetchBoard, tagSession } from '../../stores/board.svelte.js';
-  import { archiveSession, unarchiveSession, sessionList } from '../../stores/sessions.svelte.js';
+  import { archiveSession, unarchiveSession, sessionList, setSessionStatus } from '../../stores/sessions.svelte.js';
 
   let {
     sessionId = '',
@@ -63,6 +63,7 @@
   }
 
   let isArchived = $derived(sessionList.find(s => s.id === sessionId)?.archived);
+  let currentStatus = $derived((sessionList.find(s => s.id === sessionId)?.status) || 'open');
 
   // Position: clamp to viewport
   let style = $derived.by(() => {
@@ -122,6 +123,17 @@
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
       Remove tag
+    </button>
+    <div class="tagger-divider"></div>
+    <div class="tagger-label">Status</div>
+    <button class="tagger-status" class:active={currentStatus === 'open'} onclick={() => { setSessionStatus(sessionId, 'open'); onClose(); }}>
+      <span class="tagger-status-dot open"></span> Open
+    </button>
+    <button class="tagger-status" class:active={currentStatus === 'done'} onclick={() => { setSessionStatus(sessionId, 'done'); onClose(); }}>
+      <span class="tagger-status-dot done"></span> Done
+    </button>
+    <button class="tagger-status" class:active={currentStatus === 'waiting'} onclick={() => { setSessionStatus(sessionId, 'waiting'); onClose(); }}>
+      <span class="tagger-status-dot waiting"></span> Waiting
     </button>
     <div class="tagger-divider"></div>
     {#if isArchived}
@@ -254,4 +266,13 @@
     color: var(--text-dimmer);
     text-align: center;
   }
+
+  .tagger-label { font-size: 10px; color: var(--text-dimmer); padding: 6px 12px 2px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tagger-status { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 12px; border: none; background: none; color: var(--text-secondary); font-family: inherit; font-size: 12px; cursor: pointer; text-align: left; }
+  .tagger-status:hover { background: rgba(var(--overlay-rgb), 0.06); color: var(--text); }
+  .tagger-status.active { color: var(--text); font-weight: 500; }
+  .tagger-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .tagger-status-dot.open { background: #5b9fd6; }
+  .tagger-status-dot.done { background: #57ab5a; }
+  .tagger-status-dot.waiting { background: #d4a72c; }
 </style>

@@ -2,7 +2,7 @@
   import { tabs, activeTabId, switchTab, closeTab, demoteTabToPopup, moveTab, forkTab, promotePopupToTab } from '../../stores/tabs.svelte.js';
   import { tabOrder } from '../../stores/tabs.svelte.js';
   import { sessions as sessionStates } from '../../stores/session-state.svelte.js';
-  import { archiveSession, unarchiveSession, sessionList } from '../../stores/sessions.svelte.js';
+  import { archiveSession, unarchiveSession, sessionList, setSessionStatus } from '../../stores/sessions.svelte.js';
   import { isPopupOpen } from '../../stores/popups.svelte.js';
   import { openFiles, activeFilePath, closeFileTab, switchTab as switchFileTab } from '../../stores/files.svelte.js';
   import { panes, paneLayout, findPaneForTab, switchPaneTab, addTabToPane, moveTabToPane, activePaneId, splitPane, closePane } from '../../stores/panes.svelte.js';
@@ -255,6 +255,12 @@
     closeCtxMenu();
   }
 
+  function ctxSetStatus(status) {
+    if (!ctxMenu || ctxMenu.type !== 'session') return;
+    setSessionStatus(ctxMenu.tabId, status);
+    closeCtxMenu();
+  }
+
   function ctxSplitRight() {
     if (!ctxMenu) return;
     splitPane(ctxMenu.tabId, 'horizontal');
@@ -310,6 +316,9 @@
             ondragleave={(e) => handleDragLeave(e, tab.id)}
             ondrop={(e) => handleDrop(e, tab.id, section.paneId)}
             title={tab.title}
+            style:border-bottom-color={tab.type === 'session' ? (sessionList.find(s => s.id === tab.id)?.status === 'done' ? '#57ab5a' : sessionList.find(s => s.id === tab.id)?.status === 'waiting' ? '#d4a72c' : 'transparent') : 'transparent'}
+            style:border-bottom-width={tab.type === 'session' && (sessionList.find(s => s.id === tab.id)?.status === 'done' || sessionList.find(s => s.id === tab.id)?.status === 'waiting') ? '2px' : '0'}
+            style:border-bottom-style="solid"
           >
             {#if tab.isHome}
               <svg class="tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -393,6 +402,11 @@
     {#if ctxMenu.type === 'session'}
       <button onclick={ctxPopOut}>Pop Out</button>
       <button onclick={ctxFork}>Fork Session</button>
+      <div class="tab-ctx-sep"></div>
+      <button class="tab-ctx-item" onclick={() => ctxSetStatus('open')}>Mark Open</button>
+      <button class="tab-ctx-item" onclick={() => ctxSetStatus('done')}>Mark Done</button>
+      <button class="tab-ctx-item" onclick={() => ctxSetStatus('waiting')}>Mark Waiting</button>
+      <div class="tab-ctx-sep"></div>
       <button onclick={ctxArchive}>{sessionList.find(s => s.id === ctxMenu.tabId)?.archived ? 'Unarchive' : 'Archive'}</button>
     {/if}
     <button onclick={ctxSplitRight}>Split Right</button>

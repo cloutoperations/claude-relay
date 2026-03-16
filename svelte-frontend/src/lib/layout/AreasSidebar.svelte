@@ -3,7 +3,7 @@
   import { boardData, boardLoading, fetchBoard, tagSession } from '../../stores/board.svelte.js';
   import { sidebarOpen, chatSearchQuery } from '../../stores/ui.svelte.js';
   import { wsState } from '../../stores/ws.svelte.js';
-  import { createSession, sessionList as sessions, searchSessions, sessionSearchQuery, sessionSearchResults, startAutoTag, startAreaAnalysis } from '../../stores/sessions.svelte.js';
+  import { createSession, sessionList as sessions, searchSessions, sessionSearchQuery, sessionSearchResults, startAutoTag, startAreaAnalysis, setSessionStatus, startSessionReview } from '../../stores/sessions.svelte.js';
   import { projectInfo, clientCount } from '../../stores/chat.svelte.js';
   import { themeMode, getCurrentVariant, setThemeMode } from '../../stores/theme.svelte.js';
   import { openTab, activeTabId, HOME_TAB } from '../../stores/tabs.svelte.js';
@@ -60,6 +60,7 @@
   // Sessions section
   let sessionsExpanded = $state(_ss.sessions || false);
   let sessionQuery = $state('');
+  let statusFilter = $state('all'); // 'all' | 'open' | 'done' | 'waiting'
 
   function handleSessionSearch(e) {
     sessionQuery = e.target.value;
@@ -74,8 +75,19 @@
 
   // Cache the sorted list — only re-sort when activeSessions changes, not on every keystroke
   let sortedActiveSessions = $derived(
-    [...activeSessions].sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0))
+    [...activeSessions]
+      .filter(s => statusFilter === 'all' || (s.status || 'open') === statusFilter)
+      .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0))
   );
+
+  let statusCounts = $derived.by(() => {
+    const c = { open: 0, done: 0, waiting: 0 };
+    for (const s of activeSessions) {
+      const st = s.status || 'open';
+      if (c[st] !== undefined) c[st]++;
+    }
+    return c;
+  });
 
   let displayedSessions = $derived.by(() => {
     if (!sessionQuery.trim()) {
@@ -916,6 +928,13 @@
             </button>
           {/if}
         </div>
+        <div class="status-filters">
+          <button class="status-chip" class:active={statusFilter === 'all'} onclick={() => statusFilter = 'all'}>All</button>
+          <button class="status-chip" class:active={statusFilter === 'open'} onclick={() => statusFilter = 'open'}>Open {statusCounts.open}</button>
+          <button class="status-chip" class:active={statusFilter === 'waiting'} onclick={() => statusFilter = 'waiting'}>Waiting {statusCounts.waiting}</button>
+          <button class="status-chip" class:active={statusFilter === 'done'} onclick={() => statusFilter = 'done'}>Done {statusCounts.done}</button>
+          <button class="review-sessions-btn" onclick={() => startSessionReview(boardData.value)} title="Review sessions with Claude">Review</button>
+        </div>
         {#if untaggedSessions.length > 0}
           <div class="git-toolbar">
             <button class="git-chat-btn" onclick={startAutoTag} title="Create a session that auto-tags all untagged sessions">
@@ -947,7 +966,7 @@
                 }}
                 oncontextmenu={(e) => handleContextMenu(e, session.id)}
               >
-                <span class="session-dot" class:processing={session.isProcessing}></span>
+                <span class="session-dot" class:processing={session.isProcessing} class:done={!session.isProcessing && session.status === 'done'} class:waiting={!session.isProcessing && session.status === 'waiting'}></span>
                 <span class="session-title">{session.title || 'Untitled'}</span>
                 {#if !session.projectPath}
                   <button class="session-tag-btn" title="Tag this session" onclick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); sidebarTaggerPos = { x: rect.right + 4, y: rect.top }; sidebarTaggerId = sidebarTaggerId === session.id ? null : session.id; if (!boardData.value) fetchBoard(); }}>
@@ -3249,4 +3268,46 @@
     padding-left: 16px;
     color: var(--text-dimmer);
   }
+
+  /* Status filter chips */
+  .status-filters {
+    display: flex;
+    gap: 4px;
+    padding: 4px 12px 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .status-chip {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(var(--overlay-rgb), 0.1);
+    background: none;
+    color: var(--text-dimmer);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.12s;
+  }
+
+  .status-chip:hover { color: var(--text-secondary); border-color: rgba(var(--overlay-rgb), 0.2); }
+  .status-chip.active { background: var(--accent-12); color: var(--accent); border-color: var(--accent-30); }
+
+  .review-sessions-btn {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(var(--overlay-rgb), 0.1);
+    background: none;
+    color: var(--text-dimmer);
+    cursor: pointer;
+    font-family: inherit;
+    margin-left: auto;
+    transition: all 0.12s;
+  }
+  .review-sessions-btn:hover { color: var(--accent); border-color: var(--accent-30); }
+
+  /* Status dot colors */
+  .session-dot.done { background: #57ab5a; }
+  .session-dot.waiting { background: #d4a72c; }
 </style>

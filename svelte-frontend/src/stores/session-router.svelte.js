@@ -17,7 +17,7 @@ import {
   saveLayout as savePopupLayout,
 } from './popups.svelte.js';
 import { renameTabInPanes, panes as paneList, addTabToPane } from './panes.svelte.js';
-import { sessionList, pendingNewSessionRequests, searchSeq, sessionSearchQuery, sessionSearchResults, pendingAutoTag, buildAutoTagPrompt, pendingAreaAnalysis } from './sessions.svelte.js';
+import { sessionList, pendingNewSessionRequests, searchSeq, sessionSearchQuery, sessionSearchResults, pendingAutoTag, buildAutoTagPrompt, pendingAreaAnalysis, pendingSessionReview } from './sessions.svelte.js';
 import { contextData, sessionCost, projectInfo, clientCount, slashCommands, modelInfo, rateLimitState, configState, accountUsage } from './chat.svelte.js';
 import { ambientState } from './ambient.svelte.js';
 import { routeFileMessage } from './files.svelte.js';
@@ -380,6 +380,16 @@ function handleSessionSwitched(msg) {
     pendingAreaAnalysis.active = false;
     pendingAreaAnalysis.areaName = null;
     pendingAreaAnalysis.prompt = null;
+    setTimeout(() => {
+      sendTabMessage(sessionId, prompt);
+    }, 800);
+  }
+
+  // If this was triggered by session review, send the review prompt
+  if (pendingSessionReview.active) {
+    const prompt = pendingSessionReview.prompt;
+    pendingSessionReview.active = false;
+    pendingSessionReview.prompt = null;
     setTimeout(() => {
       sendTabMessage(sessionId, prompt);
     }, 800);
