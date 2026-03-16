@@ -2,6 +2,39 @@
 
 ## WIP
 
+### Session Status Lifecycle
+- Add user-controlled session status: **open**, **done**, **waiting**
+  - Right-click any session in sidebar or tab bar to set status
+  - Status shown as colored dot: blue (open), green (done), amber (waiting)
+  - Talking in a done/waiting session auto-transitions it back to open
+  - Status persisted in JSONL metadata, survives daemon restart
+- Sidebar filter chips: filter sessions by All / Open / Waiting / Done with counts
+- **Review Sessions** button: creates a Claude session that evaluates all open sessions against your GTD areas and suggests which ones should be marked done or waiting
+- Session tagger context menu now includes status section
+
+### Streaming Overhaul
+- Chunk-based text reveal: tokens buffered and revealed in phrase-sized chunks at natural word boundaries (every 60ms) instead of word-by-word
+- Skeleton placeholder lines during streaming anticipate incoming text
+- Markdown rendered throughout streaming via smooth buffer (no plain-text-to-markdown jump)
+- Auto-scroll respects user scroll position (ResizeObserver-based, 200px threshold)
+
+### Bug Fixes
+- Fix operation/agent/git-diff tabs not closable (TabBar didn't handle `__` prefixes)
+- Fix home navigation — click project name in sidebar to return to dashboard
+- Fix Vite proxy target for TLS daemon (http → https)
+- Fix Cmd+O file search returning stale results after new files created
+- Fix pane splitting broken by undefined `editorDragging` reference
+- Fix missing `startAutoTag`/`startAreaAnalysis` functions crashing app on load
+- Restore tag suggestion "Ask Claude to suggest" button in tag picker
+- Fix Svelte 5 streaming reactivity: `_streamingMsg` now references proxy, not plain object
+
+### Audit Fixes (17 items)
+- Backend: `unhandledRejection` handler, history loading guard, silent catch logging, auth failure logging, upload size limits (50MB/doc), POST body limits (100MB)
+- Frontend: tab restoration resilience, stale replay reset, file read timeout cleanup, popup timer leak, toast dedup (max 5)
+- Performance: session sort caching, puppeteer to devDependencies, git poll 30s + visibility gate
+- CSS: z-index scale variables, `prefers-reduced-motion` global rule
+- GTD: someday area visible in board, operation-specific session filtering, board auto-refresh
+
 ## v2.3.1
 
 - Support `claude-relay-dev` running independently from production daemon (separate port 2635, config dir `~/.claude-relay-dev/`)

@@ -1,5 +1,6 @@
 <script>
   import { renderMarkdown, highlightCodeBlocks } from '../../utils/markdown.js';
+  import { openFile } from '../../stores/files.svelte.js';
   import { onDestroy } from 'svelte';
 
   let { text = '', finalized = false, compact = false } = $props();
@@ -121,6 +122,14 @@
   let resetTimer;
 
   function handleClick(e) {
+    // Intercept file path links — open in file viewer tab
+    const fileLink = e.target.closest('a[data-file-path]');
+    if (fileLink) {
+      e.preventDefault();
+      e.stopPropagation();
+      openFile(fileLink.dataset.filePath);
+      return;
+    }
     if (compact) return;
     if (e.target.closest('a, pre, code, button')) return;
     const sel = window.getSelection();
@@ -136,7 +145,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 {#if compact}
-  <div class="msg-assistant-compact">
+  <div class="msg-assistant-compact" onclick={handleClick}>
     <div class="md-content compact" dir="auto" bind:this={contentEl}>{@html renderedHtml}</div>
   </div>
 {:else}
@@ -236,6 +245,60 @@
 
   .md-content :global(a) { color: var(--accent); text-decoration: none; }
   .md-content :global(a:hover) { text-decoration: underline; }
+
+  /* ─── File path pill ─── */
+  .md-content :global(a.file-link) {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.08);
+    padding: 2px 10px 2px 7px;
+    border-radius: 14px;
+    border: 1px solid rgba(var(--accent-rgb), 0.15);
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    line-height: 1.6;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+    word-break: break-all;
+  }
+  .md-content :global(a.file-link:hover) {
+    background: rgba(var(--accent-rgb), 0.14);
+    border-color: rgba(var(--accent-rgb), 0.3);
+    text-decoration: none;
+  }
+  .md-content :global(a.file-link::before) {
+    content: '';
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3C/svg%3E") center / contain no-repeat;
+    opacity: 0.7;
+  }
+  /* When file link is inside inline code, override code styling */
+  .md-content :global(code a.file-link) {
+    background: rgba(var(--accent-rgb), 0.08);
+    color: var(--accent);
+    padding: 2px 10px 2px 7px;
+  }
+  /* Dim the directory portion, highlight the filename */
+  .md-content :global(.file-link-dir) {
+    opacity: 0.5;
+    font-weight: 400;
+  }
+  .md-content :global(a.file-link:hover .file-link-dir) {
+    opacity: 0.7;
+  }
+  /* Strip code wrapper styling when it only contains a file link */
+  .md-content :global(code:has(> a.file-link:only-child)) {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+  }
 
   .md-content :global(ul), .md-content :global(ol) { padding-left: 1.6em; margin: 0.6em 0; }
   .md-content :global(li) { margin: 0.3em 0; }

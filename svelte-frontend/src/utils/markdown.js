@@ -5,10 +5,47 @@ import hljs from 'highlight.js';
 
 marked.use({ gfm: true, breaks: false });
 
+// Match relative file paths like gtd/strategy/foo.md, code/relay/lib/server.js
+// Must have at least one slash and end with a known file extension.
+const FILE_EXT = 'md|js|mjs|cjs|ts|tsx|svelte|json|yaml|yml|toml|css|html|sh|py|rs|go|java|kt|sql|txt|csv|env|lock|xml|svg|png|jpg|jpeg|gif|pdf';
+const FILE_PATH_RE = new RegExp(
+  '((?:[\\w@~][\\w.@~-]*/)+[\\w.@~-]+\\.(?:' + FILE_EXT + '))(?=[\\s,;:)\\]"\'<]|$)',
+  'g'
+);
+
+// TLD-like first segments that indicate a URL, not a file path
+const URL_SEGMENTS = new Set(['com', 'org', 'net', 'io', 'co', 'dev', 'app', 'edu', 'gov', 'www']);
+
+// Linkify file paths in rendered HTML. Skips <pre> blocks and existing <a> tags.
+// Inline <code> is linkified (Claude often wraps paths in backticks).
+function linkifyFilePaths(html) {
+  // Split on <pre> blocks and <a> tags only — these should never be modified.
+  // Inline <code> tags ARE processed since Claude wraps file paths in backticks.
+  const parts = html.split(/(<pre[\s>][\s\S]*?<\/pre>|<a[\s>][\s\S]*?<\/a>)/gi);
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 2 === 1) continue; // skip <pre>/<a> blocks
+    parts[i] = parts[i].replace(FILE_PATH_RE, (match, path, offset, str) => {
+      const before = str.slice(Math.max(0, offset - 3), offset);
+      if (before.endsWith('/') || before.endsWith('="') || before.endsWith("='")) return match;
+      if (/:\/\/$/.test(before)) return match;
+      const firstSeg = path.split('/')[0].toLowerCase();
+      if (URL_SEGMENTS.has(firstSeg)) return match;
+      const escaped = path.replace(/"/g, '&quot;');
+      const filename = path.split('/').pop();
+      const dir = path.split('/').slice(0, -1).join('/');
+      const dimDir = dir ? `<span class="file-link-dir">${dir}/</span>` : '';
+      return `<a class="file-link" data-file-path="${escaped}" title="${escaped}">${dimDir}${filename}</a>`;
+    });
+  }
+  return parts.join('');
+}
+
 export function renderMarkdown(text) {
   let html = DOMPurify.sanitize(marked.parse(text));
   // Wrap tables in scrollable container
   html = html.replace(/<table>/g, '<div class="table-wrap"><table>').replace(/<\/table>/g, '</table></div>');
+  // Make file paths clickable
+  html = linkifyFilePaths(html);
   return html;
 }
 
