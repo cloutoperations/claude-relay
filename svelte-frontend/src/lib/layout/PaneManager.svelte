@@ -60,16 +60,16 @@
   let tagPickerPane = $state(null); // pane ID where picker is open
   let tagPickerSessionId = $state(null); // the exact session being tagged
 
-  function cycleSessionStatus(sessionId) {
-    const s = sessionList.find(s => s.id === sessionId);
-    const current = s?.status || 'open';
-    const next = current === 'open' ? 'done' : current === 'done' ? 'waiting' : 'open';
-    setSessionStatus(sessionId, next);
-  }
+  let statusPickerPane = $state(null); // pane ID where status picker is open
 
   function getStatusLabel(sessionId) {
     const s = sessionList.find(s => s.id === sessionId);
     return s?.status || 'open';
+  }
+
+  function pickStatus(sessionId, status) {
+    setSessionStatus(sessionId, status);
+    statusPickerPane = null;
   }
 
   function suggestTag(sessionIdToTag) {
@@ -364,14 +364,32 @@
               <button class="breadcrumb-untag" onclick={() => { tagSession(pane.activeTabId, null); }} title="Remove tag">
                 <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
-              <button class="status-pill {getStatusLabel(pane.activeTabId)}" onclick={() => cycleSessionStatus(pane.activeTabId)} title="Click to cycle status">{getStatusLabel(pane.activeTabId)}</button>
+              <div class="status-pill-wrap">
+                <button class="status-pill {getStatusLabel(pane.activeTabId)}" onclick={() => statusPickerPane = statusPickerPane === pane.id ? null : pane.id}>{getStatusLabel(pane.activeTabId)}</button>
+                {#if statusPickerPane === pane.id}
+                  <div class="status-picker">
+                    <button class="status-option" class:active={getStatusLabel(pane.activeTabId) === 'open'} onclick={() => pickStatus(pane.activeTabId, 'open')}><span class="sp-dot open"></span> Open</button>
+                    <button class="status-option" class:active={getStatusLabel(pane.activeTabId) === 'done'} onclick={() => pickStatus(pane.activeTabId, 'done')}><span class="sp-dot done"></span> Done</button>
+                    <button class="status-option" class:active={getStatusLabel(pane.activeTabId) === 'waiting'} onclick={() => pickStatus(pane.activeTabId, 'waiting')}><span class="sp-dot waiting"></span> Waiting</button>
+                  </div>
+                {/if}
+              </div>
             </div>
           {:else}
             <div class="session-breadcrumb">
               <button class="tag-btn" onclick={() => { tagPickerPane = tagPickerPane === pane.id ? null : pane.id; tagPickerSessionId = pane.activeTabId; fetchBoard(); }} title="Tag to area/project">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
               </button>
-              <button class="status-pill {getStatusLabel(pane.activeTabId)}" onclick={() => cycleSessionStatus(pane.activeTabId)} title="Click to cycle status">{getStatusLabel(pane.activeTabId)}</button>
+              <div class="status-pill-wrap">
+                <button class="status-pill {getStatusLabel(pane.activeTabId)}" onclick={() => statusPickerPane = statusPickerPane === pane.id ? null : pane.id}>{getStatusLabel(pane.activeTabId)}</button>
+                {#if statusPickerPane === pane.id}
+                  <div class="status-picker">
+                    <button class="status-option" class:active={getStatusLabel(pane.activeTabId) === 'open'} onclick={() => pickStatus(pane.activeTabId, 'open')}><span class="sp-dot open"></span> Open</button>
+                    <button class="status-option" class:active={getStatusLabel(pane.activeTabId) === 'done'} onclick={() => pickStatus(pane.activeTabId, 'done')}><span class="sp-dot done"></span> Done</button>
+                    <button class="status-option" class:active={getStatusLabel(pane.activeTabId) === 'waiting'} onclick={() => pickStatus(pane.activeTabId, 'waiting')}><span class="sp-dot waiting"></span> Waiting</button>
+                  </div>
+                {/if}
+              </div>
             </div>
           {/if}
           {#if tagPickerPane === pane.id && boardData.value}
@@ -638,6 +656,48 @@
   .status-pill.done { background: rgba(87, 171, 90, 0.12); color: #57ab5a; }
   .status-pill.waiting { background: rgba(212, 167, 44, 0.12); color: #d4a72c; }
   .status-pill:hover { filter: brightness(1.2); }
+
+  .status-pill-wrap {
+    position: relative;
+    margin-left: auto;
+  }
+
+  .status-picker {
+    position: absolute;
+    bottom: 100%;
+    right: 0;
+    margin-bottom: 4px;
+    background: var(--bg-raised);
+    border: 1px solid rgba(var(--overlay-rgb), 0.1);
+    border-radius: 8px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(var(--shadow-rgb), 0.3);
+    z-index: 200;
+    min-width: 100px;
+  }
+
+  .status-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s;
+  }
+  .status-option:hover { background: rgba(var(--overlay-rgb), 0.06); color: var(--text); }
+  .status-option.active { color: var(--text); font-weight: 600; }
+
+  .sp-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .sp-dot.open { background: #5b9fd6; }
+  .sp-dot.done { background: #57ab5a; }
+  .sp-dot.waiting { background: #d4a72c; }
 
   .tag-btn {
     display: flex; align-items: center; justify-content: center;
