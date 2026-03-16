@@ -66,6 +66,55 @@ export function unarchiveSession(sessionId) {
   send({ type: 'unarchive_session', sessionId });
 }
 
+export function setSessionStatus(sessionId, status) {
+  send({ type: 'set_session_status', sessionId, status });
+}
+
+// Session review agent — evaluates all open sessions against GTD context
+export const pendingSessionReview = $state({ active: false, prompt: null });
+
+export function startSessionReview(boardData) {
+  if (!boardData) return;
+  const openSessions = sessionList.filter(s => !s.archived && (s.status || 'open') !== 'done');
+  if (openSessions.length === 0) return;
+
+  const lines = openSessions.slice(0, 50).map(s => {
+    const area = s.projectPath ? s.projectPath.split('/')[0] : 'untagged';
+    const age = s.lastActivity ? Math.round((Date.now() - s.lastActivity) / 86400000) + 'd ago' : 'unknown';
+    return `- "${s.title || 'Untitled'}" [${area}] (${age}, ${s.status || 'open'}) id:${s.id}`;
+  });
+
+  const areaContext = (boardData.areas || []).map(a =>
+    `${a.name}: ${a.presentState ? 'Present: ' + a.presentState.substring(0, 100) : '(no TOTE)'}`
+  ).join('\n');
+
+  const prompt = `Review these ${openSessions.length} open sessions and suggest which ones should be marked as done or waiting.
+
+## Open Sessions
+${lines.join('\n')}
+
+## Area Context
+${areaContext}
+
+## Instructions
+For each session, evaluate:
+1. Is the goal likely achieved based on the title? → suggest "done"
+2. Is it stale (no activity in 7+ days) with no clear next step? → suggest "done"
+3. Is it blocked on something external? → suggest "waiting" with reason
+4. Is it still actively relevant? → keep as "open"
+
+Then use these commands to update statuses:
+\`\`\`
+curl -X POST http://localhost:2633/p/clout-operations/api/set-session-status -H 'Content-Type: application/json' -d '{"sessionId":"<ID>","status":"done"}'
+\`\`\`
+
+Process all sessions now. Be decisive — mark things done aggressively. Open sessions should only be ones you'd actively work on this week.`;
+
+  pendingSessionReview.active = true;
+  pendingSessionReview.prompt = prompt;
+  createSession(undefined, true, 'strategy');
+}
+
 export function bulkArchive(olderThanMs) {
   send({ type: 'bulk_archive', olderThan: olderThanMs });
 }
