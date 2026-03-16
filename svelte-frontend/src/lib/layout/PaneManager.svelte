@@ -173,7 +173,6 @@
   let dropPaneId = $state(null);
 
   function handlePaneDragOver(e, paneId) {
-    if (editorDragging.value) return; // block editor drag — ignore
     if (!e.dataTransfer.types.includes('text/plain')) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -205,7 +204,6 @@
   }
 
   function handlePaneDrop(e, paneId) {
-    if (editorDragging.value) { editorDragging.value = false; return; }
     e.preventDefault();
     const tabId = e.dataTransfer.getData('text/plain');
     if (!tabId) { dropZone = null; dropPaneId = null; return; }
