@@ -121,6 +121,15 @@
   let copyState = $state('idle');
   let resetTimer;
 
+  function handleCopy(e) {
+    e.stopPropagation();
+    clearTimeout(resetTimer);
+    navigator.clipboard.writeText(text).then(() => {
+      copyState = 'done';
+      resetTimer = setTimeout(() => { copyState = 'idle'; }, 1500);
+    });
+  }
+
   function handleClick(e) {
     // Intercept file path links — open in file viewer tab
     const fileLink = e.target.closest('a[data-file-path]');
@@ -130,15 +139,6 @@
       openFile(fileLink.dataset.filePath);
       return;
     }
-    if (compact) return;
-    if (e.target.closest('a, pre, code, button')) return;
-    const sel = window.getSelection();
-    if (sel && sel.toString().length > 0) return;
-    clearTimeout(resetTimer);
-    navigator.clipboard.writeText(text).then(() => {
-      copyState = 'done';
-      resetTimer = setTimeout(() => { copyState = 'idle'; }, 1500);
-    });
   }
 </script>
 
@@ -147,9 +147,18 @@
 {#if compact}
   <div class="msg-assistant-compact" onclick={handleClick}>
     <div class="md-content compact" dir="auto" bind:this={contentEl}>{@html renderedHtml}</div>
+    {#if finalized}
+      <button class="msg-copy-btn" class:copied={copyState === 'done'} onclick={handleCopy} title="Copy">
+        {#if copyState === 'done'}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        {:else}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        {/if}
+      </button>
+    {/if}
   </div>
 {:else}
-  <div class="msg-assistant" class:copy-done={copyState === 'done'} class:is-streaming={isStreaming} onclick={handleClick}>
+  <div class="msg-assistant" class:is-streaming={isStreaming} onclick={handleClick}>
     <div class="md-content" dir="auto" bind:this={contentEl}>{@html renderedHtml}</div>
     {#if isStreaming}
       <div class="stream-skeleton">
@@ -158,14 +167,14 @@
         <div class="skel-line short" style="width: 40%"></div>
       </div>
     {/if}
-    {#if finalized || copyState !== 'idle'}
-      <div class="msg-copy-hint">
-        {#if copyState === 'idle'}
-          Copy
+    {#if finalized}
+      <button class="msg-copy-btn" class:copied={copyState === 'done'} onclick={handleCopy} title="Copy">
+        {#if copyState === 'done'}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         {:else}
-          Copied!
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         {/if}
-      </div>
+      </button>
     {/if}
   </div>
 {/if}
@@ -176,7 +185,7 @@
     margin: 4px 0;
     padding: 4px 0;
     position: relative;
-    cursor: default;
+    cursor: text;
     border-top: 1px solid rgba(var(--overlay-rgb), 0.04);
     padding-top: 12px;
     margin-top: 8px;
@@ -354,20 +363,35 @@
   .md-content.compact :global(code) { font-size: 11.5px; }
   .md-content.compact :global(:not(pre) > code) { font-size: 12px; background: rgba(var(--overlay-rgb), 0.06); padding: 1px 5px; }
 
-  /* ─── Copy hint (full mode only) ─── */
-  .msg-copy-hint {
-    font-size: 11px;
+  /* ─── Copy button ─── */
+  .msg-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 0;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-alt);
+    border: 1px solid rgba(var(--overlay-rgb), 0.08);
     color: var(--text-dimmer);
-    padding: 4px 0;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 0;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
   }
 
-  .msg-assistant:hover .msg-copy-hint { opacity: 1; }
+  .msg-assistant:hover .msg-copy-btn,
+  .msg-assistant-compact:hover .msg-copy-btn { opacity: 1; }
+  .msg-copy-btn:hover { background: rgba(var(--overlay-rgb), 0.1); color: var(--text-secondary); }
+  .msg-copy-btn.copied { opacity: 1; color: var(--success); border-color: rgba(var(--success-rgb, 87, 171, 90), 0.3); }
 
-  .msg-assistant.copy-done .msg-copy-hint {
-    opacity: 1;
-    color: var(--success);
+  .msg-assistant-compact { position: relative; }
+  .msg-assistant-compact .msg-copy-btn {
+    top: -2px;
+    right: -28px;
   }
 
   /* ─── Streaming skeleton placeholder ─── */

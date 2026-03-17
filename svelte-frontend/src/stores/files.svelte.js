@@ -2,7 +2,7 @@
 // Svelte 5 runes version.
 
 import { wsState, send } from './ws.svelte.js';
-import { addTabToPane, onTabClosed } from './panes.svelte.js';
+import { addTabToPane, onTabClosed, panes, paneLayout, activePaneId, findPaneForTab, createPaneRight } from './panes.svelte.js';
 
 const TABS_KEY = 'claude-relay-file-tabs';
 const ACTIVE_TAB_KEY = 'claude-relay-active-tab';
@@ -95,15 +95,17 @@ export function routeFileMessage(msg) {
     treeData[msg.path] = { loaded: true, children: msg.entries || [] };
     if (msg.path === '.') expandedDirs.value.add('.');
   } else if (msg.type === 'fs_read_result') {
-    if (pendingReads.has(msg.path)) {
-      clearTimeout(pendingReads.get(msg.path));
-      pendingReads.delete(msg.path);
+    // Match on original requested path; also check pendingReads for decoded variants
+    const requestPath = msg.path;
+    if (pendingReads.has(requestPath)) {
+      clearTimeout(pendingReads.get(requestPath));
+      pendingReads.delete(requestPath);
     }
     if (pendingReads.size === 0) fileLoading.value = false;
     const fileData = msg.error
-      ? { path: msg.path, error: msg.error }
-      : { path: msg.path, content: msg.content || null, binary: msg.binary || false, imageUrl: msg.imageUrl || null, size: msg.size || 0 };
-    const idx = openFiles.findIndex(f => f.path === msg.path);
+      ? { path: requestPath, error: msg.error }
+      : { path: requestPath, resolvedPath: msg.resolvedPath || null, content: msg.content || null, binary: msg.binary || false, imageUrl: msg.imageUrl || null, size: msg.size || 0 };
+    const idx = openFiles.findIndex(f => f.path === requestPath);
     if (idx >= 0) openFiles[idx] = fileData;
   } else if (msg.type === 'fs_search_result') {
     fileSearchResults.value = msg.results || [];
@@ -143,19 +145,40 @@ export function revealInTree(filePath) {
   if (changed) expandedDirs.value = new Set(expandedDirs.value);
 }
 
+// Find or create a pane for file tabs — split right from the active pane.
+function getFilePaneId(filePath) {
+  const fileTabId = '__file__:' + filePath;
+  console.log('[getFilePaneId]', fileTabId, 'panes:', panes.length, 'active:', activePaneId.value);
+  // If THIS specific file is already open in a pane, reuse that pane
+  const existingPane = panes.find(p => p.tabIds.includes(fileTabId));
+  if (existingPane) { console.log('[getFilePaneId] reuse existing:', existingPane.id); return existingPane.id; }
+  // If there's a pane to the right of the active one, use it
+  const activeIdx = panes.findIndex(p => p.id === activePaneId.value);
+  if (activeIdx >= 0 && activeIdx < panes.length - 1) {
+    console.log('[getFilePaneId] use right pane:', panes[activeIdx + 1].id);
+    return panes[activeIdx + 1].id;
+  }
+  // Create a new split pane to the right
+  console.log('[getFilePaneId] creating new pane right');
+  const newId = createPaneRight();
+  console.log('[getFilePaneId] newId:', newId);
+  return newId || activePaneId.value;
+}
+
 export function openFile(filePath) {
   const fileTabId = '__file__:' + filePath;
+  const targetPane = getFilePaneId(filePath);
   const existing = openFiles.find(f => f.path === filePath);
   if (existing) {
     activeFilePath.value = filePath;
-    addTabToPane(fileTabId);
+    addTabToPane(fileTabId, targetPane);
     revealInTree(filePath);
     return;
   }
   fileLoading.value = true;
   activeFilePath.value = filePath;
   openFiles.push({ path: filePath, content: null, loading: true });
-  addTabToPane(fileTabId);
+  addTabToPane(fileTabId, targetPane);
   send({ type: 'fs_read', path: filePath });
   revealInTree(filePath);
 

@@ -164,13 +164,28 @@
   let isAtTop = $state(false);
   let showScrollButtons = $state(false);
 
-  function scrollToBottom(force = false) {
-    if (!messagesEl || (!force && !isAtBottom)) return;
+  // --- Scroll lock: the ONLY way auto-scroll gets suppressed ---
+  // Set true on ANY upward wheel/touch. Cleared ONLY by:
+  //   1. User wheels/touches down to the very bottom
+  //   2. User clicks "jump to bottom" button
+  //   3. User sends a new message (via sendMessage calling scrollAfterSend)
+  //   4. History finishes loading (tab switch)
+  let scrollLocked = $state(false);
+
+  function isNearBottom() {
+    if (!messagesEl) return false;
+    const { scrollTop, scrollHeight, clientHeight } = messagesEl;
+    return scrollHeight - scrollTop - clientHeight < 80;
+  }
+
+  function doAutoScroll() {
+    if (!messagesEl || scrollLocked) return;
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
   function jumpToBottom() {
     if (!messagesEl) return;
+    scrollLocked = false;
     messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
   }
 
@@ -179,78 +194,84 @@
     messagesEl.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // Throttled scroll handler — max once per frame
-  let scrollTicking = false;
-  function handleScroll() {
-    if (scrollTicking) return;
-    scrollTicking = true;
+  // Export for InputArea to call after sending
+  export function scrollAfterSend() {
+    scrollLocked = false;
     requestAnimationFrame(() => {
-      scrollTicking = false;
-      if (!messagesEl) return;
-      const { scrollTop, scrollHeight, clientHeight } = messagesEl;
-      isAtBottom = scrollHeight - scrollTop - clientHeight < 200;
-      isAtTop = scrollTop < 100;
-      showScrollButtons = scrollHeight > clientHeight * 2; // only show if content is scrollable
+      if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
     });
   }
 
-  // Scroll to bottom when history finishes loading
+  function handleScroll() {
+    if (!messagesEl) return;
+    const { scrollTop, scrollHeight, clientHeight } = messagesEl;
+    isAtBottom = scrollHeight - scrollTop - clientHeight < 80;
+    isAtTop = scrollTop < 100;
+    showScrollButtons = scrollHeight > clientHeight * 2;
+  }
+
+  function handleWheel(e) {
+    if (e.deltaY < 0) {
+      scrollLocked = true;
+    } else if (e.deltaY > 0) {
+      requestAnimationFrame(() => {
+        if (isNearBottom()) scrollLocked = false;
+      });
+    }
+  }
+
+  // Touch scroll support — same logic as wheel
+  let touchStartY = 0;
+  function handleTouchStart(e) {
+    touchStartY = e.touches[0]?.clientY ?? 0;
+  }
+  function handleTouchMove(e) {
+    const y = e.touches[0]?.clientY ?? 0;
+    const delta = touchStartY - y; // positive = scrolling up content (finger moves up)
+    if (delta < -10) {
+      // Finger moving down = scrolling toward top of content
+      scrollLocked = true;
+    } else if (delta > 10) {
+      // Finger moving up = scrolling toward bottom
+      if (isNearBottom()) scrollLocked = false;
+    }
+  }
+
+  // Scroll to bottom when history finishes loading (one-shot)
+  let prevLoadingHistory = true;
   $effect(() => {
-    if (!loadingHistory && messages.length > 0) {
-      isAtBottom = true;
+    const loading = loadingHistory;
+    const hasMessages = messages.length > 0;
+    if (prevLoadingHistory && !loading && hasMessages) {
+      scrollLocked = false;
       setTimeout(() => {
         if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
       }, 50);
     }
+    prevLoadingHistory = loading;
   });
 
-  // Auto-scroll on new messages — only if at bottom
-  let lastMsgCount = 0;
-  $effect(() => {
-    const count = messages.length;
-    if (count > lastMsgCount && isAtBottom) {
-      requestAnimationFrame(scrollToBottom);
-    }
-    lastMsgCount = count;
-  });
-
-  // Auto-scroll during streaming — use ResizeObserver on the scroll container.
-  // When content grows (streaming text, new messages), scroll down if user is at bottom.
-  // If user has scrolled up, leave them alone.
+  // Auto-scroll when content grows (streaming, new messages, tool results).
+  // Single MutationObserver + ResizeObserver combo, gated entirely by scrollLocked.
   $effect(() => {
     if (!messagesEl) return;
-    const ro = new ResizeObserver(() => {
-      if (isAtBottom) {
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      }
-    });
-    // Observe the scrollable content (all children)
-    for (const child of messagesEl.children) {
-      ro.observe(child);
-    }
-    // Also observe the container itself for overall size changes
+
+    const ro = new ResizeObserver(() => doAutoScroll());
     const mo = new MutationObserver(() => {
-      // Re-observe new children (new messages added to DOM)
       ro.disconnect();
-      for (const child of messagesEl.children) {
-        ro.observe(child);
-      }
-      if (isAtBottom) {
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-      }
+      for (const child of messagesEl.children) ro.observe(child);
+      doAutoScroll();
     });
+
+    for (const child of messagesEl.children) ro.observe(child);
     mo.observe(messagesEl, { childList: true });
 
     return () => { ro.disconnect(); mo.disconnect(); };
   });
-
-  $effect(() => {
-    if (thinking.active && isAtBottom) scrollToBottom();
-  });
 </script>
 
 <div class="message-list-wrap" class:compact>
-<div class="message-list" class:compact bind:this={messagesEl} onscroll={handleScroll}>
+<div class="message-list" class:compact bind:this={messagesEl} onscroll={handleScroll} onwheel={handleWheel} ontouchstart={handleTouchStart} ontouchmove={handleTouchMove}>
   {#if loadingHistory}
     <div class="skeleton-loading">
       <div class="skeleton-row user">

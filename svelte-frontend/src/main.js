@@ -6,6 +6,11 @@ import { initTheme } from './stores/theme.svelte.js'
 
 initTheme()
 
+// Register service worker for push notifications & PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
 const app = mount(App, {
   target: document.getElementById('app'),
 })

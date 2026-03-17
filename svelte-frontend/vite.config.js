@@ -10,7 +10,15 @@ export default defineConfig({
       '/p/': {
         target: process.env.RELAY_URL || 'https://localhost:2633',
         ws: true,
-        secure: false, // accept self-signed certs
+        secure: false,
+      },
+      '/auth': {
+        target: process.env.RELAY_URL || 'https://localhost:2633',
+        secure: false,
+      },
+      '/api/': {
+        target: process.env.RELAY_URL || 'https://localhost:2633',
+        secure: false,
       },
     },
   },

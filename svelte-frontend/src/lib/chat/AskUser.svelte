@@ -117,11 +117,15 @@
             <button
               class="ask-option"
               class:selected={isSelected(qIdx, opt.label)}
+              class:has-preview={!!opt.preview}
               onclick={() => selectOption(qIdx, opt.label, q.multiSelect || false)}
             >
               <span class="option-label">{opt.label}</span>
               {#if opt.description}
                 <span class="option-desc">{opt.description}</span>
+              {/if}
+              {#if opt.preview}
+                <pre class="option-preview">{opt.preview}</pre>
               {/if}
             </button>
           {/each}
@@ -288,6 +292,24 @@
   .ask-option.selected .option-desc {
     color: var(--accent);
     opacity: 0.8;
+  }
+
+  .option-preview {
+    width: 100%;
+    margin-top: 4px;
+    padding: 6px 8px;
+    background: var(--code-bg);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    overflow-x: auto;
+  }
+
+  .ask-option.has-preview {
+    width: 100%;
   }
 
   .ask-other-row {

@@ -92,6 +92,42 @@
     });
   }
 
+  const IMAGE_RESIZE_THRESHOLD = 5 * 1024 * 1024; // 5MB
+  const IMAGE_MAX_DIM = 2048;
+
+  function resizeImage(file) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+        if (width <= IMAGE_MAX_DIM && height <= IMAGE_MAX_DIM) {
+          // Under max dimensions — just re-encode as JPEG
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          resolve({ data: canvas.toDataURL('image/jpeg', 0.85).split(',')[1], mediaType: 'image/jpeg' });
+          return;
+        }
+        const scale = Math.min(IMAGE_MAX_DIM / width, IMAGE_MAX_DIM / height);
+        const w = Math.round(width * scale);
+        const h = Math.round(height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve({ data: canvas.toDataURL('image/jpeg', 0.85).split(',')[1], mediaType: 'image/jpeg' });
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(null); // fallback to raw base64
+      };
+      img.src = url;
+    });
+  }
+
   function readFileAsText(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -114,6 +150,19 @@
             type: 'text', name: file.name, content,
             size: file.size, lines: content.split('\n').length,
           }];
+        } else if (kind === 'image' && file.size > IMAGE_RESIZE_THRESHOLD) {
+          const resized = await resizeImage(file);
+          if (resized) {
+            attachments = [...attachments, {
+              type: 'image', name: file.name, mediaType: resized.mediaType, data: resized.data,
+              size: resized.data.length,
+            }];
+          } else {
+            const data = await readFileAsBase64(file);
+            attachments = [...attachments, {
+              type: 'image', name: file.name, mediaType: file.type, data, size: file.size,
+            }];
+          }
         } else {
           const data = await readFileAsBase64(file);
           attachments = [...attachments, {

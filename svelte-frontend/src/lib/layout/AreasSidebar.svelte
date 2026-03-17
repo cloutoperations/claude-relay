@@ -19,6 +19,7 @@
   import { searchFiles, fileSearchResults, fileSearchQuery, openFile } from '../../stores/files.svelte.js';
   import { agents, agentOrder, getAgentList, getRunningCount } from '../../stores/agents.svelte.js';
   import { gitStatus, getTotalCount as getGitCount, refreshStatus as refreshGit, stageFile, unstageFile, discardFile, openDiff, pendingGitChat, buildGitSummary } from '../../stores/git.svelte.js';
+  import { pushState, subscribeToPush } from '../../stores/push.svelte.js';
 
   const AGENT_PREFIX = '__agent__:';
 
@@ -58,7 +59,7 @@
   const _ss = loadSidebarSections();
 
   // Sessions section
-  let sessionsExpanded = $state(_ss.sessions || false);
+  let sessionsExpanded = $state(_ss.sessions ?? true);
   let sessionQuery = $state('');
   let statusFilter = $state('all'); // 'all' | 'open' | 'done' | 'waiting'
 
@@ -113,7 +114,7 @@
   }
 
   // Git section collapsed state
-  let gitExpanded = $state(_ss.git || false);
+  let gitExpanded = $state(_ss.git ?? true);
   let gitCount = $derived(getGitCount());
   let gitContextMenu = $state(null); // { x, y, path, section }
 
@@ -170,7 +171,7 @@
   }
 
   // Agents section collapsed state
-  let agentsExpanded = $state(_ss.agents || false);
+  let agentsExpanded = $state(_ss.agents ?? true);
 
   let agentList = $derived(getAgentList());
   let runningAgentCount = $derived(getRunningCount());
@@ -222,7 +223,12 @@
   }
 
   // Files section collapsed state
-  let filesExpanded = $state(_ss.files || false);
+  let filesExpanded = $state(_ss.files ?? true);
+
+  // Listen for expand-files events from other components (e.g., NotionEditor Browse buttons)
+  if (typeof window !== 'undefined') {
+    window.addEventListener('relay-expand-files', () => { filesExpanded = true; saveSidebarSections(); });
+  }
 
   // Tagger
   let taggerSessionId = $state(null);
@@ -718,20 +724,7 @@
             </div>
           </div>
 
-          <!-- Projects (collapsible) -->
-          {#if !isCollapsed}
-            <div class="area-projects">
-              {#each area.projects as proj (proj.path)}
-                {@const projSessions = [...proj.sessions, ...proj.subProjects.flatMap(s => s.sessions || [])]}
-                {#if projSessions.length > 0}
-                  <div class="project-row" onmouseenter={(e) => onProjectMouseEnter(e, proj, area)} onmouseleave={onProjectMouseLeave}>
-                    <span class="project-name clickable" onclick={(e) => { e.stopPropagation(); openProjectTab(proj.path); }}>{proj.name}</span>
-                    <span class="project-count">{projSessions.length}</span>
-                  </div>
-                {/if}
-              {/each}
-            </div>
-          {/if}
+          <!-- Projects shown on hover panel only -->
         </div>
       {/each}
     {/if}
@@ -1101,6 +1094,23 @@
           <span class="theme-auto-badge">A</span>
         {/if}
       </button>
+      {#if pushState.supported}
+        <button
+          class="status-btn"
+          class:push-active={pushState.subscribed}
+          onclick={subscribeToPush}
+          disabled={pushState.subscribed || pushState.loading}
+          title={pushState.denied ? 'Notifications blocked in browser settings' : pushState.subscribed ? 'Push notifications enabled' : pushState.loading ? 'Enabling...' : 'Enable push notifications'}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill={pushState.subscribed ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          {#if pushState.denied}
+            <span class="push-denied-badge">!</span>
+          {/if}
+        </button>
+      {/if}
     </div>
     <button class="new-session-btn" onclick={handleNewSession}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1163,7 +1173,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="hover-panel"
-    style="top: 50px; left: {sidebarOpen.value ? 288 : 52}px"
+    style="top: {panelTop}px; left: {sidebarOpen.value ? 288 : 52}px"
     onmouseenter={onPanelMouseEnter}
     onmouseleave={() => { onPanelMouseLeave(); hoverDetailItem = null; }}
   >
@@ -2362,6 +2372,20 @@
     font-weight: 700;
     line-height: 1;
     color: var(--accent);
+  }
+
+  .push-active {
+    color: var(--accent);
+  }
+
+  .push-denied-badge {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    font-size: 7px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--warning);
   }
 
   .new-session-btn {

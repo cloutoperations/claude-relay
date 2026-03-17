@@ -7,6 +7,7 @@
   import { openFiles, activeFilePath, closeFileTab, switchTab as switchFileTab } from '../../stores/files.svelte.js';
   import { panes, paneLayout, findPaneForTab, switchPaneTab, addTabToPane, moveTabToPane, activePaneId, splitPane, closePane } from '../../stores/panes.svelte.js';
   import { agents } from '../../stores/agents.svelte.js';
+  import { isMobile } from '../../stores/ui.svelte.js';
   const FILE_PREFIX = '__file__:';
   const AREA_PREFIX = '__area__:';
   const PROJECT_PREFIX = '__project__:';
@@ -409,8 +410,10 @@
       <div class="tab-ctx-sep"></div>
       <button onclick={ctxArchive}>{sessionList.find(s => s.id === ctxMenu.tabId)?.archived ? 'Unarchive' : 'Archive'}</button>
     {/if}
-    <button onclick={ctxSplitRight}>Split Right</button>
-    <button onclick={ctxSplitDown}>Split Down</button>
+    {#if !isMobile.value}
+      <button onclick={ctxSplitRight}>Split Right</button>
+      <button onclick={ctxSplitDown}>Split Down</button>
+    {/if}
     <div class="tab-ctx-sep"></div>
     <button onclick={ctxCloseTab}>Close</button>
     <button onclick={ctxCloseOthers}>Close Others</button>
@@ -692,5 +695,26 @@
     height: 1px;
     background: rgba(var(--overlay-rgb), 0.06);
     margin: 3px 4px;
+  }
+
+  /* --- Mobile compact tabs --- */
+  @media (max-width: 767px) {
+    .tab-bar { height: 36px; }
+    .tab { padding: 0 8px; font-size: 12px; }
+    .tab-title { max-width: clamp(60px, 25vw, 120px); }
+    .tab-close { display: none; }
+    .tab.active .tab-close { display: flex; width: 24px; height: 24px; opacity: 0.7; }
+    .tab-popout { display: none; }
+    .tab-tag-btn { display: none; }
+    .tab-area-prefix { display: none; }
+    .pane-close-btn { display: none; }
+    .pane-divider { display: none; }
+    .tab-list {
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x proximity;
+      mask-image: none;
+      -webkit-mask-image: none;
+    }
+    .tab { scroll-snap-align: start; }
   }
 </style>

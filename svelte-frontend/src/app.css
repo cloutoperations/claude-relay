@@ -172,6 +172,10 @@ html, body {
   display: flex;
   height: 100%;
   height: 100dvh;
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* --- Links --- */
@@ -296,5 +300,37 @@ pre {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* --- Touch-friendly targets (phones/tablets) --- */
+/* Only enlarge primary interactive elements, not every tiny utility button */
+
+@media (pointer: coarse) {
+  .new-session-btn,
+  .send-btn,
+  .send-round {
+    min-height: 44px;
+  }
+}
+
+/* --- Mobile layout ---
+   Sidebar overlay is handled in Sidebar.svelte at max-width: 1023px.
+   Do NOT duplicate sidebar positioning here — it causes conflicts. */
+
+/* --- Mobile-specific overrides --- */
+@media (max-width: 767px) {
+  /* Larger touch targets for session items in sidebar */
+  :global(.session-item) {
+    min-height: 44px;
+    padding: 10px 12px !important;
+  }
+
+  /* Input area: compact on mobile */
+  :global(.input-wrapper) {
+    border-radius: 20px !important;
+  }
+  :global(.input-wrapper textarea) {
+    font-size: 16px !important; /* prevents iOS zoom on focus */
   }
 }

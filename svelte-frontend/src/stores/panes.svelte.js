@@ -44,6 +44,26 @@ if (saved?.panes) {
   }
 }
 
+// Fix stale layout: ratios must match pane count
+if (paneLayout.ratios.length !== panes.length) {
+  if (panes.length <= 1) {
+    Object.assign(paneLayout, { direction: null, ratios: [1] });
+  } else {
+    paneLayout.ratios = Array(panes.length).fill(1 / panes.length);
+  }
+}
+
+// On mobile, collapse multi-pane layout to single pane (merge all tabs into pane-0)
+if (typeof window !== 'undefined' && window.innerWidth < 768 && panes.length > 1) {
+  const allTabs = new Set();
+  for (const p of panes) for (const t of p.tabIds) allTabs.add(t);
+  const activeTab = panes.find(p => p.id === activePaneId.value)?.activeTabId || '__home__';
+  panes.length = 0;
+  panes.push({ id: 'pane-0', activeTabId: activeTab, tabIds: [...allTabs] });
+  Object.assign(paneLayout, { direction: null, ratios: [1] });
+  activePaneId.value = 'pane-0';
+}
+
 export let restoredFromStorage = !!saved;
 
 // Persistence is done explicitly via saveState() calls in each mutation function.
@@ -106,6 +126,8 @@ export function moveTabToPane(tabId, targetPaneId) {
 }
 
 export function splitPane(tabId, direction = 'horizontal') {
+  // Don't allow splits on mobile
+  if (typeof window !== 'undefined' && window.innerWidth < 768) return;
   if (panes.length >= MAX_PANES) return;
 
   const newPaneId = 'pane-' + (paneCounter++);
@@ -201,6 +223,18 @@ export function renameTabInPanes(oldId, newId) {
 export function updateRatios(newRatios) {
   paneLayout.ratios = newRatios;
   saveState();
+}
+
+export function createPaneRight() {
+  console.log('[PANES] createPaneRight called, width:', typeof window !== 'undefined' ? window.innerWidth : 'N/A', 'panes:', panes.length);
+  if (typeof window !== 'undefined' && window.innerWidth < 768) { console.log('[PANES] blocked: mobile'); return null; }
+  if (panes.length >= MAX_PANES) { console.log('[PANES] blocked: max panes'); return null; }
+  const newPaneId = 'pane-' + (paneCounter++);
+  panes.push({ id: newPaneId, activeTabId: '__home__', tabIds: ['__home__'] });
+  const count = panes.length;
+  Object.assign(paneLayout, { direction: 'horizontal', ratios: Array(count).fill(1 / count) });
+  saveState();
+  return newPaneId;
 }
 
 export function resetPanes() {

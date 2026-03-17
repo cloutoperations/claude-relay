@@ -15,7 +15,9 @@ function loadStr(key, fallback) {
 // Wrapped in objects because exported $state can't be reassigned.
 // Components use .value for read/write.
 
-export const sidebarOpen = $state({ value: loadBool(SIDEBAR_KEY, true) });
+// Default sidebar to closed on mobile, open on desktop
+const _sidebarDefault = typeof window !== 'undefined' && window.innerWidth < 768 ? false : true;
+export const sidebarOpen = $state({ value: loadBool(SIDEBAR_KEY, _sidebarDefault) });
 export const workspaceEnabled = $state({ value: false });
 export const currentView = $state({ value: 'home' }); // 'home' | 'board' | 'session' | 'connect'
 export const chatSearchQuery = $state({ value: '' });
@@ -23,10 +25,22 @@ export const filePanelVisible = $state({ value: loadBool(FILE_PANEL_KEY, true) }
 export const activeSidebarTab = $state({ value: loadStr(SIDEBAR_TAB_KEY, 'sessions') });
 export const editorDragging = $state({ value: false });
 
-// --- Persist on change ---
+// --- Mobile detection ---
 
-// Editor drag flag — used by NotionEditor to signal PaneManager during drags
-export const editorDragging = $state({ value: false });
+const MOBILE_BREAKPOINT = 768;
+export const isMobile = $state({ value: typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT });
+
+if (typeof window !== 'undefined') {
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      isMobile.value = window.innerWidth < MOBILE_BREAKPOINT;
+    }, 100);
+  });
+}
+
+// --- Persist on change ---
 
 $effect.root(() => {
   $effect(() => { try { localStorage.setItem(SIDEBAR_KEY, sidebarOpen.value ? '1' : '0'); } catch {} });

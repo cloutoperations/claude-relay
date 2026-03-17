@@ -2,6 +2,7 @@
 // Replaces the scattered onMessage() handlers in old tabs.js/popups.js/chat.js/sessions.js/ambient.js.
 
 import { wsState, send, setOnMessage } from './ws.svelte.js';
+import { sessionSettings, sendSettings } from './session-settings.svelte.js';
 import {
   sessions as sessionStates, resolveSessionId, rekeySession,
   ensureSession, removeSessionState, replayBuffers, staleTabs,
@@ -42,6 +43,8 @@ function handleIncoming(msg) {
     if (t === '__ws_open') {
       handleReconnect();
       routeFileMessage(msg);
+      // Re-send persisted effort level so server knows our preference
+      if (sessionSettings.effort) sendSettings();
       return;
     }
     if (t === '__ws_close') return;

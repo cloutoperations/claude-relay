@@ -7,6 +7,7 @@
   import { createSession } from './stores/sessions.svelte.js';
   import { activeFilePath, closeFileTab } from './stores/files.svelte.js';
   import { panes, activePaneId, splitPane } from './stores/panes.svelte.js';
+  import { sidebarOpen, isMobile } from './stores/ui.svelte.js';
   import TabBar from './lib/layout/TabBar.svelte';
   import AreasSidebar from './lib/layout/AreasSidebar.svelte';
   import PaneManager from './lib/layout/PaneManager.svelte';
@@ -17,6 +18,14 @@
   let quickOpenVisible = $state(false);
 
   onMount(() => {
+    // ?reset — clear all persisted UI state (fixes stuck/corrupted tabs)
+    if (location.search.includes('reset')) {
+      ['claude-relay-tabs', 'claude-relay-panes', 'claude-relay-popups', 'claude-relay-file-tabs', 'claude-relay-active-tab', 'claude-relay-sidebar-sections'].forEach(k => localStorage.removeItem(k));
+      history.replaceState(null, '', location.pathname);
+      location.reload();
+      return;
+    }
+
     // Pass active session ID to WS URL so server starts replaying immediately
     // (zero-delay history load, same as legacy frontend)
     let initialSession = null;
@@ -71,6 +80,11 @@
 <AreasSidebar />
 
 <div class="main-area">
+  {#if isMobile.value && !sidebarOpen.value}
+    <button class="mobile-hamburger" onclick={() => sidebarOpen.value = true} aria-label="Open menu">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  {/if}
   <TabBar />
 
   <div class="content-area">
@@ -132,5 +146,27 @@
   .connect-text {
     font-size: 14px;
     color: var(--text-muted);
+  }
+
+  .mobile-hamburger {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 50;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .mobile-hamburger:hover {
+    background: rgba(var(--overlay-rgb), 0.08);
+    color: var(--text);
   }
 </style>

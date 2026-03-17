@@ -39,6 +39,8 @@ const browser = await chromium.launchPersistentContext(USER_DATA_DIR, {
   viewport: null,
   args: ['--start-maximized'],
   ignoreDefaultArgs: ['--enable-automation'],
+  acceptDownloads: true,
+  ignoreHTTPSErrors: true,
 });
 
 const page = browser.pages()[0] || await browser.newPage();

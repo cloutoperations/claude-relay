@@ -68,6 +68,7 @@ node test-flows.mjs
 - Stale tabs (background tabs after reconnect) must have `loadingHistory = false` — they load on click via `requestReplayIfStale`.
 - `demoteTabToPopup` must call `savePopupLayout()` or popups don't survive refresh.
 - `pinHash: null` in `daemon.json` disables PIN auth (useful for dev).
+- **NEVER disable PIN auth or TLS.** Do NOT set `pinHash` to `null` or `tls` to `false` in `daemon.json`. The relay is exposed over Tailscale and these are security-critical. If the dev browser fails to connect due to auth, pass the auth cookie — do NOT remove the PIN.
 
 ## File Layout
 

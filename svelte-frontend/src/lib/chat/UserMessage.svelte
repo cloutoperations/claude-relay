@@ -1,6 +1,7 @@
 <script>
   let { text = '', images = null, pastes = null, documents = null, documentCount = 0, documentNames = null, imageCount = 0, compact = false } = $props();
   let expandedPastes = $state(new Set());
+  let copyState = $state('idle');
 
   function togglePaste(idx) {
     if (expandedPastes.has(idx)) {
@@ -10,9 +11,28 @@
     }
     expandedPastes = new Set(expandedPastes);
   }
+
+  function handleCopy(e) {
+    e.stopPropagation();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      copyState = 'done';
+      setTimeout(() => { copyState = 'idle'; }, 1500);
+    });
+  }
 </script>
 
 <div class="msg-user" class:compact>
+  <div class="bubble-wrap">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <button class="msg-copy-btn" class:copied={copyState === 'done'} onclick={handleCopy} title="Copy message">
+      {#if copyState === 'done'}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      {:else}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      {/if}
+    </button>
   <div class="bubble" dir="auto">
     {#if images && images.length > 0}
       <div class="bubble-images">
@@ -69,6 +89,7 @@
       <span>{text}</span>
     {/if}
   </div>
+  </div>
 </div>
 
 <style>
@@ -89,8 +110,42 @@
     padding: 2px 0;
   }
 
+  .bubble-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    max-width: 75%;
+  }
+
+  .compact .bubble-wrap {
+    max-width: 85%;
+  }
+
+  .msg-copy-btn {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-dimmer);
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 0;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
+    margin-top: 6px;
+  }
+
+  .bubble-wrap:hover .msg-copy-btn { opacity: 1; }
+  .msg-copy-btn:hover { background: rgba(var(--overlay-rgb), 0.08); color: var(--text-secondary); }
+  .msg-copy-btn.copied { opacity: 1; color: var(--success); }
+
   .bubble {
-    max-width: 70%;
+    flex: 1;
+    min-width: 0;
     padding: 10px 14px;
     background: var(--user-bubble);
     border-radius: 16px 16px 6px 16px;
@@ -101,7 +156,6 @@
   }
 
   .compact .bubble {
-    max-width: 82%;
     padding: 8px 12px;
     background: var(--accent);
     color: var(--text-on-accent);
