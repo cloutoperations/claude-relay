@@ -9,14 +9,30 @@ Three processes needed for development:
 cd /Users/backstage/WebstormProjects/clout-operations/code/claude-relay
 node lib/daemon.js
 
-# Terminal 2: Vite dev server (port 5173, proxies WS to 2633)
+# Terminal 2: Vite watch build (auto-rebuilds dist/ on file changes)
 cd svelte-frontend
-npm run dev
+npx vite build --watch
 
 # Terminal 3: persistent dev browser (state survives between runs)
 node dev-browser.mjs
 # Use --reset to clear all saved state
 ```
+
+Or start all three at once:
+```bash
+cd /Users/backstage/WebstormProjects/clout-operations/code/claude-relay
+./start-dev.sh
+```
+
+**How it works:** The daemon serves built files from `svelte-frontend/dist/`. The watch build (`vite build --watch`) rebuilds dist on every source file change. The daemon reads files on each request — no restart needed. Just edit code, wait ~3s for rebuild, and refresh the browser.
+
+**Alternative: Vite dev server** (HMR, but WS proxy can be flaky):
+```bash
+cd svelte-frontend && npm run dev   # serves on :5173, proxies /p/ to daemon
+```
+Open `http://localhost:5173/p/clout-operations/` — gives hot reload but WS connection through the proxy can drop.
+
+**Production URL:** `https://calvins-macbook-pro.tail6e6b1e.ts.net:2633/p/clout-operations/` — always serves from dist/, works over Tailscale.
 
 The dev browser is a Playwright Chromium instance with persistent localStorage at `~/.claude-relay/dev-browser/`. It auto-dumps state every 3 seconds.
 
