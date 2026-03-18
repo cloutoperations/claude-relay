@@ -98,8 +98,12 @@
       class="popup-drag-wrapper"
       class:dragging={dragId === popup.sessionId}
       class:drop-target={dropTargetId === popup.sessionId}
-      draggable="true"
-      ondragstart={(e) => handleDragStart(e, popup.sessionId)}
+      ondragstart={(e) => {
+        // Only allow drag when initiated from the popup header — prevents
+        // drag from hijacking text selection inside the popup content
+        if (!e.target.closest('.cp-header')) { e.preventDefault(); return; }
+        handleDragStart(e, popup.sessionId);
+      }}
       ondragend={handleDragEnd}
       ondragover={(e) => handleDragOver(e, popup.sessionId)}
       ondragleave={(e) => handleDragLeave(e, popup.sessionId)}

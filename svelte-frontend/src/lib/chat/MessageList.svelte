@@ -304,7 +304,7 @@
     {:else if item.type === 'assistant'}
       <AssistantMessage text={item.text} finalized={item.finalized} {compact} />
     {:else if item.type === 'system' || item.type === 'info'}
-      <SystemMessage text={item.text} isError={item.isError} {compact} />
+      <SystemMessage text={item.text} isError={item.isError} authUrl={item.authUrl} {compact} />
     {:else if item.type === 'tool_group'}
       <ToolGroup tools={item.tools} {compact} {onStopAgent} />
     {:else if item.type === 'tool'}

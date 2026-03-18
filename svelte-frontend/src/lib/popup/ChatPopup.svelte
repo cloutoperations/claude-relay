@@ -156,7 +156,7 @@
   <!-- Header -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="cp-header" onclick={handleHeaderClick}>
+  <div class="cp-header" draggable="true" onclick={handleHeaderClick}>
     <div class="cp-header-left">
       <span class="cp-dot" style={accountColor ? '--acct-color: ' + accountColor : ''}></span>
       <span class="cp-title">{truncate(popup.title, 28)}</span>

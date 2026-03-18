@@ -137,7 +137,9 @@ export function processBufferedEvent(buf, msg, t) {
     buf.msgs.push({ type: 'user', text: msg.text || '', images, pastes: msg.pastes || null, imageCount: msg.imageCount || 0, documentCount: msg.documentCount || 0, documentNames: msg.documentNames || null, _key: nextMsgKey() });
   } else if (t === 'delta' || t === 'assistant_delta') {
     const delta = msg.text || msg.delta || '';
-    if (!buf.isStreaming) {
+    if (delta.indexOf('authentication_error') !== -1 || delta.indexOf('OAuth token has expired') !== -1) {
+      buf.msgs.push({ type: 'system', _key: nextMsgKey(), text: 'OAuth token expired — re-authenticate to continue.', isError: true, authUrl: 'https://claude.ai/oauth/authorize' });
+    } else if (!buf.isStreaming) {
       buf.isStreaming = true;
       buf.currentText = delta;
       buf.msgs.push({ type: 'assistant', text: delta, streaming: true });
@@ -281,8 +283,12 @@ export function processBufferedEvent(buf, msg, t) {
     buf._thinkingText = '';
   } else if (t === 'rate_limit') {
     buf.msgs.push({ type: 'system', _key: nextMsgKey(), text: 'Rate limited: ' + (msg.text || 'API rate limit reached'), isError: true, isRateLimit: true });
+  } else if (t === 'auth_expired') {
+    buf.msgs.push({ type: 'system', _key: nextMsgKey(), text: msg.text || 'OAuth token expired', isError: true, authUrl: msg.url || 'https://claude.ai/oauth/authorize' });
   } else if (t === 'error') {
-    buf.msgs.push({ type: 'system', _key: nextMsgKey(), text: msg.text || msg.error || msg.message || 'Unknown error', isError: true });
+    var errText = msg.text || msg.error || msg.message || 'Unknown error';
+    var isAuth = errText.indexOf('authentication_error') !== -1 || errText.indexOf('OAuth token has expired') !== -1;
+    buf.msgs.push({ type: 'system', _key: nextMsgKey(), text: errText, isError: true, authUrl: isAuth ? 'https://claude.ai/oauth/authorize' : null });
   } else if (t === 'compact_boundary') {
     buf.msgs.push({ type: 'system', _key: nextMsgKey(), text: 'Context compacted' + (msg.preTokens ? ' (was ' + Math.round(msg.preTokens / 1000) + 'K tokens)' : '') });
   } else if (t === 'files_persisted') {
@@ -330,7 +336,11 @@ export function processLiveEvent(state, msg, t) {
     state.thinking = false;
     state.activity = null;
     const delta = msg.text || msg.delta || '';
-    if (!state.isStreaming) {
+    if (delta.indexOf('authentication_error') !== -1 || delta.indexOf('OAuth token has expired') !== -1) {
+      state.messages = [...state.messages, {
+        type: 'system', _key: nextMsgKey(), text: 'OAuth token expired — re-authenticate to continue.', isError: true, authUrl: 'https://claude.ai/oauth/authorize',
+      }];
+    } else if (!state.isStreaming) {
       state.isStreaming = true;
       state.currentText = delta;
       const newMsg = { type: 'assistant', text: delta, streaming: true, _key: nextMsgKey() };
@@ -487,8 +497,10 @@ export function processLiveEvent(state, msg, t) {
       state.isStreaming = false;
       state.currentText = '';
     }
+    var errText = msg.text || msg.error || msg.message || 'Unknown error';
+    var isAuth = errText.indexOf('authentication_error') !== -1 || errText.indexOf('OAuth token has expired') !== -1;
     state.messages = [...state.messages, {
-      type: 'system', text: msg.text || msg.error || msg.message || 'Unknown error', isError: true,
+      type: 'system', text: errText, isError: true, authUrl: isAuth ? 'https://claude.ai/oauth/authorize' : null,
     }];
   } else if (t === 'subagent_activity') {
     const pid = msg.parentToolId || msg.agentId;
@@ -543,6 +555,10 @@ export function processLiveEvent(state, msg, t) {
         type: 'system', text: 'File save failed: ' + msg.failed.map(f => f.name).join(', '), isError: true,
       }];
     }
+  } else if (t === 'auth_expired') {
+    state.messages = [...state.messages, {
+      type: 'system', text: msg.text || 'OAuth token expired', isError: true, authUrl: msg.url, _key: nextMsgKey(),
+    }];
   } else if (t === 'auth_status') {
     if (msg.isAuthenticating) {
       state.activity = 'Authenticating...';

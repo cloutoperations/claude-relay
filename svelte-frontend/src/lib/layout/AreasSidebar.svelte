@@ -347,8 +347,21 @@
     taggerY = e.clientY;
   }
 
-  function handleNewSession() {
+  let floatingPickerPos = $state(null); // { x, y } for collapsed-rail picker
+
+  function handleNewSession(e) {
     if (hasMultipleAccounts) {
+      if (!sidebarOpen.value) {
+        // Sidebar collapsed — show floating picker next to the + button
+        if (floatingPickerPos) {
+          floatingPickerPos = null;
+          return;
+        }
+        const rect = e.currentTarget.getBoundingClientRect();
+        // Position to the right of the button, anchored to bottom so it opens upward
+        floatingPickerPos = { x: rect.right + 8, bottom: window.innerHeight - rect.bottom };
+        return;
+      }
       showAccountPicker = !showAccountPicker;
       return;
     }
@@ -1484,6 +1497,22 @@
   <div class="sidebar-overlay" onclick={() => sidebarOpen.value = false} role="presentation"></div>
 {/if}
 
+<!-- Floating account picker (shown when sidebar is collapsed and + is clicked) -->
+{#if floatingPickerPos}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="floating-picker-backdrop" onclick={() => floatingPickerPos = null}></div>
+  <div class="floating-picker" style="left:{floatingPickerPos.x}px;bottom:{floatingPickerPos.bottom}px">
+    <div class="account-picker-label">Select account</div>
+    {#each accounts as account, i}
+      <button class="account-option" onclick={() => { floatingPickerPos = null; handlePickAccount(account.id); }}>
+        <span class="account-dot" style="background: {ACCOUNT_COLORS[i % ACCOUNT_COLORS.length]}"></span>
+        <span class="account-email">{account.email || account.id}</span>
+      </button>
+    {/each}
+  </div>
+{/if}
+
 <style>
   .sidebar {
     width: 280px;
@@ -2436,6 +2465,28 @@
     background: var(--sidebar-bg);
     border: 1px solid rgba(var(--overlay-rgb), 0.08);
     border-radius: 8px;
+  }
+
+  /* Floating account picker — shown outside sidebar when collapsed rail + is clicked */
+  .floating-picker-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+  }
+  .floating-picker {
+    position: fixed;
+    z-index: 1000;
+    padding: 4px 0;
+    background: var(--bg-raised);
+    border: 1px solid rgba(var(--overlay-rgb), 0.12);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(var(--shadow-rgb), 0.4);
+    min-width: 200px;
+    animation: fpSlideIn 0.12s ease-out;
+  }
+  @keyframes fpSlideIn {
+    from { opacity: 0; transform: translateX(-4px); }
+    to { opacity: 1; transform: translateX(0); }
   }
 
   .account-picker-label {
