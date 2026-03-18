@@ -1,5 +1,5 @@
 <script>
-  import { sessionList as sessions, activeSessionId, leaveSession, createSession, renameSession, switchSession } from '../../stores/sessions.svelte.js';
+  import { sessionList as sessions, activeSessionId, leaveSession, createSession, renameSession, switchSession, sessionSearchResults, sessionSearchQuery, searchSeq as storeSearchSeq } from '../../stores/sessions.svelte.js';
   import { sidebarOpen, chatSearchQuery, activeSidebarTab } from '../../stores/ui.svelte.js';
   import { openPopup } from '../../stores/popups.svelte.js';
   import { openTab } from '../../stores/tabs.svelte.js';
@@ -17,9 +17,8 @@
   let showAccountPicker = $state(false);
   let pickerAnchorEl = $state(null);
   let searchQuery = $state('');
-  let searchResults = $state(null); // null = no search, array = server results
+  let searchResults = $derived(sessionSearchResults.value); // from server via session-router
   let searchDebounce = null;
-  let searchSeq = 0; // sequence counter for correlating search requests/responses
   let renamingId = $state(null);
   let renameValue = $state('');
   let taggerSessionId = $state(null);
@@ -35,14 +34,16 @@
     const q = searchQuery.trim();
     chatSearchQuery.value = q; // sync to shared store for SearchTimeline
     if (!q) {
-      searchResults = null;
+      sessionSearchResults.value = null;
+      sessionSearchQuery.value = '';
       return;
     }
     // Clear stale results immediately so user sees "searching..." not old results
-    searchResults = null;
+    sessionSearchResults.value = null;
     searchDebounce = setTimeout(() => {
-      searchSeq++;
-      send({ type: 'search_sessions', query: q, _searchSeq: searchSeq });
+      storeSearchSeq.value++;
+      sessionSearchQuery.value = q;
+      send({ type: 'search_sessions', query: q, _searchSeq: storeSearchSeq.value });
     }, 200);
   });
 
@@ -61,7 +62,18 @@
   let filteredSessions = $derived.by(() => {
     if (!searchQuery.trim()) return sessions;
     if (!searchMatchMap) return []; // waiting for server — show empty, not all sessions
-    return sessions.filter(s => searchMatchMap.has(s.id));
+    const matched = sessions.filter(s => searchMatchMap.has(s.id));
+    // Include archived results from _old_versions that aren't in active sessions
+    const seenIds = new Set(sessions.map(s => s.id));
+    if (searchResults) {
+      for (const r of searchResults) {
+        if (!seenIds.has(r.id)) {
+          seenIds.add(r.id);
+          matched.push({ id: r.id, title: r.title, lastActivity: r.lastActivity, isProcessing: false, archived: true, crossProject: r.crossProject || null });
+        }
+      }
+    }
+    return matched;
   });
 
   function accountColor(accountId) {
@@ -270,7 +282,11 @@
                 <span class="session-processing-dot"></span>
               {/if}
               {#if renamingId !== session.id}
-                {#if searchMatchMap && searchMatchMap.get(session.id) === 'content'}
+                {#if session.crossProject}
+                  <span class="session-match-badge cross-project">{session.crossProject}</span>
+                {:else if session.archived}
+                  <span class="session-match-badge archived">archived</span>
+                {:else if searchMatchMap && searchMatchMap.get(session.id) === 'content'}
                   <span class="session-match-badge content">in chat</span>
                 {:else if searchMatchMap && searchMatchMap.get(session.id) === 'both'}
                   <span class="session-match-badge both">title + chat</span>
@@ -676,6 +692,16 @@
   .session-match-badge.both {
     color: var(--success);
     background: var(--success-12);
+  }
+
+  .session-match-badge.archived {
+    color: var(--text-dimmer);
+    background: rgba(var(--overlay-rgb), 0.08);
+  }
+
+  .session-match-badge.cross-project {
+    color: #c084fc;
+    background: rgba(192, 132, 252, 0.12);
   }
 
   .session-empty {
