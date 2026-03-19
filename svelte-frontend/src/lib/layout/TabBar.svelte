@@ -436,12 +436,9 @@
   }
 
   /* When split, each tab-section sizes independently via subgrid-like behavior */
-  .tab-bar.split {
-    align-items: start;
-  }
-
-  .tab-bar.split .tab-section {
-    border-bottom: 1px solid rgba(var(--overlay-rgb), 0.06);
+  /* When rendered as shared bar during split, hide — per-pane TabBars handle it */
+  .tab-bar.split:not(.per-pane) {
+    display: none;
   }
 
   /* Pane sections */
