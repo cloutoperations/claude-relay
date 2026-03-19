@@ -157,9 +157,11 @@ function handleIncoming(msg) {
 
     // --- Search results ---
     if (t === 'search_results') {
-      if (msg._searchSeq != null && msg._searchSeq !== searchSeq.value) return;
-      if (msg.query !== sessionSearchQuery.value) return;
+      console.log('[router] search_results:', msg.query, '→', (msg.results || []).length, 'hits, storeQuery:', sessionSearchQuery.value, 'seq:', msg._searchSeq, 'storeSeq:', searchSeq.value);
+      if (msg._searchSeq != null && msg._searchSeq !== searchSeq.value) { console.log('[router] DROPPED: seq mismatch'); return; }
+      if (msg.query !== sessionSearchQuery.value) { console.log('[router] DROPPED: query mismatch', JSON.stringify(msg.query), '!==', JSON.stringify(sessionSearchQuery.value)); return; }
       sessionSearchResults.value = msg.results || [];
+      console.log('[router] search results SET:', sessionSearchResults.value.length);
       return;
     }
 

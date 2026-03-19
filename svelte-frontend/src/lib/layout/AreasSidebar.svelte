@@ -52,11 +52,14 @@
   function saveSidebarSections() {
     try {
       localStorage.setItem(SIDEBAR_STATE_KEY, JSON.stringify({
-        sessions: sessionsExpanded, agents: agentsExpanded, git: gitExpanded, files: filesExpanded, untagged: untaggedExpanded,
+        areas: areasExpanded, sessions: sessionsExpanded, agents: agentsExpanded, git: gitExpanded, files: filesExpanded, archived: archivedExpanded,
       }));
     } catch {}
   }
   const _ss = loadSidebarSections();
+
+  // Areas section
+  let areasExpanded = $state(_ss.areas ?? true);
 
   // Sessions section
   let sessionsExpanded = $state(_ss.sessions ?? true);
@@ -72,7 +75,7 @@
   // Filtered session list: search results or all sessions sorted by recent
   let activeSessions = $derived((sessions || []).filter(s => !s.archived));
   let archivedSessions = $derived((sessions || []).filter(s => s.archived));
-  let archivedExpanded = $state(false);
+  let archivedExpanded = $state(_ss.archived ?? false);
 
   // Cache the sorted list — only re-sort when activeSessions changes, not on every keystroke
   let sortedActiveSessions = $derived(
@@ -680,66 +683,50 @@
     </button>
   </div>
 
-  <!-- New Session — primary action at top -->
-  <button class="new-session-btn top" onclick={handleNewSession}>
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="12" y1="5" x2="12" y2="19"></line>
-      <line x1="5" y1="12" x2="19" y2="12"></line>
-    </svg>
-    New Session
-    {#if hasMultipleAccounts}
-      <svg class="chevron" class:open={showAccountPicker} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-    {/if}
-  </button>
-  {#if showAccountPicker}
-    <div class="account-picker top">
-      <div class="account-picker-label">Select account</div>
-      {#each accounts as account, i}
-        <button class="account-option" onclick={() => handlePickAccount(account.id)}>
-          <span class="account-dot" style="background: {ACCOUNT_COLORS[i % ACCOUNT_COLORS.length]}"></span>
-          <span class="account-email">{account.email || account.id}</span>
-        </button>
-      {/each}
-    </div>
-  {/if}
-
-  <!-- Areas section -->
-  <div class="areas-section">
-    {#if boardLoading.value && !boardData.value}
-      <div class="areas-loading">
-        <div class="areas-spinner"></div>
-        <span>Loading areas...</span>
-      </div>
-    {:else if boardData.value}
-      {#each sortedAreas as area (area.name)}
-        {@const sessionCount = getAreaSessionCount(area)}
-        {@const processingCount = getAreaProcessingCount(area)}
-        {@const allSessions = getAreaSessions(area)}
-        {@const isCollapsed = collapsedAreas.has(area.name)}
-        <div
-          class="area-card"
-          class:has-processing={processingCount > 0}
-          onmouseenter={(e) => onAreaMouseEnter(e, area)}
-          onmouseleave={onAreaMouseLeave}
-        >
-          <!-- Area header row -->
-          <div class="area-header">
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <span class="area-name clickable" onclick={(e) => { e.stopPropagation(); openAreaTab(area.name); }}>{formatAreaName(area.name)}</span>
-            <div class="area-meta" onclick={() => toggleAreaCollapse(area.name)} role="button" tabindex="0">
-              {#if processingCount > 0}
-                <span class="area-session-count">{processingCount}</span>
-              {/if}
-              {#if area.projects.length > 0}
-                <span class="meta-count">{area.projects.length}</span>
-              {/if}
-            </div>
+  <!-- Areas section (collapsible) -->
+  <div class="collapse-section" class:expanded={areasExpanded}>
+    <button class="collapse-header" onclick={() => { areasExpanded = !areasExpanded; saveSidebarSections(); }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="collapse-chevron" class:open={areasExpanded}>
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+      <span>AREAS</span>
+    </button>
+    {#if areasExpanded}
+      <div class="collapse-body areas-section">
+        {#if boardLoading.value && !boardData.value}
+          <div class="areas-loading">
+            <div class="areas-spinner"></div>
+            <span>Loading areas...</span>
           </div>
-
-          <!-- Projects shown on hover panel only -->
-        </div>
-      {/each}
+        {:else if boardData.value}
+          {#each sortedAreas as area (area.name)}
+            {@const sessionCount = getAreaSessionCount(area)}
+            {@const processingCount = getAreaProcessingCount(area)}
+            {@const allSessions = getAreaSessions(area)}
+            {@const isCollapsed = collapsedAreas.has(area.name)}
+            <div
+              class="area-card"
+              class:has-processing={processingCount > 0}
+              onmouseenter={(e) => onAreaMouseEnter(e, area)}
+              onmouseleave={onAreaMouseLeave}
+            >
+              <div class="area-header">
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <span class="area-name clickable" onclick={(e) => { e.stopPropagation(); openAreaTab(area.name); }}>{formatAreaName(area.name)}</span>
+                <div class="area-meta" onclick={() => toggleAreaCollapse(area.name)} role="button" tabindex="0">
+                  {#if processingCount > 0}
+                    <span class="area-session-count">{processingCount}</span>
+                  {/if}
+                  {#if area.projects.length > 0}
+                    <span class="meta-count">{area.projects.length}</span>
+                  {/if}
+                </div>
+              </div>
+            </div>
+          {/each}
+        {/if}
+      </div>
     {/if}
   </div>
 
@@ -940,17 +927,13 @@
           <button class="status-chip" class:active={statusFilter === 'waiting'} onclick={() => statusFilter = 'waiting'}>Waiting {statusCounts.waiting}</button>
           <button class="status-chip" class:active={statusFilter === 'done'} onclick={() => statusFilter = 'done'}>Done {statusCounts.done}</button>
           <button class="review-sessions-btn" onclick={() => startSessionReview(boardData.value)} title="Review sessions with Claude">Review</button>
-        </div>
-        {#if untaggedSessions.length > 0}
-          <div class="git-toolbar">
-            <button class="git-chat-btn" onclick={startAutoTag} title="Create a session that auto-tags all untagged sessions">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
-              </svg>
-              Auto-tag {untaggedSessions.length} sessions
+          {#if untaggedSessions.length > 0}
+            <button class="status-chip autotag-chip" onclick={startAutoTag} title="Auto-tag untagged sessions">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+              {untaggedSessions.length}
             </button>
-          </div>
-        {/if}
+          {/if}
+        </div>
         {#if sessionSearchPending}
           <div class="section-status">Searching...</div>
         {:else if sessionQuery.trim() && displayedSessions.length === 0}
@@ -1775,8 +1758,11 @@
   }
 
   .collapse-section.expanded {
-    flex: 0 1 auto;
+    flex: 1 1 0;
     min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .collapse-header {
@@ -1784,8 +1770,8 @@
     align-items: center;
     gap: 6px;
     width: 100%;
-    padding: 8px 12px;
-    font-size: 11px;
+    padding: 6px 12px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--text-dimmer);
     text-transform: uppercase;
@@ -1794,6 +1780,7 @@
     background: none;
     border: none;
     transition: color 0.12s;
+    flex-shrink: 0;
   }
 
   .collapse-header:hover { color: var(--text-muted); }
@@ -1813,9 +1800,10 @@
   }
 
   .collapse-body {
-    max-height: 300px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
-    padding: 0 4px 8px;
+    padding: 0 4px 4px;
     scrollbar-width: thin;
   }
 
@@ -1842,9 +1830,9 @@
     border: none;
     outline: none;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text);
-    padding: 4px 0;
+    padding: 2px 0;
     min-width: 0;
   }
 
@@ -1883,15 +1871,15 @@
   .sessions-list {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
   }
 
   .session-item {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
-    border-radius: 5px;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 4px;
     cursor: pointer;
     transition: background 0.1s;
   }
@@ -2100,11 +2088,11 @@
   .git-file {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 3px 8px;
+    gap: 4px;
+    padding: 2px 8px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
     transition: background 0.1s;
   }
 
@@ -2338,9 +2326,10 @@
   .sidebar-status {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 4px 8px 8px;
+    gap: 6px;
+    padding: 4px 8px 4px;
     font-size: 11px;
+    flex-wrap: wrap;
   }
 
   .connection-status {
@@ -3347,15 +3336,16 @@
   /* Status filter chips */
   .status-filters {
     display: flex;
-    gap: 4px;
-    padding: 4px 12px 8px;
+    gap: 3px;
+    padding: 4px 12px 6px;
     flex-wrap: wrap;
     align-items: center;
+    flex-shrink: 0;
   }
 
   .status-chip {
     font-size: 10px;
-    padding: 2px 8px;
+    padding: 1px 6px;
     border-radius: 10px;
     border: 1px solid rgba(var(--overlay-rgb), 0.1);
     background: none;
@@ -3363,14 +3353,17 @@
     cursor: pointer;
     font-family: inherit;
     transition: all 0.12s;
+    white-space: nowrap;
   }
 
   .status-chip:hover { color: var(--text-secondary); border-color: rgba(var(--overlay-rgb), 0.2); }
   .status-chip.active { background: var(--accent-12); color: var(--accent); border-color: var(--accent-30); }
+  .autotag-chip { display: inline-flex; align-items: center; gap: 3px; border-style: dashed; }
+  .autotag-chip:hover { color: var(--accent); border-color: var(--accent-30); }
 
   .review-sessions-btn {
     font-size: 10px;
-    padding: 2px 8px;
+    padding: 1px 6px;
     border-radius: 10px;
     border: 1px solid rgba(var(--overlay-rgb), 0.1);
     background: none;
@@ -3379,6 +3372,7 @@
     font-family: inherit;
     margin-left: auto;
     transition: all 0.12s;
+    white-space: nowrap;
   }
   .review-sessions-btn:hover { color: var(--accent); border-color: var(--accent-30); }
 

@@ -168,6 +168,7 @@ function getFilePaneId(filePath) {
 export function openFile(filePath) {
   const fileTabId = '__file__:' + filePath;
   const targetPane = getFilePaneId(filePath);
+  window.dispatchEvent(new CustomEvent('relay-expand-files'));
   const existing = openFiles.find(f => f.path === filePath);
   if (existing) {
     activeFilePath.value = filePath;
@@ -210,6 +211,8 @@ export function closeFileTab(filePath) {
 export function switchTab(filePath) {
   activeFilePath.value = filePath;
   revealInTree(filePath);
+  // Tell AreasSidebar to expand the FILES section
+  window.dispatchEvent(new CustomEvent('relay-expand-files'));
 }
 
 export function closeFile() {

@@ -14,6 +14,8 @@
   const AGENT_PREFIX = '__agent__:';
   const OPERATION_PREFIX = '__operation__:';
 
+  let { paneId = null } = $props();
+
   let paneList = $derived(panes);
   let layout = $derived(paneLayout);
   let isSplit = $derived(paneList.length > 1);
@@ -76,13 +78,16 @@
   }
 
   // Per-pane tab lists (hide __home__ from the bar — it's only an internal fallback)
-  let paneTabs = $derived.by(() => {
+  let allPaneTabs = $derived.by(() => {
     return paneList.map(pane => ({
       paneId: pane.id,
       activeTabId: pane.activeTabId,
       tabs: pane.tabIds.filter(id => id !== '__home__').map(makeTabInfo).filter(Boolean),
     }));
   });
+
+  // When paneId prop is set, only show that pane's tabs
+  let paneTabs = $derived(paneId ? allPaneTabs.filter(s => s.paneId === paneId) : allPaneTabs);
 
   // Drag state
   let dragTabId = $state(null);
@@ -275,16 +280,15 @@
   }
 </script>
 
-<div class="tab-bar">
-  <!-- Pane sections -->
+<div class="tab-bar" class:split={isSplit} class:per-pane={!!paneId}>
   {#each paneTabs as section, idx (section.paneId)}
-    {#if idx > 0 && isSplit}
+    {#if idx > 0 && isSplit && !paneId}
       <div class="pane-divider"></div>
     {/if}
     <div
       class="tab-section"
       class:active-pane={activePaneId.value === section.paneId}
-      style={isSplit ? `flex: ${layout.ratios[idx] || 1}` : 'flex: 1'}
+      style={paneId ? 'flex: 1' : isSplit ? `flex: ${layout.ratios[idx] || 1}` : 'flex: 1'}
     >
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="tab-list"
@@ -423,20 +427,28 @@
 <style>
   .tab-bar {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     background: var(--bg-deeper);
     border-bottom: 1px solid rgba(var(--overlay-rgb), 0.06);
     flex-shrink: 0;
     min-width: 0;
-    height: 40px;
+    min-height: 40px;
+  }
+
+  /* When split, each tab-section sizes independently via subgrid-like behavior */
+  .tab-bar.split {
+    align-items: start;
+  }
+
+  .tab-bar.split .tab-section {
+    border-bottom: 1px solid rgba(var(--overlay-rgb), 0.06);
   }
 
   /* Pane sections */
   .tab-section {
     display: flex;
     min-width: 0;
-    height: 100%;
-    overflow: hidden;
+    min-height: 40px;
     border-left: 1px solid transparent;
     border-right: 1px solid transparent;
   }
@@ -481,15 +493,11 @@
   .tab-list {
     display: flex;
     flex: 1;
-    overflow-x: auto;
+    flex-wrap: wrap;
     min-width: 0;
-    scrollbar-width: none;
-    height: 100%;
-    mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
-    -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+    align-content: flex-start;
+    background: var(--bg-deeper);
   }
-
-  .tab-list::-webkit-scrollbar { display: none; }
 
   .tab {
     display: flex;
@@ -501,10 +509,12 @@
     cursor: pointer;
     white-space: nowrap;
     border-right: 1px solid rgba(var(--overlay-rgb), 0.04);
-    flex-shrink: 0;
+    flex: 1 1 120px;
+    min-width: 120px;
+    max-width: 220px;
     transition: background 0.12s, color 0.12s;
     user-select: none;
-    height: 100%;
+    height: 40px;
     position: relative;
   }
 
@@ -600,7 +610,8 @@
   .tab-tag-btn:hover { opacity: 1 !important; color: var(--accent); background: rgba(var(--overlay-rgb), 0.06); }
 
   .tab-title {
-    max-width: clamp(80px, 15vw, 160px);
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -699,7 +710,7 @@
 
   /* --- Mobile compact tabs --- */
   @media (max-width: 767px) {
-    .tab-bar { height: 36px; }
+    .tab-bar { min-height: 36px; }
     .tab { padding: 0 8px; font-size: 12px; }
     .tab-title { max-width: clamp(60px, 25vw, 120px); }
     .tab-close { display: none; }
@@ -709,12 +720,6 @@
     .tab-area-prefix { display: none; }
     .pane-close-btn { display: none; }
     .pane-divider { display: none; }
-    .tab-list {
-      -webkit-overflow-scrolling: touch;
-      scroll-snap-type: x proximity;
-      mask-image: none;
-      -webkit-mask-image: none;
-    }
-    .tab { scroll-snap-align: start; }
+    .tab { height: 36px; }
   }
 </style>

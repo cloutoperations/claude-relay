@@ -6,7 +6,8 @@
   import { tabs, activeTabId, closeTab } from './stores/tabs.svelte.js';
   import { createSession } from './stores/sessions.svelte.js';
   import { activeFilePath, closeFileTab } from './stores/files.svelte.js';
-  import { panes, activePaneId, splitPane } from './stores/panes.svelte.js';
+  import { panes, paneLayout, activePaneId, splitPane } from './stores/panes.svelte.js';
+  let isSplit = $derived(panes.length > 1);
   import { sidebarOpen, isMobile } from './stores/ui.svelte.js';
   import TabBar from './lib/layout/TabBar.svelte';
   import AreasSidebar from './lib/layout/AreasSidebar.svelte';

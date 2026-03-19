@@ -31,6 +31,38 @@
   // Known file extensions for link detection
   const FILE_EXTS = new Set(['md','mdx','js','mjs','ts','tsx','svelte','json','yaml','yml','toml','css','html','sh','py','txt','csv','sql']);
 
+  // Image extensions for wikilink rendering
+  const WIKI_IMAGE_EXTS = new Set(['jpg','jpeg','png','gif','webp','bmp','svg']);
+
+  // Convert Obsidian ![[path]] wikilinks to standard markdown ![](apiUrl)
+  function preprocessWikilinks(md) {
+    if (!md || !md.includes('![[')) return md;
+    const fileDir = path.split('/').slice(0, -1).join('/');
+    return md.replace(/!\[\[([^\]]+)\]\]/g, (match, wikiPath) => {
+      const ext = wikiPath.split('.').pop()?.toLowerCase();
+      if (!ext || !WIKI_IMAGE_EXTS.has(ext)) return match;
+      // Resolve relative to current file's directory
+      const resolved = fileDir ? fileDir + '/' + wikiPath : wikiPath;
+      const apiUrl = getBasePath() + 'api/file?path=' + encodeURIComponent(resolved);
+      return `![](${apiUrl})`;
+    });
+  }
+
+  // Convert standard markdown images back to ![[path]] for Obsidian compatibility on save
+  function postprocessWikilinks(md) {
+    if (!md || !md.includes('api/file?path=')) return md;
+    return md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
+      if (!src.includes('api/file?path=')) return match;
+      const encoded = src.split('api/file?path=').pop();
+      if (!encoded) return match;
+      const resolved = decodeURIComponent(encoded);
+      // Make relative to current file's directory
+      const fileDir = path.split('/').slice(0, -1).join('/');
+      const relative = resolved.startsWith(fileDir + '/') ? resolved.slice(fileDir.length + 1) : resolved;
+      return `![[${relative}]]`;
+    });
+  }
+
   // Link tooltip
   let linkTooltip = $state(null); // { x, y, href, resolved, isFile, label }
   let linkHideTimer = null;
@@ -315,7 +347,7 @@
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
         TaskList,
         TaskItem.configure({ nested: true }),
-        Image.configure({ inline: false }),
+        Image.configure({ inline: false, HTMLAttributes: { loading: 'lazy' } }),
         Table.configure({ resizable: true }),
         TableRow,
         TableCell,
@@ -481,7 +513,7 @@
     });
 
     if (content) {
-      editor.commands.setContent(content);
+      editor.commands.setContent(preprocessWikilinks(content));
       setTimeout(() => { dirty = false; onDirty?.(false); }, 50);
     }
 
@@ -505,7 +537,7 @@
     if (editor && content !== undefined) {
       const cur = getMarkdown();
       if (Math.abs(cur.length - content.length) > 50 || !cur.startsWith(content.substring(0, 30))) {
-        editor.commands.setContent(content);
+        editor.commands.setContent(preprocessWikilinks(content));
         dirty = false;
         onDirty?.(false);
       }
@@ -706,7 +738,8 @@
   function getMarkdown() {
     if (viewMode === 'markdown') return rawMarkdown;
     if (!editor) return '';
-    return editor.storage.markdown?.getMarkdown?.() || '';
+    const md = editor.storage.markdown?.getMarkdown?.() || '';
+    return postprocessWikilinks(md);
   }
 
   function runSlashCommand(idx) {
@@ -1151,7 +1184,7 @@
     border-color: rgba(var(--accent-rgb), 0.25);
   }
   .ne-editor-wrap :global(.ne-prosemirror strong) { font-weight: 600; color: var(--text); }
-  .ne-editor-wrap :global(.ne-prosemirror img) { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+  .ne-editor-wrap :global(.ne-prosemirror img) { max-width: 100%; max-height: 300px; object-fit: contain; border-radius: 8px; margin: 8px 0; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
 
   /* Table */
   .ne-editor-wrap :global(.ne-prosemirror table) { border-collapse: collapse; width: 100%; margin: 8px 0; }

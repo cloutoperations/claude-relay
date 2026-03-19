@@ -1,5 +1,6 @@
 <script>
   import { onDestroy } from 'svelte';
+  import TabBar from './TabBar.svelte';
   import { panes, paneLayout, activePaneId, updateRatios, splitPane, addTabToPane, moveTabToPane, closePane } from '../../stores/panes.svelte.js';
   import { tabs } from '../../stores/tabs.svelte.js';
   import { sendTabMessage, stopTab, sendTabPermissionResponse, loadEarlierHistory, openTab } from '../../stores/tabs.svelte.js';
@@ -28,6 +29,7 @@
 
   let paneList = $derived(panes);
   let layout = $derived(paneLayout);
+  let isSplit = $derived(paneList.length > 1);
   let currentActivePaneId = $derived(activePaneId.value);
 
   // Session → projectPath lookup from session list
@@ -307,6 +309,11 @@
       {/if}
       {#if dropPaneId === pane.id && dropZone === 'center'}
         <div class="drop-indicator center"><span class="drop-label">Move Here</span></div>
+      {/if}
+
+      <!-- Per-pane tab bar (only when split) -->
+      {#if isSplit}
+        <TabBar paneId={pane.id} />
       {/if}
 
       <!-- Pane content -->
