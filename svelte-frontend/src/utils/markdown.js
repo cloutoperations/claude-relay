@@ -9,7 +9,7 @@ marked.use({ gfm: true, breaks: false });
 // Must have at least one slash and end with a known file extension.
 const FILE_EXT = 'md|js|mjs|cjs|ts|tsx|svelte|json|yaml|yml|toml|css|html|sh|py|rs|go|java|kt|sql|txt|csv|env|lock|xml|svg|png|jpg|jpeg|gif|pdf';
 const FILE_PATH_RE = new RegExp(
-  '((?:[\\w@~][\\w.@~-]*/)+[\\w.@~-]+\\.(?:' + FILE_EXT + '))(?=[\\s,;:)\\]"\'<]|$)',
+  '(/?(?:[\\w@~][\\w.@~-]*/)+[\\w.@~-]+\\.(?:' + FILE_EXT + '))(?=[\\s,;:)\\]"\'<]|$)',
   'g'
 );
 

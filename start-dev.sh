@@ -20,16 +20,16 @@ WATCH_PID=$!
 # Wait for first build
 sleep 4
 
-# 3. Dev browser (Playwright with persistent state)
-echo "[3/3] Starting dev browser..."
+# 3. Chrome CDP dev browser (real Chrome, no Playwright)
+echo "[3/3] Starting Chrome with CDP on :9222..."
 node dev-browser.mjs &
 BROWSER_PID=$!
 
 echo ""
 echo "Claude Relay dev running:"
-echo "  Daemon:      PID $DAEMON_PID (https://localhost:2633)"
+echo "  Daemon:      PID $DAEMON_PID (https://localhost:2633 + http://localhost:2680)"
 echo "  Watch build:  PID $WATCH_PID (rebuilds dist/ on changes)"
-echo "  Dev browser:  PID $BROWSER_PID"
+echo "  Chrome CDP:   PID $BROWSER_PID (http://localhost:2680, auto-reload, state → /tmp/relay-test/dev-state.json)"
 echo ""
 echo "Press Ctrl+C to stop all."
 

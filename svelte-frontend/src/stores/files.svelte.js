@@ -233,5 +233,6 @@ export function searchFiles(query) {
 }
 
 export function loadRootDir() {
+  if (!wsState.connected) return; // Wait for WS — handleWsOpen will restore state
   send({ type: 'fs_list', path: '.' });
 }

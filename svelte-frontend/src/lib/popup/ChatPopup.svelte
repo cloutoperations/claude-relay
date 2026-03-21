@@ -1,5 +1,4 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
   import { toggleMinimize, closePopup, sendPopupMessage, sendPopupPermissionResponse, stopPopupProcessing } from '../../stores/popups.svelte.js';
   import { promotePopupToTab } from '../../stores/tabs.svelte.js';
   import { sessionList as sessions } from '../../stores/sessions.svelte.js';
@@ -73,52 +72,28 @@
     return { area: parts[0], project: parts.length > 2 ? parts[parts.length - 1] : null };
   }
 
-  // Resizable height + width — synced across all popup instances via custom event
-  const POPUP_SIZE_KEY = 'claude-relay-popup-size';
-  let savedSize = null;
-  try { savedSize = JSON.parse(localStorage.getItem(POPUP_SIZE_KEY) || '{}'); } catch {}
-  let popupHeight = $state(savedSize?.h > 200 ? savedSize.h : null);
-  let popupWidth = $state(savedSize?.w > 280 ? savedSize.w : null);
+  // Resizable height + width — shared across all popups via store
+  import { popupSize, savePopupSize } from '../../stores/popup-size.svelte.js';
+  let popupHeight = $derived(popupSize.h);
+  let popupWidth = $derived(popupSize.w);
   let isResizing = $state(false);
-
-  // Listen for size changes from other popup instances
-  function onPopupResized(e) {
-    if (e.detail) {
-      if (e.detail.h !== undefined) popupHeight = e.detail.h;
-      if (e.detail.w !== undefined) popupWidth = e.detail.w;
-    }
-  }
-  onMount(() => { window.addEventListener('popup-resized', onPopupResized); });
-  onDestroy(() => { window.removeEventListener('popup-resized', onPopupResized); });
-
-  function saveSize() {
-    try {
-      localStorage.setItem(POPUP_SIZE_KEY, JSON.stringify({
-        h: popupHeight ? Math.round(popupHeight) : null,
-        w: popupWidth ? Math.round(popupWidth) : null,
-      }));
-      if (popupHeight) localStorage.setItem('claude-relay-popup-height', String(Math.round(popupHeight)));
-    } catch {}
-    // Notify other popup instances
-    window.dispatchEvent(new CustomEvent('popup-resized', { detail: { h: popupHeight, w: popupWidth } }));
-  }
 
   function startResizeTop(e) {
     e.preventDefault();
     e.stopPropagation();
     isResizing = true;
     const startY = e.clientY;
-    const startHeight = popupHeight || 380;
+    const startHeight = popupSize.h || 380;
 
     function onMove(e) {
-      popupHeight = Math.max(200, Math.min(window.innerHeight * 0.8, startHeight + (startY - e.clientY)));
+      popupSize.h = Math.max(200, Math.min(window.innerHeight * 0.8, startHeight + (startY - e.clientY)));
     }
 
     function onUp() {
       isResizing = false;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-      saveSize();
+      savePopupSize();
     }
 
     document.addEventListener('mousemove', onMove);
@@ -130,17 +105,17 @@
     e.stopPropagation();
     isResizing = true;
     const startX = e.clientX;
-    const startWidth = popupWidth || 420;
+    const startWidth = popupSize.w || 420;
 
     function onMove(e) {
-      popupWidth = Math.max(280, Math.min(window.innerWidth * 0.6, startWidth + (startX - e.clientX)));
+      popupSize.w = Math.max(280, Math.min(window.innerWidth * 0.6, startWidth + (startX - e.clientX)));
     }
 
     function onUp() {
       isResizing = false;
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-      saveSize();
+      savePopupSize();
     }
 
     document.addEventListener('mousemove', onMove);

@@ -22,6 +22,11 @@ let popupFlightTimer = null;
 
 // --- Persistence ---
 
+// Save popup state on page unload as a safety net
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => saveLayout());
+}
+
 export function saveLayout() {
   try {
     const layout = popupOrder
@@ -32,7 +37,10 @@ export function saveLayout() {
         minimized: popups[id].minimized,
       }));
     localStorage.setItem(STORAGE_KEY, JSON.stringify(layout));
-  } catch {}
+    if (layout.length > 0) console.warn('[popups] saved', layout.length, 'popups to localStorage');
+  } catch (e) {
+    console.warn('[popups] saveLayout FAILED:', e.message || e);
+  }
 }
 
 // --- Public API ---

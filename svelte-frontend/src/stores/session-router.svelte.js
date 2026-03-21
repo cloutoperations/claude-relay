@@ -77,6 +77,8 @@ function handleIncoming(msg) {
         ? resolveSessionId(msg.sessionId)
         : initialReplaySession || null;
       if (!sessionId || !sessionStates[sessionId]) {
+        // Silent on startup — server sends untagged history for empty session list
+        if (!msg.sessionId && !initialReplaySession) return;
         console.warn('[router] history_start dropped — no session state for', msg.sessionId?.substring(0, 12), 'resolved:', sessionId?.substring?.(0, 12));
         return;
       }
@@ -91,6 +93,7 @@ function handleIncoming(msg) {
         ? resolveSessionId(msg.sessionId)
         : initialReplaySession || null;
       if (!sessionId || !sessionStates[sessionId]) {
+        if (!msg.sessionId && !initialReplaySession) return;
         console.warn('[router] history_done dropped — no session state for', msg.sessionId?.substring(0, 12), 'resolved:', sessionId?.substring?.(0, 12));
         return;
       }
@@ -148,8 +151,9 @@ function handleIncoming(msg) {
       sessionList.push(...(msg.sessions || []));
       // Update tab titles from session list
       for (const s of sessionList) {
-        if (tabs[s.id] && s.title) {
-          tabs[s.id].title = s.title;
+        if (s.title) {
+          if (tabs[s.id]) tabs[s.id].title = s.title;
+          if (popups[s.id]) popups[s.id].title = s.title;
         }
       }
       return;
