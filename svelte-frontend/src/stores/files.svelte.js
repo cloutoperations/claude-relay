@@ -83,6 +83,11 @@ function handleWsOpen() {
     }
   } catch {}
   persistEnabled = true;
+
+  // Load root directory now that WS is connected
+  if (!treeData['.']?.loaded) {
+    send({ type: 'fs_list', path: '.' });
+  }
 }
 
 // Called by session-router for file-related WS messages
