@@ -1,7 +1,7 @@
 <script>
   import { onDestroy } from 'svelte';
   import TabBar from './TabBar.svelte';
-  import { panes, paneLayout, activePaneId, updateRatios, splitPane, addTabToPane, moveTabToPane, closePane } from '../../stores/panes.svelte.js';
+  import { panes, paneLayout, activePaneId, updateRatios, splitPane, addTabToPane, moveTabToPane, closePane, MAX_PANES } from '../../stores/panes.svelte.js';
   import { tabs } from '../../stores/tabs.svelte.js';
   import { sendTabMessage, stopTab, sendTabPermissionResponse, loadEarlierHistory, openTab } from '../../stores/tabs.svelte.js';
   import { send } from '../../stores/ws.svelte.js';
@@ -236,9 +236,9 @@
       return;
     }
 
-    if (dropZone === 'right' && paneList.length < 6) {
+    if (dropZone === 'right' && paneList.length < MAX_PANES) {
       splitPane(tabId, 'horizontal');
-    } else if (dropZone === 'bottom' && paneList.length < 6) {
+    } else if (dropZone === 'bottom' && paneList.length < MAX_PANES) {
       splitPane(tabId, 'vertical');
     } else if (dropZone === 'center') {
       moveTabToPane(tabId, paneId);

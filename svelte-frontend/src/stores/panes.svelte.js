@@ -1,7 +1,7 @@
 // Pane store — manages split pane layout. Svelte 5 runes version.
 
 const STORAGE_KEY = 'claude-relay-panes';
-const MAX_PANES = 6;
+export const MAX_PANES = 8;
 
 // --- Persistence ---
 
