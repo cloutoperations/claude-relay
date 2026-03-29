@@ -162,6 +162,17 @@ export function getOpenPopupIds() {
   return Object.keys(popups);
 }
 
+// --- WS lifecycle (called by session-router) ---
+
+export function onWsClose() {
+  // Clear flight timer on disconnect so popups aren't permanently blocked
+  if (popupFlightTimer) {
+    clearTimeout(popupFlightTimer);
+    popupFlightTimer = null;
+  }
+  popupMessageInFlight.value = false;
+}
+
 // --- Rekey helper (called by session-router) ---
 
 export function onPopupRekey(oldId, newId) {

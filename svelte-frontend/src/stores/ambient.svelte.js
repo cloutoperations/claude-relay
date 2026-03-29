@@ -4,6 +4,10 @@
 // Map of sessionId -> { status, permissionRequest, askUser, needsAttention, lastEventTime }
 export let ambientState = $state({});
 
+export function cleanupAmbient(sessionId) {
+  delete ambientState[sessionId];
+}
+
 export function updateAmbient(sessionId, event) {
   const s = ambientState[sessionId] || {};
 

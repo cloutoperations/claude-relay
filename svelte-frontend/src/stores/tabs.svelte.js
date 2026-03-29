@@ -7,6 +7,7 @@ import { finishAssistantInArray, nextMsgKey } from './session-state-utils.js';
 import { closePopup, isPopupOpen, popups, popupOrder, saveLayout as savePopupLayout } from './popups.svelte.js';
 import { addTabToPane, setPaneTab, onTabClosed, renameTabInPanes, findPaneForTab, pruneStaleTabsFromPanes, setOnPaneTabSwitch } from './panes.svelte.js';
 import { showToast } from './toasts.svelte.js';
+import { cleanupAmbient } from './ambient.svelte.js';
 
 export const HOME_TAB = '__home__';
 const STORAGE_KEY = 'claude-relay-tabs';
@@ -111,6 +112,7 @@ export function closeTab(sessionId) {
   // Unregister from server + clean up session state
   send({ type: 'tab_unsubscribe', sessionId });
   removeSessionState(sessionId);
+  cleanupAmbient(sessionId);
 
   saveLayout();
 }

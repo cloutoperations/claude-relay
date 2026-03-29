@@ -47,7 +47,8 @@ if (saved?.panes) {
 // Fix stale layout: ratios must match pane count
 if (paneLayout.ratios.length !== panes.length) {
   if (panes.length <= 1) {
-    Object.assign(paneLayout, { direction: null, ratios: [1] });
+    paneLayout.direction = null;
+    paneLayout.ratios = [1];
   } else {
     paneLayout.ratios = Array(panes.length).fill(1 / panes.length);
   }

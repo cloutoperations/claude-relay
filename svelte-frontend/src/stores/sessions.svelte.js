@@ -10,6 +10,7 @@ try { localStorage.removeItem('claude-relay-active-session'); } catch {}
 // --- State ---
 
 export let sessionList = $state([]); // full session list from server
+if (typeof window !== 'undefined') { Object.defineProperty(window, '__sessionList', { get: () => sessionList }); }
 export const activeSessionId = $state({ value: null }); // legacy — used by board components
 export let homeVisible = $state(true);
 export let boardVisible = $state(false);

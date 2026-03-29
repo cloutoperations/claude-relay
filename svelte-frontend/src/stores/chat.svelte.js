@@ -17,7 +17,7 @@ export let modelInfo = $state({ model: '', models: [] });
 export let rateLimitState = $state({ active: false, text: '', clearTimer: null });
 
 // Unified config state — synced from server
-export let configState = $state({ model: '', effort: '', fastMode: false, permissionMode: 'default' });
+export let configState = $state({ model: '', effort: '', fastMode: false, permissionMode: 'default', boardApiUrl: null });
 
 // Account usage data — populated by get_usage / usage_data WS messages
 export let accountUsage = $state({ accounts: [], timestamp: 0, loading: true });

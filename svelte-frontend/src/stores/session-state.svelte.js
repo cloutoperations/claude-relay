@@ -109,6 +109,8 @@ export function removeSessionState(sessionId) {
   delete rekeyMap[sessionId];
   removeCachedSession(sessionId);
   staleTabs.delete(sessionId);
+  // Cleanup is also needed in ambient store, but it's imported by session-router
+  // which calls cleanupAmbient(sessionId) separately to avoid circular deps.
 }
 
 // --- History replay ---
@@ -128,12 +130,19 @@ export function startHistoryReplay(sessionId, from, total, suppressSkeleton) {
       state.loadingHistory = true;
     }
   }
+  // Safety: if server never sends history_done, clean up buffer after 30s
+  const sid = sessionId;
+  setTimeout(() => {
+    if (replayBuffers[sid]) {
+      console.warn('[session-state] replay buffer timeout for', sid.substring(0, 8));
+      finishHistoryReplay(sid);
+    }
+  }, 30000);
 }
 
 export function finishHistoryReplay(sessionId) {
   const buf = replayBuffers[sessionId];
   const state = sessions[sessionId];
-
   if (buf && state) {
     // Finalize any pending streaming in buffer
     if (buf.isStreaming && buf.currentText) {

@@ -3,7 +3,7 @@
   import { connect, wsState } from './stores/ws.svelte.js';
   import './stores/session-router.svelte.js'; // Must import to activate the $effect message router
   import { popups, updatePopupTitle } from './stores/popups.svelte.js';
-  import { tabs, activeTabId, closeTab } from './stores/tabs.svelte.js';
+  import { tabs, activeTabId, closeTab, openTab } from './stores/tabs.svelte.js';
   import { createSession } from './stores/sessions.svelte.js';
   import { activeFilePath, closeFileTab } from './stores/files.svelte.js';
   import { panes, paneLayout, activePaneId, splitPane } from './stores/panes.svelte.js';
@@ -17,6 +17,16 @@
   import ToastBar from './lib/layout/ToastBar.svelte';
 
   let quickOpenVisible = $state(false);
+  let appError = $state(null);
+
+  function handleAppError(error) {
+    console.error('[App] Uncaught component error:', error);
+    appError = error;
+  }
+
+  function dismissError() {
+    appError = null;
+  }
 
   onMount(() => {
     // ?reset — clear all persisted UI state (fixes stuck/corrupted tabs)
@@ -27,14 +37,31 @@
       return;
     }
 
-    // Pass active session ID to WS URL so server starts replaying immediately
-    // (zero-delay history load, same as legacy frontend)
+    // Deep link: #s=SESSION_ID opens that session directly
+    // Also pass to WS URL for zero-delay history replay
     let initialSession = null;
-    try {
-      const saved = JSON.parse(localStorage.getItem('claude-relay-tabs') || '{}');
-      if (saved.activeTabId && !saved.activeTabId.startsWith('__')) initialSession = saved.activeTabId;
-    } catch {}
+    const hashMatch = location.hash.match(/^#s=(.+)/);
+    if (hashMatch) {
+      initialSession = hashMatch[1];
+      openTab(initialSession, 'Session');
+      history.replaceState(null, '', location.pathname);
+    } else {
+      try {
+        const saved = JSON.parse(localStorage.getItem('claude-relay-tabs') || '{}');
+        if (saved.activeTabId && !saved.activeTabId.startsWith('__')) initialSession = saved.activeTabId;
+      } catch {}
+    }
     connect(initialSession);
+
+    // BroadcastChannel: let other apps (board) open sessions in this relay tab
+    const channel = new BroadcastChannel('claude-relay');
+    channel.onmessage = (e) => {
+      if (e.data?.type === 'open-session' && e.data.sessionId) {
+        openTab(e.data.sessionId, e.data.title || 'Session');
+        window.focus();
+        channel.postMessage({ type: 'ack' });
+      }
+    };
 
     function handleKeydown(e) {
       // Cmd+O — quick open
@@ -78,6 +105,22 @@
   });
 </script>
 
+<svelte:boundary onerror={handleAppError}>
+
+{#if appError}
+  <div class="error-boundary">
+    <div class="error-card">
+      <h3>Something broke</h3>
+      <pre>{appError.message || String(appError)}</pre>
+      <div class="error-actions">
+        <button onclick={dismissError}>Dismiss</button>
+        <button onclick={() => location.reload()}>Reload</button>
+        <button onclick={() => { location.search = '?reset'; }}>Reset UI State</button>
+      </div>
+    </div>
+  </div>
+{:else}
+
 <AreasSidebar />
 
 <div class="main-area">
@@ -103,6 +146,10 @@
 <ChatPopupManager />
 <QuickOpen visible={quickOpenVisible} onClose={() => quickOpenVisible = false} />
 <ToastBar />
+
+{/if}
+
+</svelte:boundary>
 
 <style>
   .main-area {
@@ -169,5 +216,54 @@
   .mobile-hamburger:hover {
     background: rgba(var(--overlay-rgb), 0.08);
     color: var(--text);
+  }
+
+  .error-boundary {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg, #1a1a2e);
+    z-index: 9999;
+  }
+  .error-card {
+    max-width: 500px;
+    padding: 24px;
+    background: var(--bg-raised, #252540);
+    border: 1px solid var(--border, #333);
+    border-radius: 12px;
+  }
+  .error-card h3 {
+    margin: 0 0 12px;
+    color: #ff6b6b;
+  }
+  .error-card pre {
+    margin: 0 0 16px;
+    padding: 12px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 6px;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 200px;
+    overflow: auto;
+    color: var(--text-muted, #aaa);
+  }
+  .error-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .error-actions button {
+    padding: 8px 16px;
+    border: 1px solid var(--border, #333);
+    border-radius: 6px;
+    background: var(--bg, #1a1a2e);
+    color: var(--text, #eee);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .error-actions button:hover {
+    background: rgba(var(--overlay-rgb, 255,255,255), 0.08);
   }
 </style>

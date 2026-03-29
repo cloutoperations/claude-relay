@@ -8,6 +8,9 @@
   import { panes, paneLayout, findPaneForTab, switchPaneTab, addTabToPane, moveTabToPane, activePaneId, splitPane, closePane } from '../../stores/panes.svelte.js';
   import { agents } from '../../stores/agents.svelte.js';
   import { isMobile } from '../../stores/ui.svelte.js';
+  import { send, getBasePath } from '../../stores/ws.svelte.js';
+  import { configState } from '../../stores/chat.svelte.js';
+
   const FILE_PREFIX = '__file__:';
   const AREA_PREFIX = '__area__:';
   const PROJECT_PREFIX = '__project__:';
@@ -66,6 +69,7 @@
     const tab = tabs[id];
     if (!tab) return null;
     const ss = sessionStates[id];
+    const sl = sessionList.find(s => s.id === id);
     return {
       id,
       title: tab.title || 'Session',
@@ -74,10 +78,16 @@
       hasUnread: tab.hasUnread,
       isHome: false,
       type: 'session',
+      boardCardId: sl?.boardCardId || null,
     };
   }
 
   // Per-pane tab lists (hide __home__ from the bar — it's only an internal fallback)
+  // Card links derived from sessionList (reactive)
+  let cardLinks = $derived(
+    sessionList.reduce((map, s) => { if (s.boardCardId) map[s.id] = s.boardCardId; return map; }, {})
+  );
+
   let allPaneTabs = $derived.by(() => {
     return paneList.map(pane => ({
       paneId: pane.id,
@@ -278,6 +288,147 @@
     splitPane(ctxMenu.tabId, 'vertical');
     closeCtxMenu();
   }
+
+  // --- Board card link lookup (reactive to sessionList) ---
+  function getLinkedCardId(tabId) {
+    return sessionList.find(s => s.id === tabId)?.boardCardId || null;
+  }
+
+  // --- Board card cache ---
+  let cardCache = $state({}); // cardId → { title, status, fetchedAt }
+  let cardLinkPicker = $state(null); // { tabId, x, y, cards, loading }
+
+  // Non-reactive fetch tracker — plain Set avoids mutating $state during render
+  const _fetchingCards = new Set();
+
+  function getCardInfo(cardId) {
+    if (!cardId) return null;
+    if (cardCache[cardId]) return cardCache[cardId];
+    if (!_fetchingCards.has(cardId)) {
+      _fetchingCards.add(cardId);
+      fetch(`${getBasePath()}api/board-cards/${cardId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(card => {
+          _fetchingCards.delete(cardId);
+          if (card) cardCache = { ...cardCache, [cardId]: { title: card.title, status: card.status, id: card.id } };
+        })
+        .catch(() => { _fetchingCards.delete(cardId); });
+    }
+    return { title: `#${cardId}`, status: 'unknown' };
+  }
+
+  const cardStatusColors = { todo: '#6b7280', in_progress: '#3b82f6', blocked: '#ef4444', done: '#22c55e' };
+
+  function ctxUnlinkCard() {
+    if (!ctxMenu || ctxMenu.type !== 'session') return;
+    send({ type: 'update_session_meta', id: ctxMenu.tabId, boardCardId: null });
+    // Also unlink on board side via relay proxy
+    const sl = sessionList.find(s => s.id === ctxMenu.tabId);
+    if (sl?.boardCardId) {
+      fetch(`${getBasePath()}api/board-cards/${sl.boardCardId}/link`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: ctxMenu.tabId }),
+      }).catch(() => {});
+    }
+    closeCtxMenu();
+  }
+
+  async function ctxLinkCard() {
+    if (!ctxMenu || ctxMenu.type !== 'session') return;
+    const tabId = ctxMenu.tabId;
+    const x = ctxMenu.x;
+    const y = ctxMenu.y;
+    closeCtxMenu();
+
+    // Fetch cards via relay proxy (same-origin)
+    cardLinkPicker = { tabId, x, y, cards: [], loading: true, query: '' };
+    try {
+      const res = await fetch(`${getBasePath()}api/board-cards`);
+      if (res.ok) {
+        const cards = await res.json();
+        cardLinkPicker.cards = (Array.isArray(cards) ? cards : []).filter(c => c.status !== 'archived').sort((a, b) => (b.updated_at || '') > (a.updated_at || '') ? 1 : -1);
+      }
+    } catch {}
+    cardLinkPicker.loading = false;
+    cardLinkPicker = { ...cardLinkPicker }; // trigger reactivity
+  }
+
+  function pickCard(cardId) {
+    if (!cardLinkPicker) return;
+    const sessionId = cardLinkPicker.tabId;
+    // Update relay session meta
+    send({ type: 'update_session_meta', id: sessionId, boardCardId: cardId });
+    // Link on board side via relay proxy
+    fetch(`${getBasePath()}api/board-cards/${cardId}/link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId }),
+    }).catch(() => {});
+    cardLinkPicker = null;
+  }
+
+  let filteredPickerCards = $derived(
+    cardLinkPicker?.cards?.filter(c => !cardLinkPicker.query || c.title.toLowerCase().includes(cardLinkPicker.query.toLowerCase())) || []
+  );
+
+  // --- Hover tooltip ---
+  let hoverTab = $state(null); // { id, type, boardCardId, rect }
+  let hoverTimeout = null;
+
+  function handleTabMouseEnter(e, tab) {
+    if (tab.type !== 'session') return;
+    clearTimeout(hoverTimeout);
+    const rect = e.currentTarget.getBoundingClientRect();
+    hoverTimeout = setTimeout(() => {
+      hoverTab = { id: tab.id, type: tab.type, boardCardId: tab.boardCardId, rect };
+    }, 350);
+  }
+
+  function handleTabMouseLeave() {
+    clearTimeout(hoverTimeout);
+    hoverTimeout = setTimeout(() => { hoverTab = null; }, 150);
+  }
+
+  function handleTooltipEnter() {
+    clearTimeout(hoverTimeout);
+  }
+
+  function handleTooltipLeave() {
+    hoverTab = null;
+  }
+
+  function tooltipLinkCard() {
+    if (!hoverTab) return;
+    const tabId = hoverTab.id;
+    const rect = hoverTab.rect;
+    hoverTab = null;
+    // Reuse the card picker via relay proxy
+    cardLinkPicker = { tabId, x: rect.left, y: rect.bottom + 4, cards: [], loading: true, query: '' };
+    fetch(`${getBasePath()}api/board-cards`)
+      .then(r => r.ok ? r.json() : null)
+      .then(cards => {
+        if (cards) cardLinkPicker.cards = (Array.isArray(cards) ? cards : []).filter(c => c.status !== 'archived').sort((a, b) => (b.updated_at || '') > (a.updated_at || '') ? 1 : -1);
+        cardLinkPicker.loading = false;
+        cardLinkPicker = { ...cardLinkPicker };
+      })
+      .catch(() => { cardLinkPicker = null; });
+  }
+
+  function tooltipUnlinkCard() {
+    if (!hoverTab) return;
+    const tabId = hoverTab.id;
+    const sl = sessionList.find(s => s.id === tabId);
+    send({ type: 'update_session_meta', id: tabId, boardCardId: null });
+    if (sl?.boardCardId) {
+      fetch(`${getBasePath()}api/board-cards/${sl.boardCardId}/link`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: tabId }),
+      }).catch(() => {});
+    }
+    hoverTab = null;
+  }
 </script>
 
 <div class="tab-bar" class:split={isSplit} class:per-pane={!!paneId}>
@@ -320,6 +471,8 @@
             ondragover={(e) => handleDragOver(e, tab.id)}
             ondragleave={(e) => handleDragLeave(e, tab.id)}
             ondrop={(e) => handleDrop(e, tab.id, section.paneId)}
+            onmouseenter={(e) => handleTabMouseEnter(e, tab)}
+            onmouseleave={handleTabMouseLeave}
             title={tab.title}
             style:border-bottom-color={tab.type === 'session' ? (sessionList.find(s => s.id === tab.id)?.status === 'done' ? '#57ab5a' : sessionList.find(s => s.id === tab.id)?.status === 'waiting' ? '#d4a72c' : 'transparent') : 'transparent'}
             style:border-bottom-width={tab.type === 'session' && (sessionList.find(s => s.id === tab.id)?.status === 'done' || sessionList.find(s => s.id === tab.id)?.status === 'waiting') ? '2px' : '0'}
@@ -371,6 +524,16 @@
                 </button>
               {/if}
               <span class="tab-title">{tab.title}</span>
+              {#key cardLinks[tab.id]}
+                {#if cardLinks[tab.id]}
+                  {@const cardId = cardLinks[tab.id]}
+                  {@const ci = getCardInfo(cardId)}
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
+                  <a class="card-badge" href={`http://localhost:3100/?card=${cardId}`} target="_blank" style:background={cardStatusColors[ci?.status] || '#6b7280'} title={ci?.title || `Card #${cardId}`} onclick={(e) => e.stopPropagation()}>
+                    {ci?.title ? ci.title.substring(0, 18) : `#${cardId}`}
+                  </a>
+                {/if}
+              {/key}
               <button class="tab-popout" onclick={(e) => handlePopOut(e, tab.id)} title="Pop out to window">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="2" y="2" width="20" height="20" rx="2"/><rect x="10" y="10" width="12" height="12" rx="1" fill="var(--bg-raised)"/>
@@ -410,6 +573,12 @@
       <button class="tab-ctx-item" onclick={() => ctxSetStatus('waiting')}>Mark Waiting</button>
       <div class="tab-ctx-sep"></div>
       <button onclick={ctxArchive}>{sessionList.find(s => s.id === ctxMenu.tabId)?.archived ? 'Unarchive' : 'Archive'}</button>
+      <div class="tab-ctx-sep"></div>
+      {#if sessionList.find(s => s.id === ctxMenu.tabId)?.boardCardId}
+        <button onclick={ctxUnlinkCard}>Unlink Card</button>
+      {:else}
+        <button onclick={ctxLinkCard}>Link to Card</button>
+      {/if}
     {/if}
     {#if !isMobile.value}
       <button onclick={ctxSplitRight}>Split Right</button>
@@ -418,6 +587,65 @@
     <div class="tab-ctx-sep"></div>
     <button onclick={ctxCloseTab}>Close</button>
     <button onclick={ctxCloseOthers}>Close Others</button>
+  </div>
+{/if}
+
+<!-- Card link picker -->
+{#if cardLinkPicker}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div class="tab-ctx-backdrop" onclick={() => { cardLinkPicker = null; }}></div>
+  <div class="card-picker" style="left: {cardLinkPicker.x}px; top: {cardLinkPicker.y}px">
+    <input
+      class="card-picker-search"
+      placeholder="Search cards..."
+      oninput={(e) => { cardLinkPicker.query = e.target.value; cardLinkPicker = { ...cardLinkPicker }; }}
+      autofocus
+    />
+    {#if cardLinkPicker.loading}
+      <div class="card-picker-empty">Loading cards...</div>
+    {:else if filteredPickerCards.length === 0}
+      <div class="card-picker-empty">No cards found</div>
+    {:else}
+      <div class="card-picker-list">
+        {#each filteredPickerCards.slice(0, 20) as card (card.id)}
+          <button class="card-picker-item" onclick={() => pickCard(card.id)}>
+            <span class="card-picker-dot" style:background={cardStatusColors[card.status] || '#6b7280'}></span>
+            <span class="card-picker-title">{card.title}</span>
+            <span class="card-picker-id">#{card.id}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </div>
+{/if}
+
+<!-- Card hover tooltip -->
+{#if hoverTab}
+  {@const ci = hoverTab.boardCardId ? getCardInfo(hoverTab.boardCardId) : null}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="card-tooltip below"
+    style="left: {hoverTab.rect.left + hoverTab.rect.width / 2}px; top: {hoverTab.rect.bottom + 6}px; transform: translateX(-50%)"
+    onmouseenter={handleTooltipEnter}
+    onmouseleave={handleTooltipLeave}
+  >
+    {#if ci}
+      <div class="card-tooltip-linked">
+        <span class="card-tooltip-dot" style:background={cardStatusColors[ci.status] || '#6b7280'}></span>
+        <span class="card-tooltip-title">{ci.title || `Card #${hoverTab.boardCardId}`}</span>
+        <span class="card-tooltip-id">#{hoverTab.boardCardId}</span>
+        <button class="card-tooltip-unlink" onclick={tooltipUnlinkCard} title="Unlink card">&times;</button>
+      </div>
+    {:else}
+      <button class="card-tooltip-link-btn" onclick={tooltipLinkCard}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+        Link to Card
+      </button>
+    {/if}
   </div>
 {/if}
 
@@ -700,6 +928,213 @@
     height: 1px;
     background: rgba(var(--overlay-rgb), 0.06);
     margin: 3px 4px;
+  }
+
+  /* --- Card badge --- */
+  .card-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+    flex-shrink: 0;
+    line-height: 14px;
+    font-weight: 500;
+    opacity: 0.85;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .card-badge:hover { opacity: 1; filter: brightness(1.2); }
+
+  .tab.active .card-badge { opacity: 1; }
+
+  /* --- Card picker --- */
+  .card-picker {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-raised);
+    border: 1px solid rgba(var(--overlay-rgb), 0.1);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(var(--shadow-rgb), 0.25);
+    padding: 4px;
+    width: 280px;
+    max-height: 320px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card-picker-search {
+    padding: 6px 10px;
+    font-size: 13px;
+    background: var(--bg-deeper);
+    border: 1px solid rgba(var(--overlay-rgb), 0.08);
+    border-radius: 5px;
+    color: var(--text);
+    margin: 4px;
+    outline: none;
+  }
+
+  .card-picker-search:focus {
+    border-color: var(--accent);
+  }
+
+  .card-picker-list {
+    overflow-y: auto;
+    max-height: 260px;
+  }
+
+  .card-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s;
+  }
+
+  .card-picker-item:hover {
+    background: rgba(var(--overlay-rgb), 0.06);
+    color: var(--text);
+  }
+
+  .card-picker-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* --- Card hover tooltip --- */
+  .card-tooltip {
+    position: fixed;
+    z-index: 1001;
+    background: var(--bg-raised);
+    border: 1px solid rgba(var(--overlay-rgb), 0.12);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(var(--shadow-rgb), 0.3);
+    padding: 8px 12px;
+    pointer-events: auto;
+    min-width: 140px;
+    max-width: 280px;
+  }
+
+  .card-tooltip::after {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 8px;
+    height: 8px;
+    background: var(--bg-raised);
+    border-left: 1px solid rgba(var(--overlay-rgb), 0.12);
+    border-top: 1px solid rgba(var(--overlay-rgb), 0.12);
+  }
+
+  .card-tooltip-linked {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-tooltip-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .card-tooltip-title {
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .card-tooltip-id {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    flex-shrink: 0;
+  }
+
+  .card-tooltip-unlink {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 4px;
+    flex-shrink: 0;
+    transition: color 0.1s, background 0.1s;
+  }
+
+  .card-tooltip-unlink:hover {
+    color: var(--text);
+    background: rgba(var(--overlay-rgb), 0.08);
+  }
+
+  .card-tooltip-link-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-dimmer);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color 0.1s;
+    white-space: nowrap;
+  }
+
+  .card-tooltip-link-btn:hover {
+    color: var(--accent);
+  }
+
+  .card-tooltip-link-btn svg {
+    opacity: 0.6;
+  }
+
+  .card-tooltip-link-btn:hover svg {
+    opacity: 1;
+  }
+
+  .card-picker-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .card-picker-id {
+    font-size: 11px;
+    color: var(--text-dimmer);
+    flex-shrink: 0;
+  }
+
+  .card-picker-empty {
+    padding: 12px;
+    text-align: center;
+    color: var(--text-dimmer);
+    font-size: 13px;
   }
 
   /* --- Mobile compact tabs --- */

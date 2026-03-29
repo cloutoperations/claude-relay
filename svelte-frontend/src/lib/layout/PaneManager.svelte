@@ -4,7 +4,7 @@
   import { panes, paneLayout, activePaneId, updateRatios, splitPane, addTabToPane, moveTabToPane, closePane, MAX_PANES } from '../../stores/panes.svelte.js';
   import { tabs } from '../../stores/tabs.svelte.js';
   import { sendTabMessage, stopTab, sendTabPermissionResponse, loadEarlierHistory, openTab } from '../../stores/tabs.svelte.js';
-  import { send } from '../../stores/ws.svelte.js';
+  import { send, getBasePath } from '../../stores/ws.svelte.js';
   import { popups, isPopupOpen } from '../../stores/popups.svelte.js';
   import { promotePopupToTab } from '../../stores/tabs.svelte.js';
   import { sessions as sessionStates } from '../../stores/session-state.svelte.js';
@@ -98,7 +98,7 @@
     createSession(undefined, true, 'strategy');
   }
 
-  // Auto-reset stale tabs: if a tab shows "Loading session..." for 3s, reset to __home__
+  // Auto-reset stale tabs: if a tab shows "Loading session..." for too long, reset to __home__
   function autoResetStaleTab(node, pane) {
     const timer = setTimeout(() => {
       if (pane.activeTabId && pane.activeTabId !== '__home__' && !tabs[pane.activeTabId]) {
@@ -113,7 +113,7 @@
           }
         }
       }
-    }, 3000);
+    }, 15000);
     return { destroy() { clearTimeout(timer); } };
   }
 
@@ -269,6 +269,106 @@
     }
     return maxH > 0 ? maxH + 8 : 0;
   });
+
+  // --- Card link indicator ---
+  let cardCache = $state({});
+  let cardPickerOpen = $state(null); // paneId where picker is open
+  let cardPickerSessionId = $state(null); // session to link
+  let cardPickerCards = $state([]);
+  let cardPickerLoading = $state(false);
+  let cardPickerQuery = $state('');
+
+  const cardStatusColors = { todo: '#6b7280', in_progress: '#3b82f6', blocked: '#ef4444', done: '#22c55e' };
+
+  // Optimistic local overrides for card linking (applied instantly, before server broadcast)
+  let localCardOverrides = $state({});
+
+  // Reactive map: sessionId → boardCardId (merges server data + local overrides)
+  let sessionCardMap = $derived.by(() => {
+    const map = {};
+    for (const s of sessionList) {
+      if (s.boardCardId) map[s.id] = s.boardCardId;
+    }
+    // Apply local overrides on top
+    for (const [sid, cid] of Object.entries(localCardOverrides)) {
+      if (cid === null) delete map[sid];
+      else map[sid] = cid;
+    }
+    return map;
+  });
+
+  // Non-reactive fetch tracker — plain Set avoids mutating $state during render
+  const _fetchingCards = new Set();
+
+  function getCardInfo(cardId) {
+    if (!cardId) return null;
+    if (cardCache[cardId]) return cardCache[cardId];
+    if (!_fetchingCards.has(cardId)) {
+      _fetchingCards.add(cardId);
+      fetch(`${getBasePath()}api/board-cards/${cardId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(card => {
+          _fetchingCards.delete(cardId);
+          if (card) cardCache = { ...cardCache, [cardId]: { title: card.title, status: card.status, id: card.id, ref: card.plan_ref } };
+        })
+        .catch(() => { _fetchingCards.delete(cardId); });
+    }
+    return null;
+  }
+
+  async function openCardPicker(paneId, sessionId) {
+    cardPickerOpen = paneId;
+    cardPickerSessionId = sessionId;
+    cardPickerLoading = true;
+    cardPickerQuery = '';
+    cardPickerCards = [];
+    try {
+      const res = await fetch(`${getBasePath()}api/board-cards`);
+      if (res.ok) {
+        const all = await res.json();
+        cardPickerCards = (Array.isArray(all) ? all : [])
+          .filter(c => c.status !== 'done')
+          .sort((a, b) => (b.updated_at || '') > (a.updated_at || '') ? 1 : -1);
+      }
+    } catch {}
+    cardPickerLoading = false;
+  }
+
+  function linkCardToSession(sessionId, cardId) {
+    // Optimistic update — show card immediately
+    localCardOverrides = { ...localCardOverrides, [sessionId]: cardId };
+    // Cache the card info from the picker list
+    const picked = cardPickerCards.find(c => c.id === cardId);
+    if (picked && !cardCache[cardId]) {
+      cardCache[cardId] = { title: picked.title, status: picked.status, id: picked.id, ref: picked.plan_ref };
+      cardCache = { ...cardCache };
+    }
+    send({ type: 'update_session_meta', id: sessionId, boardCardId: cardId });
+    fetch(`${getBasePath()}api/board-cards/${cardId}/link`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId }),
+    }).catch(() => {});
+    cardPickerOpen = null;
+  }
+
+  function unlinkCard(sessionId) {
+    const cardId = sessionCardMap[sessionId] || null;
+    // Optimistic update — remove card immediately
+    localCardOverrides = { ...localCardOverrides, [sessionId]: null };
+    send({ type: 'update_session_meta', id: sessionId, boardCardId: null });
+    if (cardId) {
+      fetch(`${getBasePath()}api/board-cards/${cardId}/link`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId }),
+      }).catch(() => {});
+    }
+  }
+
+  let filteredCards = $derived(
+    cardPickerCards.filter(c => !cardPickerQuery || c.title.toLowerCase().includes(cardPickerQuery.toLowerCase()))
+  );
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -335,6 +435,27 @@
         {:else if pane.activeTabId === '__file__' || pane.activeTabId?.startsWith(FILE_PREFIX)}
           <FileViewer filePath={pane.activeTabId?.startsWith(FILE_PREFIX) ? pane.activeTabId.slice(FILE_PREFIX.length) : null} />
         {:else if tabs[pane.activeTabId] && sessionStates[pane.activeTabId]}
+          <!-- Card link indicator bar -->
+          {@const sessionCardId = sessionCardMap[pane.activeTabId] || null}
+          {@const cardInfo = sessionCardId ? getCardInfo(sessionCardId) : null}
+          <div class="card-link-bar">
+            {#if sessionCardId && cardInfo}
+              <span class="card-link-dot" style="background: {cardStatusColors[cardInfo.status] || '#6b7280'}"></span>
+              <span class="card-link-title">{cardInfo.ref ? cardInfo.ref + ': ' : ''}{cardInfo.title}</span>
+              <button class="card-link-unlink" onclick={() => unlinkCard(pane.activeTabId)} title="Unlink card">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            {:else if sessionCardId}
+              <span class="card-link-dot" style="background: #6b7280"></span>
+              <span class="card-link-title card-link-loading">Card #{sessionCardId}...</span>
+            {:else}
+              <button class="card-link-btn" onclick={(e) => { e.stopPropagation(); openCardPicker(pane.id, pane.activeTabId); }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                Link to Card
+              </button>
+            {/if}
+          </div>
+          <!-- card picker is rendered outside pane to avoid overflow:hidden clipping -->
           {#key pane.activeTabId}
             <MessageList
               messages={sessionStates[pane.activeTabId]?.messages}
@@ -450,6 +571,29 @@
   {/each}
 </div>
 
+<!-- Card picker (outside pane-container to avoid overflow:hidden clipping) -->
+{#if cardPickerOpen}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="card-picker-backdrop" onclick={() => { cardPickerOpen = null; }}></div>
+  <div class="card-picker-dropdown">
+    <input class="card-picker-search" type="text" placeholder="Search cards..." bind:value={cardPickerQuery} />
+    {#if cardPickerLoading}
+      <div class="card-picker-msg">Loading...</div>
+    {:else if filteredCards.length === 0}
+      <div class="card-picker-msg">No cards found</div>
+    {:else}
+      {#each filteredCards as card}
+        <button class="card-picker-item" onclick={() => { linkCardToSession(cardPickerSessionId, card.id); }}>
+          <span class="card-picker-dot" style="background: {cardStatusColors[card.status] || '#6b7280'}"></span>
+          <span class="card-picker-card-title">{card.plan_ref ? card.plan_ref + ': ' : ''}{card.title}</span>
+          <span class="card-picker-card-status">{card.status}</span>
+        </button>
+      {/each}
+    {/if}
+  </div>
+{/if}
+
 <style>
   .pane-container {
     flex: 1;
@@ -507,6 +651,7 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0;
+    position: relative;
   }
 
   .pane-welcome {
@@ -766,6 +911,174 @@
     transition: all 0.12s;
   }
   .breadcrumb-untag:hover { color: var(--text-muted); background: rgba(var(--overlay-rgb), 0.06); }
+
+  /* Card link bar — floats over top of session, fully transparent */
+  .card-link-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: none;
+    border: none;
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .card-link-bar > * {
+    pointer-events: auto;
+  }
+
+  .card-link-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .card-link-title {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 400px;
+  }
+
+  .card-link-loading {
+    opacity: 0.5;
+    font-style: italic;
+  }
+
+  .card-link-unlink {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: none;
+    border: none;
+    border-radius: 50%;
+    color: var(--text-dimmer);
+    cursor: pointer;
+    padding: 0;
+    margin-left: 2px;
+    transition: all 0.12s;
+  }
+  .card-link-unlink:hover {
+    color: var(--text-muted);
+    background: rgba(var(--overlay-rgb), 0.08);
+  }
+
+  .card-link-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--text-dimmer);
+    background: none;
+    border: 1px dashed rgba(var(--overlay-rgb), 0.12);
+    border-radius: 6px;
+    padding: 3px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .card-link-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent-30);
+    background: rgba(var(--accent-rgb), 0.04);
+  }
+
+  /* Card picker dropdown */
+  .card-picker-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+  }
+
+  .card-picker-dropdown {
+    position: fixed;
+    top: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(440px, 85vw);
+    max-height: 360px;
+    overflow-y: auto;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px;
+    box-shadow: 0 6px 24px rgba(var(--shadow-rgb), 0.4);
+    z-index: 100;
+  }
+
+  .card-picker-search {
+    width: 100%;
+    padding: 8px 10px;
+    background: rgba(var(--overlay-rgb), 0.04);
+    border: 1px solid rgba(var(--overlay-rgb), 0.08);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+    margin-bottom: 4px;
+  }
+  .card-picker-search:focus {
+    border-color: var(--accent-30);
+  }
+
+  .card-picker-msg {
+    padding: 16px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-dimmer);
+  }
+
+  .card-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: background 0.1s;
+  }
+  .card-picker-item:hover {
+    background: rgba(var(--accent-rgb), 0.08);
+  }
+
+  .card-picker-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .card-picker-card-title {
+    font-size: 12px;
+    color: var(--text);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .card-picker-card-status {
+    font-size: 10px;
+    color: var(--text-dimmer);
+    flex-shrink: 0;
+  }
 
   @keyframes pSpin { to { transform: rotate(360deg); } }
 </style>

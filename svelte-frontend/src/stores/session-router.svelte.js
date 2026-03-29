@@ -14,7 +14,7 @@ import {
   saveLayout as saveTabLayout, HOME_TAB, pendingForkRequests, sendTabMessage,
 } from './tabs.svelte.js';
 import {
-  popups, popupOrder, isPopupOpen, onPopupRekey,
+  popups, popupOrder, isPopupOpen, onPopupRekey, onWsClose,
   saveLayout as savePopupLayout,
 } from './popups.svelte.js';
 import { renameTabInPanes, panes as paneList, addTabToPane } from './panes.svelte.js';
@@ -47,7 +47,7 @@ function handleIncoming(msg) {
       if (sessionSettings.effort) sendSettings();
       return;
     }
-    if (t === '__ws_close') return;
+    if (t === '__ws_close') { onWsClose(); return; }
 
     // --- File system messages ---
     if (t === 'fs_list_result' || t === 'fs_read_result' || t === 'fs_search_result' || t === 'fs_file_changed') {
@@ -250,6 +250,7 @@ function routeGlobalMessage(msg, t) {
         effort: msg.effort ?? configState.effort,
         fastMode: msg.fastMode ?? configState.fastMode,
         permissionMode: msg.permissionMode || configState.permissionMode,
+        boardApiUrl: msg.boardApiUrl ?? configState.boardApiUrl,
       });
       break;
     // --- Agent messages ---
